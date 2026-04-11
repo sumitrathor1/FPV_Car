@@ -395,7 +395,7 @@
       setActivePad(buttonEl);
       statusText.textContent = "Command: " + (commandNames[cmd] || cmd);
 
-      fireAndForget("https://20.244.113.234/robot/set.php?cmd=" + cmd).catch(() => {
+      fireAndForget("https://sumitrathor.rf.gd/FPV_Car/set.php?cmd=" + cmd).catch(() => {
         statusText.textContent = "Command request sent (network response blocked).";
       });
     }
@@ -404,7 +404,7 @@
       setActiveMode(buttonEl);
       statusText.textContent = "Mode: " + (m === 1 ? "ON" : "OFF");
 
-      fireAndForget("https://20.244.113.234/robot/set.php?mode=" + m).catch(() => {
+      fireAndForget("https://sumitrathor.rf.gd/FPV_Car/set.php?mode=" + m).catch(() => {
         statusText.textContent = "Mode request sent (network response blocked).";
       });
     }
