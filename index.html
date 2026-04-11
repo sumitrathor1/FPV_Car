@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FPV Car Control</title>
+  <link rel="icon" href="data:,">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Urbanist:wght@500;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+
+  <style>
+    :root {
+      --bg-1: #06182a;
+      --bg-2: #0a2f44;
+      --surface: rgba(255, 255, 255, 0.09);
+      --surface-strong: rgba(255, 255, 255, 0.15);
+      --text-soft: #c8d8e6;
+      --accent: #3dd5f3;
+      --accent-2: #47f3ab;
+      --danger: #ff5d73;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Space Grotesk", sans-serif;
+      color: #f4fbff;
+      background:
+        radial-gradient(1200px 600px at 5% -10%, rgba(61, 213, 243, 0.25), transparent 60%),
+        radial-gradient(900px 500px at 95% 0%, rgba(71, 243, 171, 0.18), transparent 60%),
+        linear-gradient(135deg, var(--bg-1), var(--bg-2));
+      overflow-x: hidden;
+    }
+
+    .brand-font {
+      font-family: "Urbanist", sans-serif;
+      letter-spacing: 0.02em;
+    }
+
+    .glass-card {
+      background: var(--surface);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      backdrop-filter: blur(14px);
+      border-radius: 1.25rem;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.22);
+    }
+
+    .hero-title {
+      font-size: clamp(1.4rem, 2.6vw, 2.2rem);
+      line-height: 1.1;
+      font-weight: 800;
+    }
+
+    .hero-sub {
+      color: var(--text-soft);
+      max-width: 700px;
+      font-size: 0.93rem;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      background: rgba(71, 243, 171, 0.18);
+      color: #d7ffef;
+      border: 1px solid rgba(71, 243, 171, 0.5);
+      border-radius: 999px;
+      padding: 0.45rem 0.85rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--accent-2);
+      box-shadow: 0 0 0 0 rgba(71, 243, 171, 0.6);
+      animation: pulse 1.8s infinite;
+    }
+
+    .stream-wrap {
+      border-radius: 1rem;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(0, 0, 0, 0.2);
+      aspect-ratio: 16 / 8.2;
+    }
+
+    .stream-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .mode-btn {
+      border-radius: 999px;
+      font-weight: 700;
+      min-width: 120px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .mode-btn.active-mode {
+      transform: translateY(-1px);
+      box-shadow: 0 0 0 0.18rem rgba(61, 213, 243, 0.25);
+    }
+
+    .control-pad {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(70px, 1fr));
+      gap: 0.6rem;
+      max-width: 320px;
+      margin: 0 auto;
+    }
+
+    .pad-btn {
+      min-height: 56px;
+      border-radius: 0.9rem;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: var(--surface-strong);
+      color: #fff;
+      font-weight: 700;
+      transition: transform 0.18s ease, background 0.2s ease;
+    }
+
+    .pad-btn:hover {
+      transform: translateY(-2px);
+      background: rgba(255, 255, 255, 0.22);
+    }
+
+    .pad-btn.active-cmd {
+      background: rgba(61, 213, 243, 0.25);
+      border-color: rgba(61, 213, 243, 0.8);
+      box-shadow: 0 0 0 0.2rem rgba(61, 213, 243, 0.22);
+    }
+
+    .pad-btn.stop {
+      background: rgba(255, 93, 115, 0.2);
+      border-color: rgba(255, 93, 115, 0.6);
+    }
+
+    .stat-card h3 {
+      font-size: 1.8rem;
+      margin: 0;
+      font-weight: 800;
+    }
+
+    .stat-card p {
+      margin: 0;
+      color: var(--text-soft);
+      font-size: 0.9rem;
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(20px);
+      animation: slideIn 0.75s ease forwards;
+    }
+
+    .d1 { animation-delay: 0.08s; }
+    .d2 { animation-delay: 0.16s; }
+    .d3 { animation-delay: 0.24s; }
+
+    @keyframes slideIn {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(71, 243, 171, 0.5);
+      }
+      70% {
+        box-shadow: 0 0 0 9px rgba(71, 243, 171, 0);
+      }
+      100% {
+        box-shadow: 0 0 0 0 rgba(71, 243, 171, 0);
+      }
+    }
+
+    .muted-note {
+      color: var(--text-soft);
+      font-size: 0.88rem;
+    }
+
+    .stream-config .form-control {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.2);
+      color: #fff;
+    }
+
+    .stream-config .form-control::placeholder {
+      color: #b9c7d5;
+    }
+
+    .mobile-action-panel {
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+      padding-top: 0.65rem;
+      margin-top: 0.6rem;
+    }
+
+    @media (min-width: 992px) {
+      .compact-shell {
+        padding-top: 0.85rem !important;
+        padding-bottom: 0.85rem !important;
+      }
+
+      .compact-header {
+        margin-bottom: 0.9rem !important;
+      }
+
+      .compact-main {
+        --bs-gutter-x: 1rem;
+        --bs-gutter-y: 1rem;
+      }
+
+      .compact-card {
+        padding: 0.85rem 1rem !important;
+      }
+
+      .compact-sub {
+        margin-bottom: 0.4rem !important;
+      }
+
+      .compact-control-title {
+        margin-bottom: 0.45rem !important;
+      }
+
+      .compact-pad {
+        margin-bottom: 0.75rem !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container compact-shell py-3 py-md-4">
+    <header class="compact-header mb-3 mb-md-4 reveal d1">
+      <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+        <div>
+          <span class="status-pill mb-2">
+            <span class="status-dot" aria-hidden="true"></span>
+            Live Link Ready
+          </span>
+          <h1 class="hero-title brand-font mb-2">FPV Car Command Center</h1>
+          <p class="hero-sub compact-sub mb-0">Real-time video stream, instant direction controls, and clean mobile-ready layout powered by Bootstrap 5.3.</p>
+        </div>
+        <div class="text-md-end">
+          <div class="fw-semibold">Control Mode</div>
+          <small class="muted-note">Single-tap toggle for manual arming</small>
+        </div>
+      </div>
+    </header>
+
+    <main class="row g-3 compact-main align-items-stretch">
+      <section class="col-12 col-lg-7 reveal d2">
+        <div class="glass-card compact-card p-3 p-md-4 h-100">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h2 class="h4 brand-font mb-0">Live Camera Feed</h2>
+            <span class="badge text-bg-info">ESP32 FPV</span>
+          </div>
+
+          <div class="stream-wrap mb-2">
+            <img id="streamFrame" src="" alt="FPV live stream">
+          </div>
+
+          <div class="stream-config row g-2 mb-1 d-none d-lg-flex">
+            <div class="col-12 col-md-8">
+              <input id="streamIp" type="text" class="form-control" placeholder="ESP32 IP (e.g. 192.168.1.50)">
+            </div>
+            <div class="col-12 col-md-4">
+              <button class="btn btn-info w-100" onclick="applyStreamIP('desktop')">Set Stream</button>
+            </div>
+          </div>
+
+          <div class="d-none d-lg-flex flex-wrap gap-2">
+            <button class="btn btn-success mode-btn" data-mode="1" onclick="setMode(1, this)">System ON</button>
+            <button class="btn btn-outline-light mode-btn" data-mode="0" onclick="setMode(0, this)">System OFF</button>
+          </div>
+          <p class="muted-note mt-2 mb-0" id="statusText">Add ESP32 IP and tap Set Stream.</p>
+        </div>
+      </section>
+
+      <section class="col-12 col-lg-5 reveal d3">
+        <div class="glass-card compact-card p-3 p-md-4 h-100">
+          <h2 class="h4 brand-font compact-control-title mb-2">Drive Controls</h2>
+          <p class="muted-note mb-2">Touch-friendly directional pad. Works smoothly on mobile and desktop.</p>
+
+          <div class="control-pad compact-pad mb-3">
+            <div></div>
+            <button class="pad-btn" onclick="send('F', this)">Forward</button>
+            <div></div>
+
+            <button class="pad-btn" onclick="send('L', this)">Left</button>
+            <button class="pad-btn stop" onclick="send('S', this)">Stop</button>
+            <button class="pad-btn" onclick="send('R', this)">Right</button>
+
+            <div></div>
+            <button class="pad-btn" onclick="send('B', this)">Back</button>
+            <div></div>
+          </div>
+
+          <div class="mobile-action-panel d-lg-none">
+            <div class="stream-config row g-2 mb-2">
+              <div class="col-12">
+                <input id="streamIpMobile" type="text" class="form-control" placeholder="ESP32 IP (e.g. 192.168.1.50)">
+              </div>
+              <div class="col-12">
+                <button class="btn btn-info w-100" onclick="applyStreamIP('mobile')">Set Stream</button>
+              </div>
+            </div>
+
+            <div class="d-grid gap-2">
+              <button class="btn btn-success mode-btn" data-mode="1" onclick="setMode(1, this)">System ON</button>
+              <button class="btn btn-outline-light mode-btn" data-mode="0" onclick="setMode(0, this)">System OFF</button>
+            </div>
+          </div>
+
+          <div class="row g-2">
+            <div class="col-6">
+              <div class="glass-card stat-card p-2">
+                <h3 class="brand-font">5</h3>
+                <p>Core Commands</p>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="glass-card stat-card p-2">
+                <h3 class="brand-font">24/7</h3>
+                <p>Remote Access</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const commandNames = {
+      F: "Forward",
+      L: "Left",
+      S: "Stop",
+      R: "Right",
+      B: "Back"
+    };
+
+    const statusText = document.getElementById("statusText");
+    const streamIpInput = document.getElementById("streamIp");
+    const streamIpMobileInput = document.getElementById("streamIpMobile");
+    const streamFrame = document.getElementById("streamFrame");
+
+    function setActivePad(buttonEl) {
+      document.querySelectorAll(".pad-btn").forEach((btn) => btn.classList.remove("active-cmd"));
+      if (buttonEl) {
+        buttonEl.classList.add("active-cmd");
+      }
+    }
+
+    function setActiveMode(buttonEl) {
+      document.querySelectorAll(".mode-btn").forEach((btn) => btn.classList.remove("active-mode"));
+      if (buttonEl && buttonEl.dataset.mode) {
+        document.querySelectorAll(`.mode-btn[data-mode="${buttonEl.dataset.mode}"]`).forEach((btn) => btn.classList.add("active-mode"));
+      }
+    }
+
+    function fireAndForget(url) {
+      return fetch(url, { mode: "no-cors", cache: "no-store" });
+    }
+
+    function applyStreamIP(source) {
+      const sourceInput = source === "mobile" ? streamIpMobileInput : streamIpInput;
+      const ip = sourceInput.value.trim();
+      if (!ip) {
+        statusText.textContent = "Please enter ESP32 IP first.";
+        return;
+      }
+
+      streamIpInput.value = ip;
+      streamIpMobileInput.value = ip;
+      streamFrame.src = "http://" + ip + ":81/stream";
+      localStorage.setItem("esp32_stream_ip", ip);
+      statusText.textContent = "Stream updated for " + ip;
+    }
+
+    function send(cmd, buttonEl) {
+      setActivePad(buttonEl);
+      statusText.textContent = "Command: " + (commandNames[cmd] || cmd);
+
+      fireAndForget("http://20.244.113.234/robot/set.php?cmd=" + cmd).catch(() => {
+        statusText.textContent = "Command request sent (network response blocked).";
+      });
+    }
+
+    function setMode(m, buttonEl) {
+      setActiveMode(buttonEl);
+      statusText.textContent = "Mode: " + (m === 1 ? "ON" : "OFF");
+
+      fireAndForget("http://20.244.113.234/robot/set.php?mode=" + m).catch(() => {
+        statusText.textContent = "Mode request sent (network response blocked).";
+      });
+    }
+
+    streamFrame.addEventListener("error", () => {
+      statusText.textContent = "Stream not reachable. Check ESP32 IP and network.";
+      streamFrame.removeAttribute("src");
+    });
+
+    (function init() {
+      const savedIP = localStorage.getItem("esp32_stream_ip");
+      if (savedIP) {
+        streamIpInput.value = savedIP;
+        streamIpMobileInput.value = savedIP;
+        applyStreamIP("desktop");
+      }
+
+      document.querySelectorAll('.mode-btn[data-mode="0"]').forEach((btn) => btn.classList.add("active-mode"));
+      document.querySelector(".pad-btn.stop").classList.add("active-cmd");
+    })();
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+</body>
+</html>
