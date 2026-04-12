@@ -87,6 +87,7 @@
     }
 
     .stream-wrap {
+      position: relative;
       border-radius: 1rem;
       overflow: hidden;
       border: 1px solid rgba(255, 255, 255, 0.2);
@@ -99,6 +100,37 @@
       height: 100%;
       object-fit: cover;
       display: block;
+    }
+
+    .live-placeholder {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 1rem;
+      background:
+        radial-gradient(circle at 20% 20%, rgba(61, 213, 243, 0.2), transparent 52%),
+        radial-gradient(circle at 80% 25%, rgba(71, 243, 171, 0.16), transparent 45%),
+        linear-gradient(150deg, rgba(4, 18, 31, 0.96), rgba(8, 34, 51, 0.96));
+      color: #d8e9f8;
+    }
+
+    .live-placeholder.show {
+      display: flex;
+    }
+
+    .live-placeholder h4 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    .live-placeholder p {
+      margin: 0.35rem 0 0;
+      color: #aac3d7;
+      font-size: 0.85rem;
     }
 
     .segmented-toggle {
@@ -283,6 +315,59 @@
       margin-top: 0.6rem;
     }
 
+    .cam-panel {
+      margin-top: 0.9rem;
+      padding: 0.85rem;
+      border-radius: 1rem;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(0, 0, 0, 0.18);
+    }
+
+    .cam-status {
+      color: var(--text-soft);
+      font-size: 0.84rem;
+      margin-top: 0.45rem;
+      min-height: 1.2rem;
+    }
+
+    .cam-switch-label {
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #cde2f2;
+      margin-bottom: 0.35rem;
+      display: block;
+    }
+
+    .gallery-box {
+      margin-top: 0.7rem;
+      max-height: 210px;
+      overflow-y: auto;
+      padding-right: 0.2rem;
+    }
+
+    .gallery-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.45rem;
+      padding: 0.45rem 0.5rem;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 0.75rem;
+      background: rgba(255, 255, 255, 0.06);
+      margin-bottom: 0.45rem;
+    }
+
+    .gallery-name {
+      font-size: 0.84rem;
+      font-weight: 600;
+      color: #dcf0ff;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 52%;
+    }
+
     #emergencyStop {
       max-width: 420px;
       margin-inline: auto;
@@ -351,18 +436,48 @@
 
           <div class="stream-wrap mb-2">
             <img id="streamFrame" src="" alt="FPV live stream">
-          </div>
-
-          <div class="stream-config row g-2 mb-1 d-none d-lg-flex">
-            <div class="col-12 col-md-8">
-              <input id="streamIp" type="text" class="form-control" placeholder="ESP32 IP (e.g. 192.168.1.50)">
-            </div>
-            <div class="col-12 col-md-4">
-              <button class="btn btn-info w-100" onclick="applyStreamIP('desktop')">Set Stream</button>
+            <div id="livePlaceholder" class="live-placeholder">
+              <div>
+                <h4>Camera is OFF</h4>
+                <p>Switch Camera Power to ON to start live snapshots.</p>
+              </div>
             </div>
           </div>
 
-          <p class="muted-note mt-2 mb-0" id="statusText">Add ESP32 IP and tap Set Stream.</p>
+          <div class="cam-panel">
+            <div class="d-flex justify-content-between align-items-center mb-2 gap-2">
+              <h3 class="h6 brand-font mb-0">Snapshot Controls</h3>
+              <span class="badge text-bg-secondary">Camera Node</span>
+            </div>
+
+            <div id="camStatus" class="cam-status">Camera is OFF.</div>
+
+            <div class="row g-2 mt-1">
+              <div class="col-12 col-md-6">
+                <span class="cam-switch-label">Camera Power</span>
+                <div class="segmented-toggle two-option">
+                  <button id="camOnBtn" class="seg-btn" type="button" onclick="startCam()">ON</button>
+                  <button id="camOffBtn" class="seg-btn" type="button" onclick="stopCam()">OFF</button>
+                </div>
+              </div>
+              <div class="col-12 col-md-6">
+                <span class="cam-switch-label">Recording</span>
+                <div class="segmented-toggle two-option">
+                  <button id="recStartBtn" class="seg-btn" type="button" onclick="startRecording()">START</button>
+                  <button id="recStopBtn" class="seg-btn" type="button" onclick="stopRecording()">STOP</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="d-flex flex-wrap gap-2 mt-3 align-items-center">
+              <button class="btn btn-info" onclick="loadGallery()">Load Gallery</button>
+              <small class="muted-note">Open or delete folders from server.</small>
+            </div>
+
+            <div id="gallery" class="gallery-box"></div>
+          </div>
+
+          <p class="muted-note mt-2 mb-0" id="statusText">Camera controls and drive controls are ready.</p>
         </div>
       </section>
 
@@ -421,17 +536,6 @@
 
           <button class="pad-btn stop stop-action mb-3" id="emergencyStop" type="button">Emergency Stop</button>
 
-          <div class="mobile-action-panel d-lg-none">
-            <div class="stream-config row g-2 mb-2">
-              <div class="col-12">
-                <input id="streamIpMobile" type="text" class="form-control" placeholder="ESP32 IP (e.g. 192.168.1.50)">
-              </div>
-              <div class="col-12">
-                <button class="btn btn-info w-100" onclick="applyStreamIP('mobile')">Set Stream</button>
-              </div>
-            </div>
-          </div>
-
           <div class="row g-2">
             <div class="col-6">
               <div class="glass-card stat-card p-2">
@@ -461,16 +565,25 @@
     };
 
     const statusText = document.getElementById("statusText");
-    const streamIpInput = document.getElementById("streamIp");
-    const streamIpMobileInput = document.getElementById("streamIpMobile");
     const streamFrame = document.getElementById("streamFrame");
+    const livePlaceholder = document.getElementById("livePlaceholder");
+    const camStatus = document.getElementById("camStatus");
+    const galleryEl = document.getElementById("gallery");
+    const camOnBtn = document.getElementById("camOnBtn");
+    const camOffBtn = document.getElementById("camOffBtn");
+    const recStartBtn = document.getElementById("recStartBtn");
+    const recStopBtn = document.getElementById("recStopBtn");
     const stopButtons = document.querySelectorAll(".stop-action");
     const stopButton = stopButtons[0];
     const modeHint = document.getElementById("modeHint");
+    const camBaseUrl = "http://20.244.113.234/robot/cam";
     const holdRepeatMs = 120;
     let controlMode = 0;
     let heldCommand = null;
     let latchedCommand = null;
+    let camOn = false;
+    let isRecording = false;
+    let camTimer = null;
     let stepStopTimer = null;
     let holdRepeatTimer = null;
 
@@ -512,19 +625,162 @@
       return fetch(url, { mode: "no-cors", cache: "no-store" });
     }
 
-    function applyStreamIP(source) {
-      const sourceInput = source === "mobile" ? streamIpMobileInput : streamIpInput;
-      const ip = sourceInput.value.trim();
-      if (!ip) {
-        statusText.textContent = "Please enter ESP32 IP first.";
+    function showFramePlaceholder(titleText, noteText) {
+      const titleEl = livePlaceholder.querySelector("h4");
+      const noteEl = livePlaceholder.querySelector("p");
+      titleEl.textContent = titleText;
+      noteEl.textContent = noteText;
+      streamFrame.removeAttribute("src");
+      livePlaceholder.classList.add("show");
+    }
+
+    function setCamStatus(message) {
+      camStatus.textContent = message;
+    }
+
+    function setCameraPowerState(isOn) {
+      camOnBtn.classList.toggle("active-seg", isOn);
+      camOffBtn.classList.toggle("active-seg", !isOn);
+    }
+
+    function setRecordingState(recording) {
+      isRecording = recording;
+      recStartBtn.classList.toggle("active-seg", recording);
+      recStopBtn.classList.toggle("active-seg", !recording);
+    }
+
+    function startCam() {
+      camOn = true;
+      setCameraPowerState(true);
+      livePlaceholder.classList.remove("show");
+      setCamStatus("Camera ON: refreshing snapshots...");
+      updateCam();
+    }
+
+    function stopCam() {
+      camOn = false;
+      clearTimeout(camTimer);
+      setCameraPowerState(false);
+      setCamStatus("Camera OFF.");
+      showFramePlaceholder("Camera is OFF", "Switch Camera Power to ON to start live snapshots.");
+    }
+
+    function updateCam() {
+      if (!camOn) {
         return;
       }
 
-      streamIpInput.value = ip;
-      streamIpMobileInput.value = ip;
-      streamFrame.src = "http://" + ip + ":81/stream";
-      localStorage.setItem("esp32_stream_ip", ip);
-      statusText.textContent = "Stream updated for " + ip;
+      livePlaceholder.classList.remove("show");
+      streamFrame.src = camBaseUrl + "/latest.jpg?t=" + Date.now();
+      camTimer = setTimeout(updateCam, 300);
+    }
+
+    function startRecording() {
+      setCamStatus("Starting recording...");
+      fetch(camBaseUrl + "/start_record.php")
+        .then((res) => res.text())
+        .then((data) => {
+          setRecordingState(true);
+          setCamStatus("Recording started: " + data);
+          alert("Recording started: " + data);
+        })
+        .catch(() => {
+          setCamStatus("Recording start failed.");
+          alert("Recording start failed");
+        });
+    }
+
+    function stopRecording() {
+      setCamStatus("Stopping recording...");
+      fetch(camBaseUrl + "/stop_record.php")
+        .then((res) => res.text())
+        .then(() => {
+          setRecordingState(false);
+          setCamStatus("Recording stopped.");
+          alert("Recording stopped");
+        })
+        .catch(() => {
+          setCamStatus("Recording stop failed.");
+          alert("Recording stop failed");
+        });
+    }
+
+    function escapeHtml(value) {
+      return value
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function renderGallery(folders) {
+      if (!Array.isArray(folders) || folders.length === 0) {
+        galleryEl.innerHTML = "<div class=\"muted-note\">No folders found.</div>";
+        return;
+      }
+
+      galleryEl.innerHTML = folders.map((folder) => {
+        const folderName = String(folder);
+        const safeFolder = escapeHtml(folderName);
+        const encodedFolder = encodeURIComponent(folderName);
+        return `
+          <div class="gallery-item">
+            <div class="gallery-name" title="${safeFolder}">${safeFolder}</div>
+            <div class="d-flex gap-1">
+              <button class="btn btn-sm btn-outline-info open-folder-btn" data-folder="${encodedFolder}">Open</button>
+              <button class="btn btn-sm btn-outline-danger delete-folder-btn" data-folder="${encodedFolder}">Delete</button>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      galleryEl.querySelectorAll(".open-folder-btn").forEach((buttonEl) => {
+        buttonEl.addEventListener("click", () => {
+          const folder = decodeURIComponent(buttonEl.dataset.folder || "");
+          openFolder(folder);
+        });
+      });
+
+      galleryEl.querySelectorAll(".delete-folder-btn").forEach((buttonEl) => {
+        buttonEl.addEventListener("click", () => {
+          const folder = decodeURIComponent(buttonEl.dataset.folder || "");
+          deleteFolder(folder);
+        });
+      });
+    }
+
+    function loadGallery() {
+      setCamStatus("Loading gallery...");
+      fetch(camBaseUrl + "/list.php")
+        .then((res) => res.json())
+        .then((data) => {
+          renderGallery(data);
+          setCamStatus("Gallery loaded.");
+        })
+        .catch(() => {
+          galleryEl.innerHTML = "<div class=\"text-danger\">Failed to load gallery.</div>";
+          setCamStatus("Gallery load failed.");
+        });
+    }
+
+    function openFolder(folder) {
+      window.open(camBaseUrl + "/" + encodeURIComponent(folder), "_blank");
+    }
+
+    function deleteFolder(folder) {
+      if (!confirm("Delete folder: " + folder + " ?")) {
+        return;
+      }
+
+      fetch(camBaseUrl + "/delete.php?folder=" + encodeURIComponent(folder))
+        .then(() => {
+          alert("Deleted");
+          loadGallery();
+        })
+        .catch(() => {
+          alert("Delete failed");
+        });
     }
 
     function sendCommand(cmd, buttonEl, stateLabel = "Command") {
@@ -685,20 +941,20 @@
 
     streamFrame.addEventListener("error", () => {
       statusText.textContent = "Stream not reachable. Check ESP32 IP and network.";
-      streamFrame.removeAttribute("src");
+      if (camOn) {
+        setCamStatus("Live snapshot not reachable. Checking again...");
+      }
+      showFramePlaceholder("Feed Not Reachable", "Check network or camera server and try again.");
     });
 
     (function init() {
-      const savedIP = localStorage.getItem("esp32_stream_ip");
       const savedMode = localStorage.getItem("esp32_drive_mode");
       const savedTheme = localStorage.getItem("esp32_control_theme") || "dpad";
-      if (savedIP) {
-        streamIpInput.value = savedIP;
-        streamIpMobileInput.value = savedIP;
-        applyStreamIP("desktop");
-      }
 
       controlMode = savedMode === "2" ? 2 : (savedMode === "1" ? 1 : 0);
+      showFramePlaceholder("Camera is OFF", "Switch Camera Power to ON to start live snapshots.");
+      setCameraPowerState(false);
+      setRecordingState(false);
       setActiveMode(controlMode);
       setActiveTheme(savedTheme);
       stopButtons.forEach((buttonEl) => buttonEl.classList.add("active-cmd"));
