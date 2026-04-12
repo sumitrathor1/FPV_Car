@@ -435,7 +435,7 @@
           </div>
 
           <div class="stream-wrap mb-2">
-            <img id="streamFrame" src="" alt="FPV live stream">
+            <img id="liveCam" src="" alt="FPV live stream" width="100%" style="border-radius:10px;">
             <div id="livePlaceholder" class="live-placeholder">
               <div>
                 <h4>Camera is OFF</h4>
@@ -456,8 +456,8 @@
               <div class="col-12 col-md-6">
                 <span class="cam-switch-label">Camera Power</span>
                 <div class="segmented-toggle two-option">
-                  <button id="camOnBtn" class="seg-btn" type="button" onclick="startCam()">ON</button>
-                  <button id="camOffBtn" class="seg-btn" type="button" onclick="stopCam()">OFF</button>
+                  <button id="camOnBtn" class="seg-btn" type="button" onclick="camOn()">ON</button>
+                  <button id="camOffBtn" class="seg-btn" type="button" onclick="camOff()">OFF</button>
                 </div>
               </div>
               <div class="col-12 col-md-6">
@@ -565,7 +565,7 @@
     };
 
     const statusText = document.getElementById("statusText");
-    const streamFrame = document.getElementById("streamFrame");
+    const liveCam = document.getElementById("liveCam");
     const livePlaceholder = document.getElementById("livePlaceholder");
     const camStatus = document.getElementById("camStatus");
     const galleryEl = document.getElementById("gallery");
@@ -581,7 +581,7 @@
     let controlMode = 0;
     let heldCommand = null;
     let latchedCommand = null;
-    let camOn = false;
+    let camActive = false;
     let isRecording = false;
     let camTimer = null;
     let stepStopTimer = null;
@@ -630,7 +630,7 @@
       const noteEl = livePlaceholder.querySelector("p");
       titleEl.textContent = titleText;
       noteEl.textContent = noteText;
-      streamFrame.removeAttribute("src");
+      liveCam.removeAttribute("src");
       livePlaceholder.classList.add("show");
     }
 
@@ -649,30 +649,39 @@
       recStopBtn.classList.toggle("active-seg", !recording);
     }
 
-    function startCam() {
-      camOn = true;
+    function camOn() {
+      camActive = true;
       setCameraPowerState(true);
       livePlaceholder.classList.remove("show");
       setCamStatus("Camera ON: refreshing snapshots...");
+      fetch("https://jeeneettracker.me/robot/set.php?cmd=S&mode=1").catch(() => {
+        setCamStatus("Camera ON, mode sync failed.");
+      });
       updateCam();
     }
 
-    function stopCam() {
-      camOn = false;
+    function camOff() {
+      camActive = false;
       clearTimeout(camTimer);
       setCameraPowerState(false);
       setCamStatus("Camera OFF.");
+      fetch("https://jeeneettracker.me/robot/set.php?cmd=S&mode=0").catch(() => {
+        setCamStatus("Camera OFF, mode sync failed.");
+      });
       showFramePlaceholder("Camera is OFF", "Switch Camera Power to ON to start live snapshots.");
     }
 
     function updateCam() {
-      if (!camOn) {
+      if (!camActive) {
         return;
       }
 
       livePlaceholder.classList.remove("show");
-      streamFrame.src = camBaseUrl + "/latest.jpg?t=" + Date.now();
-      camTimer = setTimeout(updateCam, 300);
+      liveCam.onload = () => {
+        camTimer = setTimeout(updateCam, 100);
+      };
+
+      liveCam.src = camBaseUrl + "/latest.jpg?t=" + Date.now();
     }
 
     function startRecording() {
@@ -939,9 +948,9 @@
       });
     }
 
-    streamFrame.addEventListener("error", () => {
+    liveCam.addEventListener("error", () => {
       statusText.textContent = "Stream not reachable. Check ESP32 IP and network.";
-      if (camOn) {
+      if (camActive) {
         setCamStatus("Live snapshot not reachable. Checking again...");
       }
       showFramePlaceholder("Feed Not Reachable", "Check network or camera server and try again.");
