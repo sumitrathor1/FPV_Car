@@ -368,6 +368,67 @@
       max-width: 52%;
     }
 
+    .playback-panel {
+      margin-top: 0.85rem;
+      padding: 0.85rem;
+      border-radius: 1rem;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .playback-stage {
+      width: 100%;
+      border-radius: 0.9rem;
+      overflow: hidden;
+      background: rgba(5, 15, 24, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      aspect-ratio: 16 / 9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .playback-stage img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      background: rgba(2, 10, 16, 0.9);
+    }
+
+    .playback-empty {
+      color: #a9c2d5;
+      font-size: 0.9rem;
+      text-align: center;
+      padding: 1rem;
+    }
+
+    .playback-meta {
+      color: var(--text-soft);
+      font-size: 0.82rem;
+      margin-top: 0.45rem;
+      min-height: 1rem;
+    }
+
+    .playback-controls {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.45rem;
+      margin-top: 0.65rem;
+    }
+
+    .playback-controls .btn {
+      width: 100%;
+    }
+
+    .playback-slider {
+      margin-top: 0.7rem;
+    }
+
+    .playback-slider input[type="range"] {
+      width: 100%;
+    }
+
     #emergencyStop {
       max-width: 420px;
       margin-inline: auto;
@@ -475,6 +536,47 @@
             </div>
 
             <div id="gallery" class="gallery-box"></div>
+
+            <div class="playback-panel">
+              <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                <h3 class="h6 brand-font mb-0">Recording Playback</h3>
+                <span class="badge text-bg-dark" id="playbackCount">0 frames</span>
+              </div>
+
+              <div class="row g-2 align-items-end mb-2">
+                <div class="col-12 col-md-8">
+                  <label class="form-label muted-note mb-1" for="recordingFolderSelect">Recording folder</label>
+                  <select id="recordingFolderSelect" class="form-select form-select-sm"></select>
+                </div>
+                <div class="col-12 col-md-4">
+                  <button class="btn btn-info w-100" onclick="loadRecordingFrames()">Load Frames</button>
+                </div>
+              </div>
+
+              <div class="playback-stage">
+                <img id="playbackFrame" alt="Recording playback frame" src="">
+                <div id="playbackEmpty" class="playback-empty">Select a folder and load frames to play the recording here.</div>
+              </div>
+
+              <div id="playbackMeta" class="playback-meta">No recording loaded.</div>
+
+              <div class="playback-controls">
+                <button class="btn btn-outline-light btn-sm" onclick="prevRecordingFrame()">Back</button>
+                <button id="playbackToggleBtn" class="btn btn-success btn-sm" onclick="toggleRecordingPlayback()">Play</button>
+                <button class="btn btn-outline-light btn-sm" onclick="pauseRecordingPlayback()">Pause</button>
+                <button class="btn btn-outline-light btn-sm" onclick="nextRecordingFrame()">Next</button>
+              </div>
+
+              <div class="playback-slider">
+                <label class="form-label muted-note mb-1" for="recordingSeek">Seek</label>
+                <input id="recordingSeek" type="range" min="0" max="0" value="0" step="1">
+              </div>
+
+              <div class="playback-slider">
+                <label class="form-label muted-note mb-1" for="playbackSpeed">Speed: <span id="playbackSpeedLabel">150ms</span></label>
+                <input id="playbackSpeed" type="range" min="50" max="500" value="150" step="10">
+              </div>
+            </div>
           </div>
 
           <p class="muted-note mt-2 mb-0" id="statusText">Camera controls and drive controls are ready.</p>
@@ -569,6 +671,15 @@
     const livePlaceholder = document.getElementById("livePlaceholder");
     const camStatus = document.getElementById("camStatus");
     const galleryEl = document.getElementById("gallery");
+    const recordingFolderSelect = document.getElementById("recordingFolderSelect");
+    const playbackFrame = document.getElementById("playbackFrame");
+    const playbackEmpty = document.getElementById("playbackEmpty");
+    const playbackMeta = document.getElementById("playbackMeta");
+    const playbackCount = document.getElementById("playbackCount");
+    const playbackToggleBtn = document.getElementById("playbackToggleBtn");
+    const recordingSeek = document.getElementById("recordingSeek");
+    const playbackSpeed = document.getElementById("playbackSpeed");
+    const playbackSpeedLabel = document.getElementById("playbackSpeedLabel");
     const camOnBtn = document.getElementById("camOnBtn");
     const camOffBtn = document.getElementById("camOffBtn");
     const recStartBtn = document.getElementById("recStartBtn");
@@ -584,6 +695,10 @@
     let camActive = false;
     let isRecording = false;
     let camTimer = null;
+    let playbackTimer = null;
+    let playbackFrames = [];
+    let playbackIndex = 0;
+    let playbackRunning = false;
     let stepStopTimer = null;
     let holdRepeatTimer = null;
 
@@ -724,8 +839,11 @@
     function renderGallery(folders) {
       if (!Array.isArray(folders) || folders.length === 0) {
         galleryEl.innerHTML = "<div class=\"muted-note\">No folders found.</div>";
+        recordingFolderSelect.innerHTML = '<option value="">No recordings available</option>';
         return;
       }
+
+      recordingFolderSelect.innerHTML = folders.map((folder) => `<option value="${escapeHtml(String(folder))}">${escapeHtml(String(folder))}</option>`).join("");
 
       galleryEl.innerHTML = folders.map((folder) => {
         const folderName = String(folder);
@@ -764,6 +882,9 @@
         .then((data) => {
           renderGallery(data);
           setCamStatus("Gallery loaded.");
+          if (recordingFolderSelect.value) {
+            loadRecordingFrames();
+          }
         })
         .catch(() => {
           galleryEl.innerHTML = "<div class=\"text-danger\">Failed to load gallery.</div>";
@@ -788,6 +909,102 @@
         .catch(() => {
           alert("Delete failed");
         });
+    }
+
+    function updatePlaybackUI() {
+      playbackCount.textContent = playbackFrames.length + " frames";
+      recordingSeek.max = Math.max(playbackFrames.length - 1, 0);
+      recordingSeek.value = String(playbackIndex);
+
+      if (!playbackFrames.length) {
+        playbackFrame.removeAttribute("src");
+        playbackEmpty.style.display = "block";
+        playbackMeta.textContent = "No recording loaded.";
+        return;
+      }
+
+      playbackEmpty.style.display = "none";
+      playbackFrame.src = camBaseUrl + "/" + encodeURIComponent(recordingFolderSelect.value) + "/" + encodeURIComponent(playbackFrames[playbackIndex]) + "?t=" + Date.now();
+      playbackMeta.textContent = recordingFolderSelect.value + " • frame " + (playbackIndex + 1) + " of " + playbackFrames.length;
+    }
+
+    function stopPlaybackTimer() {
+      clearTimeout(playbackTimer);
+      playbackTimer = null;
+      playbackRunning = false;
+      playbackToggleBtn.textContent = "Play";
+    }
+
+    function scheduleNextFrame() {
+      if (!playbackRunning || !playbackFrames.length) {
+        return;
+      }
+
+      updatePlaybackUI();
+      playbackIndex = (playbackIndex + 1) % playbackFrames.length;
+      playbackTimer = setTimeout(scheduleNextFrame, Number(playbackSpeed.value || 150));
+      playbackToggleBtn.textContent = "Pause";
+    }
+
+    function loadRecordingFrames() {
+      const folder = recordingFolderSelect.value;
+      if (!folder) {
+        playbackFrames = [];
+        playbackIndex = 0;
+        updatePlaybackUI();
+        return;
+      }
+
+      fetch(camBaseUrl + "/list_frames.php?folder=" + encodeURIComponent(folder))
+        .then((res) => res.json())
+        .then((frames) => {
+          playbackFrames = Array.isArray(frames) ? frames : [];
+          playbackIndex = 0;
+          stopPlaybackTimer();
+          updatePlaybackUI();
+        })
+        .catch(() => {
+          playbackFrames = [];
+          playbackIndex = 0;
+          updatePlaybackUI();
+          playbackMeta.textContent = "Failed to load recording frames.";
+        });
+    }
+
+    function nextRecordingFrame() {
+      if (!playbackFrames.length) {
+        return;
+      }
+
+      playbackIndex = (playbackIndex + 1) % playbackFrames.length;
+      updatePlaybackUI();
+    }
+
+    function prevRecordingFrame() {
+      if (!playbackFrames.length) {
+        return;
+      }
+
+      playbackIndex = (playbackIndex - 1 + playbackFrames.length) % playbackFrames.length;
+      updatePlaybackUI();
+    }
+
+    function toggleRecordingPlayback() {
+      if (!playbackFrames.length) {
+        loadRecordingFrames();
+        return;
+      }
+
+      playbackRunning = !playbackRunning;
+      if (playbackRunning) {
+        scheduleNextFrame();
+      } else {
+        stopPlaybackTimer();
+      }
+    }
+
+    function pauseRecordingPlayback() {
+      stopPlaybackTimer();
     }
 
     function sendCommand(cmd, buttonEl, stateLabel = "Command") {
@@ -969,6 +1186,27 @@
       bindPressHoldControls();
       bindModeSelector();
       bindThemeSelector();
+      playbackSpeedLabel.textContent = playbackSpeed.value + "ms";
+      recordingSeek.addEventListener("input", () => {
+        if (!playbackFrames.length) {
+          return;
+        }
+
+        playbackIndex = Number(recordingSeek.value || 0);
+        stopPlaybackTimer();
+        updatePlaybackUI();
+      });
+      playbackSpeed.addEventListener("input", () => {
+        playbackSpeedLabel.textContent = playbackSpeed.value + "ms";
+        if (playbackRunning) {
+          stopPlaybackTimer();
+          playbackRunning = true;
+          scheduleNextFrame();
+        }
+      });
+      recordingFolderSelect.addEventListener("change", () => {
+        loadRecordingFrames();
+      });
 
       if (controlMode === 0) {
         statusText.textContent = "Mode: STEP (tap for pulse movement)";
