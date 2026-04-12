@@ -55,6 +55,13 @@
         overflow-x: hidden;
       }
 
+      html,
+      body {
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
+      }
+
       .brand-font {
         font-family: "Urbanist", sans-serif;
         letter-spacing: 0.02em;
@@ -936,6 +943,31 @@
     </div>
 
     <script>
+      (function lockCopyAndInspect() {
+        const blockEvent = (event) => {
+          event.preventDefault();
+        };
+
+        document.addEventListener("contextmenu", blockEvent);
+        document.addEventListener("copy", blockEvent);
+        document.addEventListener("cut", blockEvent);
+        document.addEventListener("selectstart", blockEvent);
+        document.addEventListener("dragstart", blockEvent);
+
+        document.addEventListener("keydown", (event) => {
+          const key = String(event.key || "").toLowerCase();
+          const blockedDevtoolsCombo =
+            event.key === "F12" ||
+            (event.ctrlKey && event.shiftKey && ["i", "j", "c", "k"].includes(key)) ||
+            (event.ctrlKey && ["u"].includes(key));
+
+          if (blockedDevtoolsCombo) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        });
+      })();
+
       const commandNames = {
         F: "Forward",
         L: "Left",
