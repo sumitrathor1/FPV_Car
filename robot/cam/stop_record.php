@@ -8,5 +8,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-file_put_contents("record.txt", "");
+file_put_contents(__DIR__ . "/record.txt", "");
 echo "STOPPED";

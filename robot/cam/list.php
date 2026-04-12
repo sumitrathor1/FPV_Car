@@ -9,5 +9,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-$dirs = array_filter(glob('*'), 'is_dir');
-echo json_encode(array_values($dirs));
+$dirs = glob(__DIR__ . '/rec_*', GLOB_ONLYDIR);
+$names = array_map('basename', $dirs ?: []);
+echo json_encode(array_values($names));

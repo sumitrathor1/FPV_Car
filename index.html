@@ -654,9 +654,7 @@
       setCameraPowerState(true);
       livePlaceholder.classList.remove("show");
       setCamStatus("Camera ON: refreshing snapshots...");
-      fetch("https://jeeneettracker.me/robot/set.php?cmd=S&mode=1").catch(() => {
-        setCamStatus("Camera ON, mode sync failed.");
-      });
+      fireAndForget("https://jeeneettracker.me/robot/set.php?cmd=S&mode=1");
       updateCam();
     }
 
@@ -665,9 +663,7 @@
       clearTimeout(camTimer);
       setCameraPowerState(false);
       setCamStatus("Camera OFF.");
-      fetch("https://jeeneettracker.me/robot/set.php?cmd=S&mode=0").catch(() => {
-        setCamStatus("Camera OFF, mode sync failed.");
-      });
+      fireAndForget("https://jeeneettracker.me/robot/set.php?cmd=S&mode=0");
       showFramePlaceholder("Camera is OFF", "Switch Camera Power to ON to start live snapshots.");
     }
 
@@ -691,10 +687,11 @@
         .then((data) => {
           setRecordingState(true);
           setCamStatus("Recording started: " + data);
+          loadGallery();
           alert("Recording started: " + data);
         })
         .catch(() => {
-          setCamStatus("Recording start failed.");
+          setCamStatus("Recording start failed (check CORS/server headers).");
           alert("Recording start failed");
         });
     }
@@ -706,10 +703,11 @@
         .then(() => {
           setRecordingState(false);
           setCamStatus("Recording stopped.");
+          loadGallery();
           alert("Recording stopped");
         })
         .catch(() => {
-          setCamStatus("Recording stop failed.");
+          setCamStatus("Recording stop failed (check CORS/server headers).");
           alert("Recording stop failed");
         });
     }

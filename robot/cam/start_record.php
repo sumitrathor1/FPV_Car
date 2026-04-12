@@ -9,6 +9,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 $folder = "rec_" . date("Ymd_His");
-file_put_contents("record.txt", $folder);
+file_put_contents(__DIR__ . "/record.txt", $folder);
 
 echo $folder;
