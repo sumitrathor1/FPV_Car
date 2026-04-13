@@ -12,7 +12,8 @@ $file = __DIR__ . "/state.txt";
 
 $data = [
     "cmd" => "S",
-    "mode" => "0"
+    "mode" => "0",
+    "cam" => "1"
 ];
 
 if (file_exists($file)) {
@@ -20,9 +21,11 @@ if (file_exists($file)) {
     $decoded = json_decode($json, true);
 
     if ($decoded) {
-        $data = $decoded;
+        $data = array_merge($data, $decoded);
     }
 }
+
+$original = $data;
 
 if (isset($_GET['cmd'])) {
     $allowed = ['F', 'B', 'L', 'R', 'S'];
@@ -32,9 +35,18 @@ if (isset($_GET['cmd'])) {
 }
 
 if (isset($_GET['mode'])) {
-    $data["mode"] = ($_GET['mode'] === "1") ? "1" : "0";
+    $mode = (string)$_GET['mode'];
+    if (in_array($mode, ['0', '1', '2'], true)) {
+        $data["mode"] = $mode;
+    }
 }
 
-file_put_contents($file, json_encode($data));
+if (isset($_GET['cam'])) {
+    $data["cam"] = ($_GET['cam'] === "0") ? "0" : "1";
+}
+
+if ($data !== $original || !file_exists($file)) {
+    file_put_contents($file, json_encode($data), LOCK_EX);
+}
 
 echo "OK";
