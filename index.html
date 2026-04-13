@@ -394,6 +394,35 @@
         max-height: 210px;
         overflow-y: auto;
         padding-right: 0.2rem;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(61, 213, 243, 0.75) rgba(255, 255, 255, 0.08);
+      }
+
+      .gallery-box::-webkit-scrollbar {
+        width: 9px;
+      }
+
+      .gallery-box::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 999px;
+      }
+
+      .gallery-box::-webkit-scrollbar-thumb {
+        border-radius: 999px;
+        background: linear-gradient(
+          180deg,
+          rgba(61, 213, 243, 0.9),
+          rgba(71, 243, 171, 0.9)
+        );
+        border: 1px solid rgba(255, 255, 255, 0.28);
+      }
+
+      .gallery-box::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(
+          180deg,
+          rgba(61, 213, 243, 1),
+          rgba(71, 243, 171, 1)
+        );
       }
 
       .gallery-item {
@@ -416,6 +445,41 @@
         text-overflow: ellipsis;
         white-space: nowrap;
         max-width: 52%;
+      }
+
+      .gallery-actions {
+        display: flex;
+        gap: 0.35rem;
+      }
+
+      .gallery-action-btn {
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        border-radius: 999px;
+        min-height: 30px;
+        padding: 0.2rem 0.65rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        color: #eaf7ff;
+        background: rgba(255, 255, 255, 0.08);
+        transition:
+          transform 0.15s ease,
+          box-shadow 0.2s ease,
+          border-color 0.2s ease;
+      }
+
+      .gallery-action-btn:hover {
+        transform: translateY(-1px);
+      }
+
+      .gallery-action-btn.load {
+        border-color: rgba(61, 213, 243, 0.85);
+        box-shadow: 0 0 0 0.14rem rgba(61, 213, 243, 0.16);
+      }
+
+      .gallery-action-btn.delete {
+        border-color: rgba(255, 93, 115, 0.75);
+        box-shadow: 0 0 0 0.14rem rgba(255, 93, 115, 0.14);
       }
 
       .playback-panel {
@@ -572,10 +636,57 @@
 
       .playback-slider {
         margin-top: 0.7rem;
+        padding: 0.45rem 0.55rem;
+        border-radius: 0.7rem;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.05);
       }
 
       .playback-slider input[type="range"] {
         width: 100%;
+        appearance: none;
+        -webkit-appearance: none;
+        background: transparent;
+      }
+
+      .playback-slider input[type="range"]::-webkit-slider-runnable-track {
+        height: 7px;
+        border-radius: 999px;
+        background: linear-gradient(
+          90deg,
+          rgba(61, 213, 243, 0.95),
+          rgba(71, 243, 171, 0.9)
+        );
+      }
+
+      .playback-slider input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        margin-top: -4px;
+        border: 2px solid rgba(255, 255, 255, 0.95);
+        background: #072535;
+        box-shadow: 0 0 0 0.16rem rgba(61, 213, 243, 0.22);
+      }
+
+      .playback-slider input[type="range"]::-moz-range-track {
+        height: 7px;
+        border-radius: 999px;
+        background: linear-gradient(
+          90deg,
+          rgba(61, 213, 243, 0.95),
+          rgba(71, 243, 171, 0.9)
+        );
+      }
+
+      .playback-slider input[type="range"]::-moz-range-thumb {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        border: 2px solid rgba(255, 255, 255, 0.95);
+        background: #072535;
+        box-shadow: 0 0 0 0.16rem rgba(61, 213, 243, 0.22);
       }
 
       .themed-select {
@@ -677,7 +788,6 @@
         max-width: 48%;
       }
 
-      .snapshot-section #recordingFolderSelect,
       .snapshot-section .playback-controls .btn,
       .snapshot-section .playback-slider input[type="range"] {
         font-size: 0.82rem;
@@ -879,27 +989,26 @@
                           <button id="recStartBtn" class="seg-btn" type="button" onclick="startRecording()">START</button>
                           <button id="recStopBtn" class="seg-btn" type="button" onclick="stopRecording()">STOP</button>
                         </div>
+                        <div id="recordingDuration" class="muted-note mt-2" style="text-align: center; font-size: 0.9rem;">Duration: 00:00</div>
                       </div>
                     </div>
 
                     <div id="camStatus" class="cam-status mt-2">Camera is OFF.</div>
+                    
+                    <div class="d-flex flex-wrap gap-2 mt-2 align-items-center">
+                      <button class="btn btn-success btn-sm" id="convertMp4Btn" onclick="convertToMp4()" style="display:none;">🎬 Convert MP4</button>
+                      <button class="btn btn-warning btn-sm" id="downloadZipBtn" onclick="downloadRecording('zip')" style="display:none;">📦 ZIP</button>
+                      <button class="btn btn-primary btn-sm" id="downloadMp4Btn" onclick="downloadRecording('mp4')" style="display:none;">📥 MP4</button>
+                    </div>
 
                     <div class="d-flex flex-wrap gap-2 mt-2 align-items-center">
                       <button class="btn btn-info btn-sm" onclick="loadGallery()">Load Gallery</button>
-                      <small class="muted-note">Open or delete folders from server.</small>
+                      <small class="muted-note">Load, convert, download or delete recordings.</small>
                     </div>
 
                     <div id="gallery" class="gallery-box"></div>
 
-                    <div class="row g-2 align-items-end mt-1">
-                      <div class="col-12 col-md-8 col-lg-12">
-                        <label class="form-label muted-note mb-1" for="recordingFolderSelect">Recording folder</label>
-                        <select id="recordingFolderSelect" class="form-select form-select-sm themed-select"></select>
-                      </div>
-                      <div class="col-12 col-md-4 col-lg-12">
-                        <button class="btn btn-info btn-sm w-100" onclick="loadRecordingFrames()">Load Frames</button>
-                      </div>
-                    </div>
+                    
                   </div>
 
                   <div class="snapshot-screen-col">
@@ -981,9 +1090,6 @@
       const livePlaceholder = document.getElementById("livePlaceholder");
       const camStatus = document.getElementById("camStatus");
       const galleryEl = document.getElementById("gallery");
-      const recordingFolderSelect = document.getElementById(
-        "recordingFolderSelect",
-      );
       const playbackFrame = document.getElementById("playbackFrame");
       const playbackEmpty = document.getElementById("playbackEmpty");
       const playbackMeta = document.getElementById("playbackMeta");
@@ -1003,6 +1109,10 @@
       const camOffBtn = document.getElementById("camOffBtn");
       const recStartBtn = document.getElementById("recStartBtn");
       const recStopBtn = document.getElementById("recStopBtn");
+      const recordingDurationEl = document.getElementById("recordingDuration");
+      const convertMp4Btn = document.getElementById("convertMp4Btn");
+      const downloadZipBtn = document.getElementById("downloadZipBtn");
+      const downloadMp4Btn = document.getElementById("downloadMp4Btn");
       const stopButtons = document.querySelectorAll(".stop-action");
       const stopButton = stopButtons[0];
       const modeHint = document.getElementById("modeHint");
@@ -1015,6 +1125,9 @@
       let lastCommandAt = 0;
       let camActive = false;
       let isRecording = false;
+      let recordingStartTime = null;
+      let durationInterval = null;
+      let currentRecordingFolder = null;
       let camTimer = null;
       let playbackTimer = null;
       let playbackFrames = [];
@@ -1113,7 +1226,83 @@
         isRecording = recording;
         recStartBtn.classList.toggle("active-seg", recording);
         recStopBtn.classList.toggle("active-seg", !recording);
+
+        if (recording) {
+          recordingStartTime = Date.now();
+          recordingDurationEl.textContent = "Duration: 00:00";
+
+          if (durationInterval) clearInterval(durationInterval);
+          durationInterval = setInterval(() => {
+            if (isRecording && recordingStartTime) {
+              const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+              const mins = Math.floor(elapsed / 60);
+              const secs = elapsed % 60;
+              recordingDurationEl.textContent =
+                `Duration: ${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+            }
+          }, 500);
+
+          convertMp4Btn.style.display = "none";
+          downloadZipBtn.style.display = "none";
+          downloadMp4Btn.style.display = "none";
+        } else {
+          if (durationInterval) clearInterval(durationInterval);
+
+          if (currentRecordingFolder) {
+            convertMp4Btn.style.display = "inline-block";
+            downloadZipBtn.style.display = "inline-block";
+          }
+        }
+
         updateRecordingControls();
+      }
+
+      function convertToMp4() {
+        if (!currentRecordingFolder) {
+          alert("Gallery se recording folder Load karo pehle");
+          return;
+        }
+
+        setCamStatus("Converting to MP4... this may take a minute");
+        convertMp4Btn.disabled = true;
+
+        fetch(camBaseUrl + "/convert_to_mp4.php?folder=" + encodeURIComponent(currentRecordingFolder))
+          .then(res => res.json())
+          .then(data => {
+            convertMp4Btn.disabled = false;
+            if (data.status === "success") {
+              setCamStatus("✓ MP4 created: " + data.file);
+              downloadMp4Btn.style.display = "inline-block";
+            } else {
+              setCamStatus("MP4 conversion failed: " + (data.message || data.error));
+            }
+          })
+          .catch(() => {
+            convertMp4Btn.disabled = false;
+            setCamStatus("Conversion error: check FFmpeg on server");
+          });
+      }
+
+      function downloadRecording(type) {
+        if (!currentRecordingFolder) {
+          alert("Gallery se recording folder Load karo pehle");
+          return;
+        }
+
+        const url = camBaseUrl + "/download_recording.php?folder=" + 
+                    encodeURIComponent(currentRecordingFolder) + 
+                    "&type=" + encodeURIComponent(type);
+        
+        setCamStatus(`Downloading ${type.toUpperCase()}...`);
+        
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${currentRecordingFolder}.${type}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        
+        setCamStatus(`Downloaded: ${currentRecordingFolder}.${type}`);
       }
 
       function camOn() {
@@ -1168,15 +1357,25 @@
         }
 
         setCamStatus("Starting recording...");
-        fetch(camBaseUrl + "/start_record.php")
+        fetch(camBaseUrl + "/start_record.php", { cache: "no-store" })
           .then((res) => res.text())
           .then((data) => {
-            setRecordingState(true);
-            setCamStatus("Recording started: " + data);
-            loadGallery();
+            try {
+              const parsed = JSON.parse(data);
+              setRecordingState(true);
+              if (parsed.folder) {
+                currentRecordingFolder = parsed.folder;
+              }
+              setCamStatus("Recording started: " + (parsed.folder || "active"));
+              loadGallery();
+            } catch (e) {
+              setCamStatus("Recording started (folder created)");
+              setRecordingState(true);
+              loadGallery();
+            }
           })
           .catch(() => {
-            setCamStatus("Recording start failed (check CORS/server headers).");
+            setCamStatus("Recording start failed (check server).");
           });
       }
 
@@ -1185,7 +1384,7 @@
           setCamStatus("Stopping recording...");
         }
 
-        fetch(camBaseUrl + "/stop_record.php")
+        fetch(camBaseUrl + "/stop_record.php", { cache: "no-store" })
           .then((res) => res.text())
           .then(() => {
             setRecordingState(false);
@@ -1196,9 +1395,7 @@
           })
           .catch(() => {
             if (!silent) {
-              setCamStatus(
-                "Recording stop failed (check CORS/server headers).",
-              );
+              setCamStatus("Recording stop failed (check server).");
             }
             if (!silent) {
               statusText.textContent = "Recording stop failed.";
@@ -1219,17 +1416,12 @@
         if (!Array.isArray(folders) || folders.length === 0) {
           galleryEl.innerHTML =
             '<div class="muted-note">No folders found.</div>';
-          recordingFolderSelect.innerHTML =
-            '<option value="">No recordings available</option>';
+          currentRecordingFolder = null;
+          convertMp4Btn.style.display = "none";
+          downloadZipBtn.style.display = "none";
+          downloadMp4Btn.style.display = "none";
           return;
         }
-
-        recordingFolderSelect.innerHTML = folders
-          .map(
-            (folder) =>
-              `<option value="${escapeHtml(String(folder))}">${escapeHtml(String(folder))}</option>`,
-          )
-          .join("");
 
         galleryEl.innerHTML = folders
           .map((folder) => {
@@ -1239,19 +1431,19 @@
             return `
           <div class="gallery-item">
             <div class="gallery-name" title="${safeFolder}">${safeFolder}</div>
-            <div class="d-flex gap-1">
-              <button class="btn btn-sm btn-outline-info open-folder-btn" data-folder="${encodedFolder}">Open</button>
-              <button class="btn btn-sm btn-outline-danger delete-folder-btn" data-folder="${encodedFolder}">Delete</button>
+            <div class="gallery-actions">
+              <button class="gallery-action-btn load load-folder-btn" data-folder="${encodedFolder}">Load</button>
+              <button class="gallery-action-btn delete delete-folder-btn" data-folder="${encodedFolder}">Delete</button>
             </div>
           </div>
         `;
           })
           .join("");
 
-        galleryEl.querySelectorAll(".open-folder-btn").forEach((buttonEl) => {
+        galleryEl.querySelectorAll(".load-folder-btn").forEach((buttonEl) => {
           buttonEl.addEventListener("click", () => {
             const folder = decodeURIComponent(buttonEl.dataset.folder || "");
-            openFolder(folder);
+            loadRecordingFrames(folder);
           });
         });
 
@@ -1269,20 +1461,18 @@
           .then((res) => res.json())
           .then((data) => {
             renderGallery(data);
-            setCamStatus("Gallery loaded.");
-            if (recordingFolderSelect.value) {
-              loadRecordingFrames();
+            if (currentRecordingFolder && data.includes(currentRecordingFolder)) {
+              loadRecordingFrames(currentRecordingFolder);
+            } else if (Array.isArray(data) && data.length > 0) {
+              loadRecordingFrames(data[data.length - 1]);
             }
+            setCamStatus("Gallery loaded.");
           })
           .catch(() => {
             galleryEl.innerHTML =
               '<div class="text-danger">Failed to load gallery.</div>';
             setCamStatus("Gallery load failed.");
           });
-      }
-
-      function openFolder(folder) {
-        window.open(camBaseUrl + "/" + encodeURIComponent(folder), "_blank");
       }
 
       function deleteFolder(folder) {
@@ -1316,13 +1506,13 @@
         playbackFrame.src =
           camBaseUrl +
           "/" +
-          encodeURIComponent(recordingFolderSelect.value) +
+          encodeURIComponent(currentRecordingFolder || "") +
           "/" +
           encodeURIComponent(playbackFrames[playbackIndex]) +
           "?t=" +
           Date.now();
         playbackMeta.textContent =
-          recordingFolderSelect.value +
+          (currentRecordingFolder || "Unknown") +
           " • frame " +
           (playbackIndex + 1) +
           " of " +
@@ -1350,14 +1540,19 @@
         playbackToggleBtn.textContent = "⏸ Pause";
       }
 
-      function loadRecordingFrames() {
-        const folder = recordingFolderSelect.value;
+      function loadRecordingFrames(folderValue = currentRecordingFolder) {
+        const folder = folderValue;
         if (!folder) {
           playbackFrames = [];
           playbackIndex = 0;
           updatePlaybackUI();
           return;
         }
+
+        currentRecordingFolder = folder;
+        convertMp4Btn.style.display = "inline-block";
+        downloadZipBtn.style.display = "inline-block";
+        downloadMp4Btn.style.display = "none";
 
         fetch(
           camBaseUrl + "/list_frames.php?folder=" + encodeURIComponent(folder),
@@ -1603,7 +1798,8 @@
         bindPressHoldControls();
         bindModeSelector();
         bindThemeSelector();
-        playbackSpeedLabel.textContent = playbackSpeed.value + "ms";
+        playbackSpeed.value = "100";
+        playbackSpeedLabel.textContent = "100ms";
         recordingSeek.addEventListener("input", () => {
           if (!playbackFrames.length) {
             return;
@@ -1621,10 +1817,6 @@
             scheduleNextFrame();
           }
         });
-        recordingFolderSelect.addEventListener("change", () => {
-          loadRecordingFrames();
-        });
-
         if (snapshotToolsCollapse && window.innerWidth >= 992) {
           snapshotToolsCollapse.classList.add("show");
         }

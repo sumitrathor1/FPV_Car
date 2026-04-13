@@ -8,5 +8,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-file_put_contents(__DIR__ . "/record.txt", "");
-echo "STOPPED";
+file_put_contents(__DIR__ . "/record.txt", "0");
+echo json_encode(["status" => "stopped"]);
