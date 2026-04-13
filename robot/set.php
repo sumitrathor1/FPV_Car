@@ -13,7 +13,9 @@ $file = __DIR__ . "/state.txt";
 $data = [
     "cmd" => "S",
     "mode" => "0",
-    "cam" => "1"
+    "cam" => "1",
+    "fs" => "200",
+    "bs" => "200"
 ];
 
 if (file_exists($file)) {
@@ -43,6 +45,16 @@ if (isset($_GET['mode'])) {
 
 if (isset($_GET['cam'])) {
     $data["cam"] = ($_GET['cam'] === "0") ? "0" : "1";
+}
+
+if (isset($_GET['fs'])) {
+    $fs = max(0, min(255, (int)$_GET['fs']));
+    $data["fs"] = (string)$fs;
+}
+
+if (isset($_GET['bs'])) {
+    $bs = max(0, min(255, (int)$_GET['bs']));
+    $data["bs"] = (string)$bs;
 }
 
 if ($data !== $original || !file_exists($file)) {

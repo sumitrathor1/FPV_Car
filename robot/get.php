@@ -16,7 +16,9 @@ $file = __DIR__ . "/state.txt";
 $default = [
     "cmd" => "S",
     "mode" => "0",
-    "cam" => "1"
+    "cam" => "1",
+    "fs" => "200",
+    "bs" => "200"
 ];
 
 if (file_exists($file)) {

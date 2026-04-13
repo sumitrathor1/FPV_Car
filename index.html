@@ -921,6 +921,16 @@
 
             <button class="pad-btn stop stop-action mb-3" id="emergencyStop" type="button">Emergency Stop</button>
 
+            <div class="playback-slider mb-3">
+              <label class="form-label muted-note mb-1" for="forwardSpeed">Forward Speed: <span id="forwardSpeedLabel">200</span></label>
+              <input id="forwardSpeed" type="range" min="0" max="255" value="200" step="5" />
+            </div>
+
+            <div class="playback-slider mb-3">
+              <label class="form-label muted-note mb-1" for="backwardSpeed">Backward Speed: <span id="backwardSpeedLabel">200</span></label>
+              <input id="backwardSpeed" type="range" min="0" max="255" value="200" step="5" />
+            </div>
+
 
             <div class="control-theme mb-3" data-theme="split">
               <div class="split-layout">
@@ -1096,6 +1106,10 @@
       const playbackCount = document.getElementById("playbackCount");
       const playbackToggleBtn = document.getElementById("playbackToggleBtn");
       const recordingSeek = document.getElementById("recordingSeek");
+      const forwardSpeed = document.getElementById("forwardSpeed");
+      const backwardSpeed = document.getElementById("backwardSpeed");
+      const forwardSpeedLabel = document.getElementById("forwardSpeedLabel");
+      const backwardSpeedLabel = document.getElementById("backwardSpeedLabel");
       const playbackSpeed = document.getElementById("playbackSpeed");
       const playbackSpeedLabel = document.getElementById("playbackSpeedLabel");
       const snapshotToolsCollapse = document.getElementById(
@@ -1135,6 +1149,40 @@
       let playbackRunning = false;
       let stepStopTimer = null;
       let holdRepeatTimer = null;
+      let speedSyncTimer = null;
+      let driveForwardSpeed = 200;
+      let driveBackwardSpeed = 200;
+
+      function clampSpeedValue(value) {
+        const n = Number(value);
+        if (Number.isNaN(n)) {
+          return 0;
+        }
+        return Math.max(0, Math.min(255, Math.round(n)));
+      }
+
+      function syncDriveSpeeds() {
+        fireAndForget(
+          controlBaseUrl +
+            "/set.php?fs=" +
+            driveForwardSpeed +
+            "&bs=" +
+            driveBackwardSpeed,
+        ).catch(() => {
+          statusText.textContent =
+            "Speed request sent (network response blocked).";
+        });
+      }
+
+      function queueDriveSpeedSync() {
+        clearTimeout(speedSyncTimer);
+        speedSyncTimer = setTimeout(syncDriveSpeeds, 120);
+      }
+
+      function updateDriveSpeedLabels() {
+        forwardSpeedLabel.textContent = String(driveForwardSpeed);
+        backwardSpeedLabel.textContent = String(driveBackwardSpeed);
+      }
 
       function setActivePad(buttonEl) {
         document
@@ -1798,8 +1846,28 @@
         bindPressHoldControls();
         bindModeSelector();
         bindThemeSelector();
+        const savedForwardSpeed = localStorage.getItem("esp32_forward_speed");
+        const savedBackwardSpeed = localStorage.getItem("esp32_backward_speed");
+        driveForwardSpeed = clampSpeedValue(savedForwardSpeed ?? 200);
+        driveBackwardSpeed = clampSpeedValue(savedBackwardSpeed ?? 200);
+        forwardSpeed.value = String(driveForwardSpeed);
+        backwardSpeed.value = String(driveBackwardSpeed);
+        updateDriveSpeedLabels();
+        queueDriveSpeedSync();
         playbackSpeed.value = "100";
         playbackSpeedLabel.textContent = "100ms";
+        forwardSpeed.addEventListener("input", () => {
+          driveForwardSpeed = clampSpeedValue(forwardSpeed.value);
+          localStorage.setItem("esp32_forward_speed", String(driveForwardSpeed));
+          updateDriveSpeedLabels();
+          queueDriveSpeedSync();
+        });
+        backwardSpeed.addEventListener("input", () => {
+          driveBackwardSpeed = clampSpeedValue(backwardSpeed.value);
+          localStorage.setItem("esp32_backward_speed", String(driveBackwardSpeed));
+          updateDriveSpeedLabels();
+          queueDriveSpeedSync();
+        });
         recordingSeek.addEventListener("input", () => {
           if (!playbackFrames.length) {
             return;

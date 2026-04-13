@@ -13,6 +13,8 @@ const char* uploadUrl  = "http://20.244.113.234/robot/cam/upload.php";
 char lastCmd = 'X';
 bool cameraPowerOn = false;
 bool cameraReady = false;
+int lastForwardSpeed = 255;
+int lastBackwardSpeed = 255;
 
 const uint32_t CONTROL_INTERVAL_MS = 35;
 const uint32_t UPLOAD_INTERVAL_MS = 90;
@@ -138,6 +140,40 @@ bool readJsonCameraPower(const String& payload) {
   return payload.charAt(valuePos) == '1';
 }
 
+int clampSpeedValue(int value) {
+  if (value < 0) return 0;
+  if (value > 255) return 255;
+  return value;
+}
+
+int readJsonSpeed(const String& payload, const char* key, int fallback) {
+  String token = String("\"") + key + "\":\"";
+  int keyPos = payload.indexOf(token);
+  if (keyPos == -1) {
+    return fallback;
+  }
+
+  int valueStart = keyPos + token.length();
+  if (valueStart >= payload.length()) {
+    return fallback;
+  }
+
+  int valueEnd = payload.indexOf('"', valueStart);
+  if (valueEnd == -1) {
+    return fallback;
+  }
+
+  int parsed = payload.substring(valueStart, valueEnd).toInt();
+  return clampSpeedValue(parsed);
+}
+
+void sendStopToUno() {
+  if (lastCmd != 'S') {
+    Serial.println("S");
+    lastCmd = 'S';
+  }
+}
+
 // ================= SETUP =================
 void setup() {
   Serial.begin(9600);
@@ -160,6 +196,7 @@ void setup() {
 // ================= LOOP =================
 void loop() {
   if (WiFi.status() != WL_CONNECTED) {
+    sendStopToUno();
     delay(50);
     return;
   }
@@ -181,15 +218,31 @@ void loop() {
 
       char cmd = readJsonCommand(res);
       bool shouldCamBeOn = readJsonCameraPower(res);
+      int desiredForwardSpeed = readJsonSpeed(res, "fs", lastForwardSpeed);
+      int desiredBackwardSpeed = readJsonSpeed(res, "bs", lastBackwardSpeed);
 
       if (shouldCamBeOn != cameraPowerOn) {
         setCameraHardwarePower(shouldCamBeOn);
+      }
+
+      if (desiredForwardSpeed != lastForwardSpeed) {
+        Serial.print("FSP:");
+        Serial.println(desiredForwardSpeed);
+        lastForwardSpeed = desiredForwardSpeed;
+      }
+
+      if (desiredBackwardSpeed != lastBackwardSpeed) {
+        Serial.print("BSP:");
+        Serial.println(desiredBackwardSpeed);
+        lastBackwardSpeed = desiredBackwardSpeed;
       }
 
       if (cmd != lastCmd) {
         Serial.println(cmd);
         lastCmd = cmd;
       }
+    } else {
+      sendStopToUno();
     }
 
     http.end();

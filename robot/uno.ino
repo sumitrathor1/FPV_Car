@@ -5,9 +5,56 @@
 
 #define FULL_SPEED 255
 #define TURN_SPEED 120
+#define DEFAULT_FORWARD_SPEED 200
+#define DEFAULT_BACKWARD_SPEED 200
+#define COMMAND_TIMEOUT_MS 700
 
 char cmd = 'S';
 char lastAppliedCmd = 'X';
+int forwardSpeed = DEFAULT_FORWARD_SPEED;
+int backwardSpeed = DEFAULT_BACKWARD_SPEED;
+bool speedDirty = false;
+unsigned long lastSerialAt = 0;
+char rxLine[32];
+uint8_t rxLen = 0;
+
+int clampSpeed(int value) {
+  if (value < 0) return 0;
+  if (value > 255) return 255;
+  return value;
+}
+
+void applySerialLine(char* line) {
+  if (line[0] == '\0') {
+    return;
+  }
+
+  if (line[1] == '\0') {
+    char c = line[0];
+    if (c == 'F' || c == 'B' || c == 'L' || c == 'R' || c == 'S') {
+      cmd = c;
+    }
+    return;
+  }
+
+  if (strncmp(line, "FSP:", 4) == 0) {
+    int value = clampSpeed(atoi(line + 4));
+    if (value != forwardSpeed) {
+      forwardSpeed = value;
+      speedDirty = true;
+    }
+    return;
+  }
+
+  if (strncmp(line, "BSP:", 4) == 0) {
+    int value = clampSpeed(atoi(line + 4));
+    if (value != backwardSpeed) {
+      backwardSpeed = value;
+      speedDirty = true;
+    }
+    return;
+  }
+}
 
 void setup() {
   Serial.begin(9600);
@@ -18,43 +65,52 @@ void setup() {
   pinMode(IN4, OUTPUT);
 
   stopMotor();
+  lastSerialAt = millis();
 }
 
 void loop() {
 
   while (Serial.available()) {
-
     char c = Serial.read();
+    lastSerialAt = millis();
 
-    if (c == '\n' || c == '\r') continue;
+    if (c == '\n' || c == '\r') {
+      if (rxLen > 0) {
+        rxLine[rxLen] = '\0';
+        applySerialLine(rxLine);
+        rxLen = 0;
+      }
+      continue;
+    }
 
-    if (c == 'F' || c == 'B' || c == 'L' || c == 'R' || c == 'S') {
-      cmd = c;
+    if (rxLen < sizeof(rxLine) - 1) {
+      rxLine[rxLen++] = c;
+    } else {
+      rxLen = 0;
     }
   }
 
-  if (cmd == 'L') {
-    left();
-    lastAppliedCmd = cmd;
-    return;
+  if (millis() - lastSerialAt > COMMAND_TIMEOUT_MS) {
+    if (cmd != 'S') {
+      cmd = 'S';
+    }
   }
 
-  if (cmd == 'R') {
-    right();
-    lastAppliedCmd = cmd;
-    return;
-  }
-
-  if (cmd == lastAppliedCmd) {
+  if (cmd == lastAppliedCmd && !speedDirty) {
     return;
   }
 
   lastAppliedCmd = cmd;
+  speedDirty = false;
 
   if (cmd == 'F') {
     forward();
   } else if (cmd == 'B') {
     backward();
+  } else if (cmd == 'L') {
+    left();
+  } else if (cmd == 'R') {
+    right();
   } else {
     stopMotor();
   }
@@ -84,13 +140,13 @@ void rightBackward(uint8_t speed) {
 }
 
 void forward() {
-  leftForward(FULL_SPEED);
-  rightForward(FULL_SPEED);
+  leftForward(forwardSpeed);
+  rightForward(forwardSpeed);
 }
 
 void backward() {
-  leftBackward(FULL_SPEED);
-  rightBackward(FULL_SPEED);
+  leftBackward(backwardSpeed);
+  rightBackward(backwardSpeed);
 }
 
 void left() {
