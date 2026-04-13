@@ -1,79 +1,92 @@
-#include <WiFi.h>
-#include <HTTPClient.h>
+#define IN1 8
+#define IN2 9
+#define IN3 10
+#define IN4 11
 
-const char* ssid = "sumit";
-const char* password = "12345678";
-
-const char* url = "http://20.244.113.234/robot/get.php";
-
-char lastCmd = 'X';  // store last command
-const uint32_t CONTROL_INTERVAL_MS = 35;
-uint32_t lastControlAt = 0;
-
-char readJsonCommand(const String& payload) {
-  int keyPos = payload.indexOf("\"cmd\":\"");
-  if (keyPos == -1) {
-    return 'S';
-  }
-
-  int valuePos = keyPos + 7;
-  if (valuePos >= payload.length()) {
-    return 'S';
-  }
-
-  char cmd = payload.charAt(valuePos);
-  if (cmd == 'F' || cmd == 'B' || cmd == 'L' || cmd == 'R' || cmd == 'S') {
-    return cmd;
-  }
-
-  return 'S';
-}
+char cmd = 'S';
+char lastAppliedCmd = 'X';
 
 void setup() {
   Serial.begin(9600);
 
-  Serial.println("START");
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
 
-  WiFi.begin(ssid, password);
-
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(300);
-    Serial.print(".");
-  }
-
-  Serial.println("\nCONNECTED");
+  stopMotor();
 }
 
 void loop() {
-  if (WiFi.status() != WL_CONNECTED) {
-    delay(50);
-    return;
-  }
 
-  uint32_t now = millis();
-  if (now - lastControlAt < CONTROL_INTERVAL_MS) {
-    delay(5);
-    return;
-  }
+  while (Serial.available()) {
 
-  lastControlAt = now;
+    char c = Serial.read();
 
-  HTTPClient http;
-  http.begin(url);
-  http.setTimeout(120);
+    if (c == '\n' || c == '\r') continue;
 
-  int code = http.GET();
-  if (code == 200) {
-    String res = http.getString();
-    res.trim();
-
-    char cmd = readJsonCommand(res);
-    if (cmd != lastCmd) {
-      Serial.println(cmd);
-      lastCmd = cmd;
+    if (c == 'F' || c == 'B' || c == 'L' || c == 'R' || c == 'S') {
+      cmd = c;
     }
   }
 
-  http.end();
-  delay(5);
+  if (cmd == lastAppliedCmd) {
+    return;
+  }
+
+  lastAppliedCmd = cmd;
+
+  if (cmd == 'F') {
+    forward();
+  } else if (cmd == 'B') {
+    backward();
+  } else if (cmd == 'L') {
+    left();
+  } else if (cmd == 'R') {
+    right();
+  } else {
+    stopMotor();
+  }
+}
+
+
+// 🔥 MOTOR FUNCTIONS
+
+void forward() {
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+}
+
+void backward() {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+}
+
+void left() {
+  // Left turn: left motor reverse, right motor forward.
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+}
+
+void right() {
+  // Right turn: left motor forward, right motor reverse.
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+}
+
+void stopMotor() {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
 }

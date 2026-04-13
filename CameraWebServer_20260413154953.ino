@@ -81,16 +81,28 @@ void startCamera() {
 }
 
 void setCameraHardwarePower(bool on) {
-  if (!cameraReady) {
+  if (on) {
+    if (!cameraReady) {
+      startCamera();
+    }
+
+    if (cameraReady) {
+      pinMode(PWDN_GPIO_NUM, OUTPUT);
+      digitalWrite(PWDN_GPIO_NUM, LOW);
+      cameraPowerOn = true;
+    }
     return;
   }
 
-  sensor_t* sensor = esp_camera_sensor_get();
-  if (sensor != nullptr && sensor->set_sleep != nullptr) {
-    sensor->set_sleep(sensor, on ? 0 : 1);
+  cameraPowerOn = false;
+
+  if (cameraReady) {
+    esp_camera_deinit();
+    cameraReady = false;
   }
 
-  cameraPowerOn = on;
+  pinMode(PWDN_GPIO_NUM, OUTPUT);
+  digitalWrite(PWDN_GPIO_NUM, HIGH);
 }
 
 char readJsonCommand(const String& payload) {
