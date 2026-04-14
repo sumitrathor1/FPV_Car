@@ -7,14 +7,12 @@
 #define TURN_SPEED 120
 #define DEFAULT_FORWARD_SPEED 200
 #define DEFAULT_BACKWARD_SPEED 200
-#define COMMAND_TIMEOUT_MS 700
 
 char cmd = 'S';
 char lastAppliedCmd = 'X';
 int forwardSpeed = DEFAULT_FORWARD_SPEED;
 int backwardSpeed = DEFAULT_BACKWARD_SPEED;
 bool speedDirty = false;
-unsigned long lastSerialAt = 0;
 char rxLine[32];
 uint8_t rxLen = 0;
 
@@ -57,7 +55,7 @@ void applySerialLine(char* line) {
 }
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
 
   pinMode(IN1, OUTPUT);
   pinMode(IN2, OUTPUT);
@@ -65,14 +63,12 @@ void setup() {
   pinMode(IN4, OUTPUT);
 
   stopMotor();
-  lastSerialAt = millis();
 }
 
 void loop() {
 
   while (Serial.available()) {
     char c = Serial.read();
-    lastSerialAt = millis();
 
     if (c == '\n' || c == '\r') {
       if (rxLen > 0) {
@@ -87,12 +83,6 @@ void loop() {
       rxLine[rxLen++] = c;
     } else {
       rxLen = 0;
-    }
-  }
-
-  if (millis() - lastSerialAt > COMMAND_TIMEOUT_MS) {
-    if (cmd != 'S') {
-      cmd = 'S';
     }
   }
 

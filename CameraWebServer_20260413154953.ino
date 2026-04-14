@@ -16,8 +16,8 @@ bool cameraReady = false;
 int lastForwardSpeed = 255;
 int lastBackwardSpeed = 255;
 
-const uint32_t CONTROL_INTERVAL_MS = 35;
-const uint32_t UPLOAD_INTERVAL_MS = 90;
+const uint32_t CONTROL_INTERVAL_MS = 30;
+const uint32_t UPLOAD_INTERVAL_MS = 110;
 uint32_t lastControlAt = 0;
 uint32_t lastUploadAt = 0;
 
@@ -70,9 +70,9 @@ void startCamera() {
   config.xclk_freq_hz = 20000000;
   config.pixel_format = PIXFORMAT_JPEG;
 
-  // 🔥 SPEED OPTIMIZATION
-  config.frame_size = FRAMESIZE_QQVGA;   // faster
-  config.jpeg_quality = 20;              // smaller size
+  // Balanced quality for clearer image while keeping latency low.
+  config.frame_size = FRAMESIZE_QVGA;
+  config.jpeg_quality = 16;
   config.fb_count = 1;
 
   if (esp_camera_init(&config) == ESP_OK) {
@@ -167,16 +167,9 @@ int readJsonSpeed(const String& payload, const char* key, int fallback) {
   return clampSpeedValue(parsed);
 }
 
-void sendStopToUno() {
-  if (lastCmd != 'S') {
-    Serial.println("S");
-    lastCmd = 'S';
-  }
-}
-
 // ================= SETUP =================
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
 
   Serial.println("START");
 
@@ -196,7 +189,6 @@ void setup() {
 // ================= LOOP =================
 void loop() {
   if (WiFi.status() != WL_CONNECTED) {
-    sendStopToUno();
     delay(50);
     return;
   }
@@ -209,7 +201,7 @@ void loop() {
 
     HTTPClient http;
     http.begin(controlUrl);
-    http.setTimeout(120);
+    http.setTimeout(90);
 
     int code = http.GET();
     if (code == 200) {
@@ -237,12 +229,9 @@ void loop() {
         lastBackwardSpeed = desiredBackwardSpeed;
       }
 
-      if (cmd != lastCmd) {
-        Serial.println(cmd);
-        lastCmd = cmd;
-      }
-    } else {
-      sendStopToUno();
+      // Heartbeat: send command every successful poll so UNO timeout doesn't false-trigger.
+      Serial.println(cmd);
+      lastCmd = cmd;
     }
 
     http.end();
@@ -255,7 +244,7 @@ void loop() {
     if (fb != nullptr) {
       HTTPClient http;
       http.begin(uploadUrl);
-      http.setTimeout(200);
+      http.setTimeout(120);
       http.addHeader("Content-Type", "application/octet-stream");
       http.POST(fb->buf, fb->len);
       http.end();
