@@ -1130,8 +1130,21 @@
       const stopButtons = document.querySelectorAll(".stop-action");
       const stopButton = stopButtons[0];
       const modeHint = document.getElementById("modeHint");
-      const camBaseUrl = "http://20.244.113.234/robot/cam";
-      const controlBaseUrl = "http://20.244.113.234/robot";
+
+      const LOCAL_CONTROL_BASE = "http://20.244.113.234/robot";
+      const LOCAL_CAM_BASE = "http://20.244.113.234/robot/cam";
+      const LIVE_CONTROL_BASE = "https://jeeneettracker.me/robot";
+      const LIVE_CAM_BASE = "https://jeeneettracker.me/robot/cam";
+      const isLocalRun =
+        window.location.protocol === "file:" ||
+        ["localhost", "127.0.0.1"].includes(window.location.hostname);
+      const DEFAULT_CONTROL_BASE = isLocalRun
+        ? LOCAL_CONTROL_BASE
+        : LIVE_CONTROL_BASE;
+      const DEFAULT_CAM_BASE = isLocalRun ? LOCAL_CAM_BASE : LIVE_CAM_BASE;
+
+      const controlBaseUrl = DEFAULT_CONTROL_BASE;
+      const camBaseUrl = DEFAULT_CAM_BASE;
       let controlMode = 0;
       let heldCommand = null;
       let latchedCommand = null;
