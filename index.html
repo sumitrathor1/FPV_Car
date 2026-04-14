@@ -380,6 +380,58 @@
         min-height: 1.2rem;
       }
 
+      .ai-telemetry-card {
+        margin-top: 0.6rem;
+        border: 1px solid rgba(61, 213, 243, 0.25);
+        border-radius: 0.85rem;
+        background: linear-gradient(
+          135deg,
+          rgba(5, 22, 36, 0.78),
+          rgba(8, 34, 52, 0.72)
+        );
+        padding: 0.7rem;
+      }
+
+      .ai-telemetry-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.45rem;
+      }
+
+      .ai-metric {
+        border-radius: 0.6rem;
+        padding: 0.42rem 0.5rem;
+        background: rgba(255, 255, 255, 0.07);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+      }
+
+      .ai-metric span {
+        display: block;
+        font-size: 0.64rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #9fc0d8;
+      }
+
+      .ai-metric strong {
+        font-family: "Space Grotesk", sans-serif;
+        font-size: 0.9rem;
+        color: #eff8ff;
+      }
+
+      .ai-raw-line {
+        margin: 0.55rem 0 0;
+        padding: 0.5rem 0.6rem;
+        border-radius: 0.6rem;
+        border: 1px dashed rgba(61, 213, 243, 0.38);
+        background: rgba(0, 0, 0, 0.25);
+        color: #beddff;
+        font-size: 0.76rem;
+        line-height: 1.35;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
       .cam-switch-label {
         font-size: 0.74rem;
         text-transform: uppercase;
@@ -899,7 +951,23 @@
               <span class="badge text-bg-danger" id="aiObstacleBadge">Obstacle: --</span>
               <span class="badge text-bg-dark" id="aiActionBadge">Action: IDLE</span>
             </div>
-            <p class="muted-note mt-2 mb-0" id="aiMetricsText">brightness=0.0 edge=0.0% score=0.0 latency=0ms</p>
+            <div class="ai-telemetry-card">
+              <div class="ai-telemetry-grid">
+                <div class="ai-metric"><span>Brightness</span><strong id="mBrightness">0.0</strong></div>
+                <div class="ai-metric"><span>Edge</span><strong id="mEdge">0.0%</strong></div>
+                <div class="ai-metric"><span>Risk Score</span><strong id="mScore">0.0</strong></div>
+                <div class="ai-metric"><span>Near</span><strong id="mNear">0.0</strong></div>
+                <div class="ai-metric"><span>Near EMA</span><strong id="mNearEma">0.0</strong></div>
+                <div class="ai-metric"><span>Very Close</span><strong id="mVClose">0.0</strong></div>
+                <div class="ai-metric"><span>Pred Near</span><strong id="mPredNear">0.0</strong></div>
+                <div class="ai-metric"><span>Pred Risk</span><strong id="mPredRisk">0.0</strong></div>
+                <div class="ai-metric"><span>Hit Streak</span><strong id="mHit">0</strong></div>
+                <div class="ai-metric"><span>Latency</span><strong id="mLatency">0ms</strong></div>
+                <div class="ai-metric"><span>Last Cmd</span><strong id="mCmd">S</strong></div>
+                <div class="ai-metric"><span>Worker</span><strong id="mWorker">OFF</strong></div>
+              </div>
+              <pre id="aiMetricsText" class="ai-raw-line">brightness=0.0 edge=0.0% score=0.0 near=0.0 nearEma=0.0 vClose=0.0 predNear=0.0 predRisk=0.0 hit=0 latency=0ms cmd=S</pre>
+            </div>
           </div>
         </section>
 
@@ -1136,6 +1204,18 @@
       const aiObstacleBadge = document.getElementById("aiObstacleBadge");
       const aiActionBadge = document.getElementById("aiActionBadge");
       const aiMetricsText = document.getElementById("aiMetricsText");
+      const mBrightness = document.getElementById("mBrightness");
+      const mEdge = document.getElementById("mEdge");
+      const mScore = document.getElementById("mScore");
+      const mNear = document.getElementById("mNear");
+      const mNearEma = document.getElementById("mNearEma");
+      const mVClose = document.getElementById("mVClose");
+      const mPredNear = document.getElementById("mPredNear");
+      const mPredRisk = document.getElementById("mPredRisk");
+      const mHit = document.getElementById("mHit");
+      const mLatency = document.getElementById("mLatency");
+      const mCmd = document.getElementById("mCmd");
+      const mWorker = document.getElementById("mWorker");
       const aiStateBadge = document.getElementById("aiStateBadge");
       const aiStatus = document.getElementById("aiStatus");
       const camOnBtn = document.getElementById("camOnBtn");
@@ -1357,6 +1437,20 @@
           : "Obstacle: NO";
 
         aiActionBadge.textContent = "Action: " + action + (turn !== "-" ? " (" + turn + ")" : "");
+
+        mBrightness.textContent = brightness.toFixed(1);
+        mEdge.textContent = edge.toFixed(1) + "%";
+        mScore.textContent = score.toFixed(1);
+        mNear.textContent = near.toFixed(1);
+        mNearEma.textContent = nearEma.toFixed(1);
+        mVClose.textContent = vClose.toFixed(1);
+        mPredNear.textContent = predNear.toFixed(1);
+        mPredRisk.textContent = predRisk.toFixed(1);
+        mHit.textContent = String(Math.round(hit));
+        mLatency.textContent = Math.round(latency) + "ms";
+        mCmd.textContent = cmd;
+        mWorker.textContent = state.ai_worker === "1" ? "ON" : "OFF";
+
         aiMetricsText.textContent =
           "brightness=" +
           brightness.toFixed(1) +
