@@ -18,6 +18,14 @@ $default = [
     "mode" => "0",
     "cam" => "1",
     "ai" => "0",
+    "ai_obstacle" => "0",
+    "ai_action" => "IDLE",
+    "ai_turn" => "-",
+    "ai_brightness" => "0.0",
+    "ai_edge" => "0.0",
+    "ai_score" => "0.0",
+    "ai_latency" => "0",
+    "ai_worker" => "0",
     "fs" => "200",
     "bs" => "200"
 ];

@@ -895,6 +895,11 @@
             </div>
 
             <p class="muted-note mt-2 mb-0" id="statusText">Camera controls and drive controls are ready.</p>
+            <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+              <span class="badge text-bg-danger" id="aiObstacleBadge">Obstacle: --</span>
+              <span class="badge text-bg-dark" id="aiActionBadge">Action: IDLE</span>
+            </div>
+            <p class="muted-note mt-2 mb-0" id="aiMetricsText">brightness=0.0 edge=0.0% score=0.0 latency=0ms</p>
           </div>
         </section>
 
@@ -1128,6 +1133,9 @@
       const recordingBadgeInline = document.getElementById(
         "recordingBadgeInline",
       );
+      const aiObstacleBadge = document.getElementById("aiObstacleBadge");
+      const aiActionBadge = document.getElementById("aiActionBadge");
+      const aiMetricsText = document.getElementById("aiMetricsText");
       const aiStateBadge = document.getElementById("aiStateBadge");
       const aiStatus = document.getElementById("aiStatus");
       const camOnBtn = document.getElementById("camOnBtn");
@@ -1174,6 +1182,8 @@
       let stepStopTimer = null;
       let holdRepeatTimer = null;
       let speedSyncTimer = null;
+      let statePollTimer = null;
+      let aiEnabled = false;
       let driveForwardSpeed = 200;
       let driveBackwardSpeed = 200;
 
@@ -1283,19 +1293,26 @@
       function setCameraPowerState(isOn) {
         camOnBtn.classList.toggle("active-seg", isOn);
         camOffBtn.classList.toggle("active-seg", !isOn);
+        camOffBtn.disabled = aiEnabled || !isOn;
+        camOnBtn.disabled = false;
       }
 
       function setAiState(isOn) {
+        aiEnabled = isOn;
         aiStateBadge.textContent = isOn ? "AI ON" : "AI OFF";
         aiStatus.textContent = isOn
-          ? "AI Assist ON. Server worker can auto-drive from camera frames."
-          : "AI Assist OFF. Manual control is active.";
+          ? "AI Assist ON. Camera is locked ON and safety worker is active."
+          : "AI Assist OFF. Manual control is active. Camera can be toggled.";
         document
           .querySelectorAll(".ai-toggle-btn")
           .forEach((btn) => btn.classList.remove("active-seg"));
         document
           .querySelectorAll(`.ai-toggle-btn[data-ai="${isOn ? 1 : 0}"]`)
           .forEach((btn) => btn.classList.add("active-seg"));
+        setCameraPowerState(camActive);
+        if (isOn && !camActive) {
+          camOn();
+        }
       }
 
       function syncAiMode(isOn) {
@@ -1308,6 +1325,60 @@
         syncAiMode(isOn).catch(() => {
           aiStatus.textContent = "AI mode request sent (network response blocked).";
         });
+      }
+
+      function parseStateNumber(value, fallback = 0) {
+        const n = Number(value);
+        return Number.isFinite(n) ? n : fallback;
+      }
+
+      function applyRobotState(state) {
+        const aiEnabled = state.ai === "1";
+        const obstacle = state.ai_obstacle === "1";
+        const action = String(state.ai_action || "IDLE");
+        const turn = String(state.ai_turn || "-");
+        const brightness = parseStateNumber(state.ai_brightness, 0);
+        const edge = parseStateNumber(state.ai_edge, 0);
+        const score = parseStateNumber(state.ai_score, 0);
+        const latency = parseStateNumber(state.ai_latency, 0);
+
+        setAiState(aiEnabled);
+        aiObstacleBadge.classList.toggle("text-bg-danger", obstacle);
+        aiObstacleBadge.classList.toggle("text-bg-success", !obstacle);
+        aiObstacleBadge.textContent = obstacle
+          ? "Obstacle: YES"
+          : "Obstacle: NO";
+
+        aiActionBadge.textContent = "Action: " + action + (turn !== "-" ? " (" + turn + ")" : "");
+        aiMetricsText.textContent =
+          "brightness=" +
+          brightness.toFixed(1) +
+          " edge=" +
+          edge.toFixed(1) +
+          "% score=" +
+          score.toFixed(1) +
+          " latency=" +
+          Math.round(latency) +
+          "ms";
+
+        if (obstacle) {
+          statusText.textContent = "Safety: Obstacle detected, emergency stop active.";
+        }
+      }
+
+      function pollRobotState() {
+        fetch(controlBaseUrl + "/get.php?t=" + Date.now(), {
+          cache: "no-store",
+        })
+          .then((res) => res.json())
+          .then((state) => {
+            if (state && typeof state === "object") {
+              applyRobotState(state);
+            }
+          })
+          .catch(() => {
+            aiMetricsText.textContent = "AI metrics unavailable (network issue).";
+          });
       }
 
       function updateRecordingControls() {
@@ -1413,6 +1484,11 @@
       }
 
       function camOff() {
+        if (aiEnabled) {
+          setCamStatus("AI Assist is ON. Turn AI OFF before switching camera OFF.");
+          setCameraPowerState(true);
+          return;
+        }
         camActive = false;
         clearTimeout(camTimer);
         liveCam.onload = null;
@@ -1954,6 +2030,10 @@
           syncAiMode(true);
         }
 
+        pollRobotState();
+        clearInterval(statePollTimer);
+        statePollTimer = setInterval(pollRobotState, 500);
+
         if (controlMode === 0) {
           statusText.textContent = "Mode: STEP (tap for pulse movement)";
         } else if (controlMode === 1) {
@@ -1962,6 +2042,10 @@
           statusText.textContent = "Mode: LATCH (single tap keeps moving)";
         }
       })();
+
+      window.addEventListener("beforeunload", () => {
+        clearInterval(statePollTimer);
+      });
     </script>
 
     <script
