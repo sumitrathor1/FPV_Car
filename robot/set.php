@@ -20,6 +20,13 @@ $data = [
     "ai_turn" => "-",
     "ai_brightness" => "0.0",
     "ai_edge" => "0.0",
+    "ai_near" => "0.0",
+    "ai_near_ema" => "0.0",
+    "ai_vclose" => "0.0",
+    "ai_pred_near" => "0.0",
+    "ai_pred_risk" => "0.0",
+    "ai_hit" => "0",
+    "ai_cmd" => "S",
     "ai_score" => "0.0",
     "ai_latency" => "0",
     "ai_worker" => "0",
@@ -72,6 +79,13 @@ if ($data["cam"] === "0") {
     $data["ai_turn"] = "-";
     $data["ai_brightness"] = "0.0";
     $data["ai_edge"] = "0.0";
+    $data["ai_near"] = "0.0";
+    $data["ai_near_ema"] = "0.0";
+    $data["ai_vclose"] = "0.0";
+    $data["ai_pred_near"] = "0.0";
+    $data["ai_pred_risk"] = "0.0";
+    $data["ai_hit"] = "0";
+    $data["ai_cmd"] = "S";
     $data["ai_score"] = "0.0";
     $data["ai_latency"] = "0";
 }
@@ -96,6 +110,35 @@ if (isset($_GET['ai_brightness'])) {
 
 if (isset($_GET['ai_edge'])) {
     $data["ai_edge"] = (string)round((float)$_GET['ai_edge'], 1);
+}
+
+if (isset($_GET['ai_near'])) {
+    $data["ai_near"] = (string)round((float)$_GET['ai_near'], 1);
+}
+
+if (isset($_GET['ai_near_ema'])) {
+    $data["ai_near_ema"] = (string)round((float)$_GET['ai_near_ema'], 1);
+}
+
+if (isset($_GET['ai_vclose'])) {
+    $data["ai_vclose"] = (string)round((float)$_GET['ai_vclose'], 1);
+}
+
+if (isset($_GET['ai_pred_near'])) {
+    $data["ai_pred_near"] = (string)round((float)$_GET['ai_pred_near'], 1);
+}
+
+if (isset($_GET['ai_pred_risk'])) {
+    $data["ai_pred_risk"] = (string)round((float)$_GET['ai_pred_risk'], 1);
+}
+
+if (isset($_GET['ai_hit'])) {
+    $data["ai_hit"] = (string)max(0, min(20, (int)$_GET['ai_hit']));
+}
+
+if (isset($_GET['ai_cmd'])) {
+    $cmd = strtoupper((string)$_GET['ai_cmd']);
+    $data["ai_cmd"] = in_array($cmd, ['F', 'B', 'L', 'R', 'S'], true) ? $cmd : 'S';
 }
 
 if (isset($_GET['ai_score'])) {

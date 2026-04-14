@@ -1339,6 +1339,13 @@
         const turn = String(state.ai_turn || "-");
         const brightness = parseStateNumber(state.ai_brightness, 0);
         const edge = parseStateNumber(state.ai_edge, 0);
+        const near = parseStateNumber(state.ai_near, 0);
+        const nearEma = parseStateNumber(state.ai_near_ema, 0);
+        const vClose = parseStateNumber(state.ai_vclose, 0);
+        const predNear = parseStateNumber(state.ai_pred_near, 0);
+        const predRisk = parseStateNumber(state.ai_pred_risk, 0);
+        const hit = parseStateNumber(state.ai_hit, 0);
+        const cmd = String(state.ai_cmd || "S");
         const score = parseStateNumber(state.ai_score, 0);
         const latency = parseStateNumber(state.ai_latency, 0);
 
@@ -1357,9 +1364,22 @@
           edge.toFixed(1) +
           "% score=" +
           score.toFixed(1) +
+          " near=" +
+          near.toFixed(1) +
+          " nearEma=" +
+          nearEma.toFixed(1) +
+          " vClose=" +
+          vClose.toFixed(1) +
+          " predNear=" +
+          predNear.toFixed(1) +
+          " predRisk=" +
+          predRisk.toFixed(1) +
+          " hit=" +
+          Math.round(hit) +
           " latency=" +
           Math.round(latency) +
-          "ms";
+          "ms cmd=" +
+          cmd;
 
         if (obstacle) {
           statusText.textContent = "Safety: Obstacle detected, emergency stop active.";
