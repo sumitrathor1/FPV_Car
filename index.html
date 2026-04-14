@@ -957,6 +957,15 @@
                 <button class="seg-btn mode-toggle-btn" type="button" data-mode="1">HOLD</button>
                 <button class="seg-btn mode-toggle-btn" type="button" data-mode="2">LATCH</button>
               </div>
+              <div class="d-flex justify-content-between align-items-center mt-3 mb-2">
+                <span class="section-label mb-0">AI Assist</span>
+                <span class="badge text-bg-secondary" id="aiStateBadge">AI OFF</span>
+              </div>
+              <div class="segmented-toggle two-option" id="aiSelector">
+                <button class="seg-btn ai-toggle-btn" type="button" data-ai="1">AI ON</button>
+                <button class="seg-btn ai-toggle-btn" type="button" data-ai="0">AI OFF</button>
+              </div>
+              <div id="aiStatus" class="cam-status mt-2">AI Assist OFF.</div>
               <div class="segmented-toggle two-option" id="themeSelector">
                 <button class="seg-btn theme-toggle-btn" type="button" data-theme="dpad">D-Pad</button>
                 <button class="seg-btn theme-toggle-btn" type="button" data-theme="split">Split</button>
@@ -1119,6 +1128,8 @@
       const recordingBadgeInline = document.getElementById(
         "recordingBadgeInline",
       );
+      const aiStateBadge = document.getElementById("aiStateBadge");
+      const aiStatus = document.getElementById("aiStatus");
       const camOnBtn = document.getElementById("camOnBtn");
       const camOffBtn = document.getElementById("camOffBtn");
       const recStartBtn = document.getElementById("recStartBtn");
@@ -1272,6 +1283,31 @@
       function setCameraPowerState(isOn) {
         camOnBtn.classList.toggle("active-seg", isOn);
         camOffBtn.classList.toggle("active-seg", !isOn);
+      }
+
+      function setAiState(isOn) {
+        aiStateBadge.textContent = isOn ? "AI ON" : "AI OFF";
+        aiStatus.textContent = isOn
+          ? "AI Assist ON. Server worker can auto-drive from camera frames."
+          : "AI Assist OFF. Manual control is active.";
+        document
+          .querySelectorAll(".ai-toggle-btn")
+          .forEach((btn) => btn.classList.remove("active-seg"));
+        document
+          .querySelectorAll(`.ai-toggle-btn[data-ai="${isOn ? 1 : 0}"]`)
+          .forEach((btn) => btn.classList.add("active-seg"));
+      }
+
+      function syncAiMode(isOn) {
+        localStorage.setItem("esp32_ai_mode", isOn ? "1" : "0");
+        return fireAndForget(controlBaseUrl + "/set.php?ai=" + (isOn ? 1 : 0));
+      }
+
+      function toggleAiMode(isOn) {
+        setAiState(isOn);
+        syncAiMode(isOn).catch(() => {
+          aiStatus.textContent = "AI mode request sent (network response blocked).";
+        });
       }
 
       function updateRecordingControls() {
@@ -1804,6 +1840,14 @@
         });
       }
 
+      function bindAiSelector() {
+        document.querySelectorAll(".ai-toggle-btn").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            toggleAiMode(btn.dataset.ai === "1");
+          });
+        });
+      }
+
       function setMode(m) {
         stopAllMotion(true);
         controlMode = m;
@@ -1843,6 +1887,7 @@
         const savedMode = localStorage.getItem("esp32_drive_mode");
         const savedTheme =
           localStorage.getItem("esp32_control_theme") || "dpad";
+        const savedAi = localStorage.getItem("esp32_ai_mode") === "1";
 
         controlMode = savedMode === "2" ? 2 : savedMode === "1" ? 1 : 0;
         showFramePlaceholder(
@@ -1850,6 +1895,7 @@
           "Switch Camera Power to ON to start live snapshots.",
         );
         setCameraPowerState(false);
+        setAiState(savedAi);
         setRecordingState(false);
         updateRecordingControls();
         setActiveMode(controlMode);
@@ -1900,6 +1946,12 @@
         });
         if (snapshotToolsCollapse && window.innerWidth >= 992) {
           snapshotToolsCollapse.classList.add("show");
+        }
+
+        bindAiSelector();
+
+        if (savedAi) {
+          syncAiMode(true);
         }
 
         if (controlMode === 0) {

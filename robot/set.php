@@ -14,6 +14,7 @@ $data = [
     "cmd" => "S",
     "mode" => "0",
     "cam" => "1",
+    "ai" => "0",
     "fs" => "200",
     "bs" => "200"
 ];
@@ -45,6 +46,10 @@ if (isset($_GET['mode'])) {
 
 if (isset($_GET['cam'])) {
     $data["cam"] = ($_GET['cam'] === "0") ? "0" : "1";
+}
+
+if (isset($_GET['ai'])) {
+    $data["ai"] = ($_GET['ai'] === "1") ? "1" : "0";
 }
 
 if (isset($_GET['fs'])) {
