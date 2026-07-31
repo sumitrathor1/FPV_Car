@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FPV Car Cloud Controller</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #0b0f19; color: #00ff88; font-family: 'Segoe UI', system-ui, sans-serif; text-align: center; overflow-x: hidden; user-select: none; }
+        header { background: #111827; color: #fff; padding: 15px 0; font-size: 22px; font-weight: 700; border-bottom: 2px solid #00ff88; letter-spacing: 1px; }
+        .main-container { max-width: 700px; margin: 15px auto; padding: 0 10px; }
+        .video-box { position: relative; width: 100%; border: 2px solid #00ff88; border-radius: 12px; overflow: hidden; background: #000; box-shadow: 0 0 20px rgba(0,255,136,0.25); min-height: 250px; display: flex; align-items: center; justify-content: center; }
+        .video-box img { width: 100%; height: auto; display: block; object-fit: contain; }
+        .controls { margin-top: 20px; display: flex; flex-direction: column; align-items: center; }
+        .row { display: flex; justify-content: center; margin: 5px 0; }
+        .btn { background: #1f2937; color: #fff; border: 2px solid #374151; width: 75px; height: 75px; margin: 6px; font-size: 22px; font-weight: bold; border-radius: 16px; cursor: pointer; touch-action: manipulation; transition: 0.1s ease; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .btn:active { background: #00ff88; color: #000; border-color: #00ff88; transform: scale(0.92); }
+        .btn-stop { background: #ef4444; border-color: #dc2626; width: 85px; }
+        .btn-stop:active { background: #f87171; color: white; }
+        .status-bar { margin-top: 15px; font-size: 14px; color: #9ca3af; background: #111827; padding: 10px; border-radius: 8px; border: 1px solid #1f2937; }
+    </style>
+</head>
+<body>
+
+<header>🏎️ FPV CAR CLOUD CONTROLLER</header>
+
+<div class="main-container">
+    <div class="video-box">
+        <img id="stream" src="cam/latest.jpg" alt="Waiting for camera stream..." onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'><text x=\'10\' y=\'50\' fill=\'%2300ff88\'>NO STREAM</text></svg>'">
+    </div>
+
+    <div class="controls">
+        <div class="row">
+            <button class="btn" onmousedown="sendCmd('F')" onmouseup="sendCmd('S')" ontouchstart="sendCmd('F')" ontouchend="sendCmd('S')">▲<br><small style="font-size:11px">W</small></button>
+        </div>
+        <div class="row">
+            <button class="btn" onmousedown="sendCmd('L')" onmouseup="sendCmd('S')" ontouchstart="sendCmd('L')" ontouchend="sendCmd('S')">◀<br><small style="font-size:11px">A</small></button>
+            <button class="btn btn-stop" onclick="sendCmd('S')">STOP</button>
+            <button class="btn" onmousedown="sendCmd('R')" onmouseup="sendCmd('S')" ontouchstart="sendCmd('R')" ontouchend="sendCmd('S')">▶<br><small style="font-size:11px">D</small></button>
+        </div>
+        <div class="row">
+            <button class="btn" onmousedown="sendCmd('B')" onmouseup="sendCmd('S')" ontouchstart="sendCmd('B')" ontouchend="sendCmd('S')">▼<br><small style="font-size:11px">S</small></button>
+        </div>
+    </div>
+
+    <div class="status-bar" id="status">Status: Ready | Use W-A-S-D or On-Screen Buttons</div>
+</div>
+
+<script>
+    let currentCmd = 'S';
+
+    function sendCmd(cmd) {
+        if (currentCmd === cmd && cmd !== 'S') return;
+        currentCmd = cmd;
+        fetch('set.php?cmd=' + cmd)
+            .then(res => res.text())
+            .then(() => {
+                document.getElementById('status').innerText = 'Current Command: ' + cmd;
+            })
+            .catch(err => console.error(err));
+    }
+
+    // Refresh Camera Feed (Every 100ms)
+    setInterval(() => {
+        const img = document.getElementById('stream');
+        img.src = 'cam/latest.jpg?t=' + new Date().getTime();
+    }, 100);
+
+    // Keyboard Listeners
+    document.addEventListener('keydown', (e) => {
+        if (e.repeat) return;
+        const key = e.key.toLowerCase();
+        if (key === 'w') sendCmd('F');
+        else if (key === 's') sendCmd('B');
+        else if (key === 'a') sendCmd('L');
+        else if (key === 'd') sendCmd('R');
+        else if (key === ' ') sendCmd('S');
+    });
+
+    document.addEventListener('keyup', (e) => {
+        const key = e.key.toLowerCase();
+        if (['w', 's', 'a', 'd'].includes(key)) {
+            sendCmd('S');
+        }
+    });
+</script>
+</body>
+</html>
