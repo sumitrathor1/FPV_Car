@@ -1,11 +1,12 @@
 /*************************************************
  * FPV Car - Advanced ESP32-CAM Firmware
  * Features:
- * - Ultra-low latency 30ms polling from Azure Cloud PHP Server
- * - Dynamic Forward & Backward speed transmission (FSP / BSP)
- * - Camera power management (cam 1 / 0)
+ * - Hardware Camera Power Off (De-init sensor & GPIO PWDN power down)
+ * - Zero CPU/Network load when camera is OFF (No capture, No uploads)
+ * - Flash LED Light Control (GPIO 4 Headlight ON/OFF)
+ * - Low latency 30ms polling from Azure Cloud PHP Server
+ * - Dynamic Forward & Backward speed transmission (FSP / BSP) to UNO
  * - High-speed JPEG video streaming upload (110ms interval)
- * - Serial communications with Arduino UNO at 115200 Baud
  *************************************************/
 
 #include "esp_camera.h"
@@ -13,7 +14,7 @@
 #include <HTTPClient.h>
 
 // ======================================================
-// WiFi Credentials (Apna WiFi SSID & Password)
+// WiFi Credentials
 // ======================================================
 const char* ssid     = "sumit";
 const char* password = "12345678";
@@ -32,6 +33,7 @@ uint32_t lastUploadAt  = 0;
 char lastCmd = 'X';
 bool cameraPowerOn = false;
 bool cameraReady   = false;
+bool flashState    = false;
 int lastForwardSpeed  = 255;
 int lastBackwardSpeed = 255;
 
@@ -55,6 +57,8 @@ int lastBackwardSpeed = 255;
 #define HREF_GPIO_NUM     23
 #define PCLK_GPIO_NUM     22
 
+#define FLASH_LED_PIN      4
+
 // ======================================================
 // JSON Helper Functions
 // ======================================================
@@ -76,6 +80,14 @@ bool parseJsonCamPower(const String& payload) {
   return payload.charAt(valuePos) == '1';
 }
 
+bool parseJsonFlashLight(const String& payload) {
+  int keyPos = payload.indexOf("\"flash\":\"");
+  if (keyPos == -1) return false;
+  int valuePos = keyPos + 9;
+  if (valuePos >= payload.length()) return false;
+  return payload.charAt(valuePos) == '1';
+}
+
 int parseJsonSpeed(const String& payload, const char* key, int fallback) {
   String token = String("\"") + key + "\":\"";
   int keyPos = payload.indexOf(token);
@@ -88,7 +100,7 @@ int parseJsonSpeed(const String& payload, const char* key, int fallback) {
 }
 
 // ======================================================
-// Camera Management
+// Hardware Camera Power Management (Zero CPU/Load when OFF)
 // ======================================================
 void startCamera() {
   camera_config_t config;
@@ -129,29 +141,33 @@ void setCameraHardwarePower(bool on) {
     if (!cameraReady) startCamera();
     if (cameraReady) {
       pinMode(PWDN_GPIO_NUM, OUTPUT);
-      digitalWrite(PWDN_GPIO_NUM, LOW);
+      digitalWrite(PWDN_GPIO_NUM, LOW); // LOW powers ON camera chip
       cameraPowerOn = true;
     }
     return;
   }
 
+  // Complete Hardware De-initialization & Sensor Power Cutoff
   cameraPowerOn = false;
   if (cameraReady) {
     esp_camera_deinit();
     cameraReady = false;
   }
   pinMode(PWDN_GPIO_NUM, OUTPUT);
-  digitalWrite(PWDN_GPIO_NUM, HIGH);
+  digitalWrite(PWDN_GPIO_NUM, HIGH); // HIGH powers down camera sensor chip
 }
 
 // ======================================================
 // Setup
 // ======================================================
 void setup() {
-  // Serial to Arduino UNO at 115200
   Serial.begin(115200);
 
-  WiFi.setSleep(false); // Disables WiFi power saving for ultra-low latency
+  // Flash LED Light Setup
+  pinMode(FLASH_LED_PIN, OUTPUT);
+  digitalWrite(FLASH_LED_PIN, LOW); // Flash OFF initially
+
+  WiFi.setSleep(false); // Disables WiFi power save for ultra-low latency
   WiFi.begin(ssid, password);
 
   while (WiFi.status() != WL_CONNECTED) {
@@ -173,7 +189,7 @@ void loop() {
 
   uint32_t now = millis();
 
-  // 1. Poll Server for Motor Commands & Speeds (Every 30ms)
+  // 1. Poll Server for Commands, Speeds & Flash Light (Every 30ms)
   if (now - lastControlAt >= CONTROL_INTERVAL_MS) {
     lastControlAt = now;
 
@@ -188,13 +204,22 @@ void loop() {
 
       char cmd = parseJsonCommand(res);
       bool shouldCamBeOn = parseJsonCamPower(res);
+      bool shouldFlashBeOn = parseJsonFlashLight(res);
       int desiredFs = parseJsonSpeed(res, "fs", lastForwardSpeed);
       int desiredBs = parseJsonSpeed(res, "bs", lastBackwardSpeed);
 
+      // Hardware Camera Power Toggle
       if (shouldCamBeOn != cameraPowerOn) {
         setCameraHardwarePower(shouldCamBeOn);
       }
 
+      // Flash Light Toggle
+      if (shouldFlashBeOn != flashState) {
+        flashState = shouldFlashBeOn;
+        digitalWrite(FLASH_LED_PIN, flashState ? HIGH : LOW);
+      }
+
+      // Motor Speed Sync
       if (desiredFs != lastForwardSpeed) {
         Serial.print("FSP:");
         Serial.println(desiredFs);
@@ -207,7 +232,7 @@ void loop() {
         lastBackwardSpeed = desiredBs;
       }
 
-      // Send direction command byte to Arduino UNO
+      // Direction Command to Arduino UNO
       Serial.println(cmd);
       lastCmd = cmd;
     }
@@ -215,7 +240,7 @@ void loop() {
     http.end();
   }
 
-  // 2. Upload Camera Frames to Server (Every 110ms)
+  // 2. Upload Camera Frames (ONLY IF CAMERA POWER IS ON & SENSOR READY)
   if (cameraPowerOn && cameraReady && (now - lastUploadAt >= UPLOAD_INTERVAL_MS)) {
     lastUploadAt = now;
 

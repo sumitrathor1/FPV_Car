@@ -14,6 +14,7 @@ $data = [
     "cmd" => "S",
     "mode" => "0",
     "cam" => "1",
+    "flash" => "0",
     "ai" => "0",
     "ai_obstacle" => "0",
     "ai_action" => "IDLE",
@@ -58,6 +59,10 @@ if (isset($_GET['mode'])) {
 
 if (isset($_GET['cam'])) {
     $data["cam"] = ($_GET['cam'] === "0") ? "0" : "1";
+}
+
+if (isset($_GET['flash'])) {
+    $data["flash"] = ($_GET['flash'] === "1") ? "1" : "0";
 }
 
 if (isset($_GET['ai'])) {

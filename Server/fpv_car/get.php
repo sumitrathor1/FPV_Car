@@ -17,6 +17,7 @@ $default = [
     "cmd" => "S",
     "mode" => "0",
     "cam" => "1",
+    "flash" => "0",
     "ai" => "0",
     "ai_obstacle" => "0",
     "ai_action" => "IDLE",

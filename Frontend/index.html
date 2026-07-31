@@ -426,17 +426,6 @@
         gap: 0.35rem;
       }
 
-      .gallery-action-btn {
-        border: 1px solid rgba(255, 255, 255, 0.22);
-        border-radius: 999px;
-        min-height: 30px;
-        padding: 0.2rem 0.65rem;
-        font-size: 0.72rem;
-        font-weight: 700;
-        color: #eaf7ff;
-        background: rgba(255, 255, 255, 0.08);
-      }
-
       .playback-panel {
         margin-top: 0.85rem;
         padding: 0.85rem;
@@ -596,7 +585,7 @@
             </span>
             <h1 class="hero-title brand-font mb-2">FPV Car Command Center</h1>
             <p class="hero-sub compact-sub mb-0">
-              Real-time video stream, instant direction controls, and PWM speed management.
+              Real-time video stream, instant direction controls, PWM speed management, & Headlight Flash Control.
             </p>
           </div>
           <div class="text-md-end">
@@ -618,8 +607,8 @@
               <img id="liveCam" src="" alt="FPV live stream" width="100%" style="border-radius: 10px" />
               <div id="livePlaceholder" class="live-placeholder">
                 <div>
-                  <h4>Camera is OFF</h4>
-                  <p>Switch Camera Power to ON to start live snapshots.</p>
+                  <h4>Camera is OFF (Hardware Powered Down)</h4>
+                  <p>Zero CPU/RAM load. Switch Camera Power to ON to start live stream.</p>
                 </div>
               </div>
             </div>
@@ -728,8 +717,8 @@
           <div class="glass-card compact-card p-3 p-md-4 h-100">
             <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
               <div>
-                <h2 class="h4 brand-font mb-1">Snapshot Controls</h2>
-                <p class="muted-note mb-0">Camera node, recording controls, and playback.</p>
+                <h2 class="h4 brand-font mb-1">Snapshot & Flash Controls</h2>
+                <p class="muted-note mb-0">Camera power, LED Headlight, recording controls, and playback.</p>
               </div>
               <span class="recording-badge" id="recordingBadge"><span class="dot"></span>REC</span>
             </div>
@@ -739,16 +728,23 @@
                 <div class="snapshot-grid mt-1">
                   <div class="snapshot-controls-col">
                     <div class="row g-2">
-                      <div class="col-12">
-                        <span class="cam-switch-label">Camera Power</span>
+                      <div class="col-6">
+                        <span class="cam-switch-label">Camera Hardware Power</span>
                         <div class="segmented-toggle two-option">
                           <button id="camOnBtn" class="seg-btn" type="button" onclick="camOn()">ON</button>
                           <button id="camOffBtn" class="seg-btn" type="button" onclick="camOff()">OFF</button>
                         </div>
                       </div>
-                      <div class="col-12">
+                      <div class="col-6">
+                        <span class="cam-switch-label">Flash Light (Headlight)</span>
+                        <div class="segmented-toggle two-option">
+                          <button id="flashOnBtn" class="seg-btn" type="button" onclick="flashOn()">🔦 ON</button>
+                          <button id="flashOffBtn" class="seg-btn active-seg" type="button" onclick="flashOff()">OFF</button>
+                        </div>
+                      </div>
+                      <div class="col-12 mt-2">
                         <div class="d-flex align-items-center justify-content-between mb-1">
-                          <span class="cam-switch-label mb-0">Recording</span>
+                          <span class="cam-switch-label mb-0">Session Recording</span>
                           <span class="recording-badge" id="recordingBadgeInline"><span class="dot"></span>REC</span>
                         </div>
                         <div class="segmented-toggle two-option">
@@ -759,7 +755,7 @@
                       </div>
                     </div>
 
-                    <div id="camStatus" class="cam-status mt-2">Camera is OFF.</div>
+                    <div id="camStatus" class="cam-status mt-2">Camera is OFF. Flash Light OFF.</div>
 
                     <div class="d-flex flex-wrap gap-2 mt-2 align-items-center">
                       <button class="btn btn-info btn-sm" onclick="loadGallery()">Load Gallery</button>
@@ -856,6 +852,8 @@
       const aiStatus = document.getElementById("aiStatus");
       const camOnBtn = document.getElementById("camOnBtn");
       const camOffBtn = document.getElementById("camOffBtn");
+      const flashOnBtn = document.getElementById("flashOnBtn");
+      const flashOffBtn = document.getElementById("flashOffBtn");
       const recStartBtn = document.getElementById("recStartBtn");
       const recStopBtn = document.getElementById("recStopBtn");
       const recordingDurationEl = document.getElementById("recordingDuration");
@@ -874,6 +872,7 @@
       let lastSentCommand = "X";
       let lastCommandAt = 0;
       let camActive = false;
+      let flashActive = false;
       let isRecording = false;
       let recordingStartTime = null;
       let durationInterval = null;
@@ -919,6 +918,24 @@
         camOffBtn.classList.toggle("active-seg", !isOn);
       }
 
+      function setFlashState(isOn) {
+        flashActive = isOn;
+        flashOnBtn.classList.toggle("active-seg", isOn);
+        flashOffBtn.classList.toggle("active-seg", !isOn);
+      }
+
+      function flashOn() {
+        setFlashState(true);
+        setCamStatus("Flash Light ON");
+        fireAndForget(controlBaseUrl + "/set.php?flash=1");
+      }
+
+      function flashOff() {
+        setFlashState(false);
+        setCamStatus("Flash Light OFF");
+        fireAndForget(controlBaseUrl + "/set.php?flash=0");
+      }
+
       function setAiState(isOn) {
         aiEnabled = isOn;
         aiStateBadge.textContent = isOn ? "AI ON" : "AI OFF";
@@ -940,6 +957,8 @@
         const action = String(state.ai_action || "IDLE");
 
         setAiState(aiOn);
+        setFlashState(state.flash === "1");
+
         aiObstacleBadge.classList.toggle("text-bg-danger", obstacle);
         aiObstacleBadge.classList.toggle("text-bg-success", !obstacle);
         aiObstacleBadge.textContent = obstacle ? "Obstacle: YES" : "Obstacle: NO";
@@ -972,7 +991,7 @@
         camActive = true;
         setCameraPowerState(true);
         livePlaceholder.classList.remove("show");
-        setCamStatus("Camera ON");
+        setCamStatus("Camera Hardware Power ON");
         fireAndForget(controlBaseUrl + "/set.php?cam=1");
         updateCam();
       }
@@ -981,9 +1000,9 @@
         camActive = false;
         clearTimeout(camTimer);
         setCameraPowerState(false);
-        setCamStatus("Camera OFF");
+        setCamStatus("Camera Hardware Power OFF (Zero CPU/Network load)");
         fireAndForget(controlBaseUrl + "/set.php?cam=0");
-        showFramePlaceholder("Camera is OFF", "Switch Camera Power to ON to start live stream.");
+        showFramePlaceholder("Camera is OFF (Hardware De-initialized)", "Switch Camera Power to ON to power sensor and start live stream.");
       }
 
       function updateCam() {
