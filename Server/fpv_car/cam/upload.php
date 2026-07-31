@@ -11,5 +11,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 $baseDir = __DIR__;
 $data = file_get_contents("php://input");
 
-file_put_contents("$baseDir/latest.jpg", $data);
+if ($data && strlen($data) > 0) {
+    file_put_contents("$baseDir/latest.jpg", $data);
+
+    $recordFile = "$baseDir/record.txt";
+    if (file_exists($recordFile)) {
+        $folder = trim(file_get_contents($recordFile));
+        if ($folder !== "" && $folder !== "0") {
+            $folderPath = "$baseDir/$folder";
+            if (!is_dir($folderPath)) {
+                mkdir($folderPath, 0755, true);
+            }
+            $timestamp = time() . "_" . microtime(true);
+            file_put_contents("$folderPath/$timestamp.jpg", $data);
+        }
+    }
+}
+
 echo "OK";

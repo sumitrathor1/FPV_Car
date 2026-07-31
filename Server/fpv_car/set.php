@@ -14,6 +14,22 @@ $data = [
     "cmd" => "S",
     "mode" => "0",
     "cam" => "1",
+    "ai" => "0",
+    "ai_obstacle" => "0",
+    "ai_action" => "IDLE",
+    "ai_turn" => "-",
+    "ai_brightness" => "0.0",
+    "ai_edge" => "0.0",
+    "ai_near" => "0.0",
+    "ai_near_ema" => "0.0",
+    "ai_vclose" => "0.0",
+    "ai_pred_near" => "0.0",
+    "ai_pred_risk" => "0.0",
+    "ai_hit" => "0",
+    "ai_cmd" => "S",
+    "ai_score" => "0.0",
+    "ai_latency" => "0",
+    "ai_worker" => "0",
     "fs" => "255",
     "bs" => "255"
 ];
@@ -31,6 +47,31 @@ if (isset($_GET['cmd'])) {
     if (in_array($_GET['cmd'], $allowed, true)) {
         $data["cmd"] = $_GET['cmd'];
     }
+}
+
+if (isset($_GET['mode'])) {
+    $mode = (string)$_GET['mode'];
+    if (in_array($mode, ['0', '1', '2'], true)) {
+        $data["mode"] = $mode;
+    }
+}
+
+if (isset($_GET['cam'])) {
+    $data["cam"] = ($_GET['cam'] === "0") ? "0" : "1";
+}
+
+if (isset($_GET['ai'])) {
+    $data["ai"] = ($_GET['ai'] === "1") ? "1" : "0";
+}
+
+if (isset($_GET['fs'])) {
+    $fs = max(0, min(255, (int)$_GET['fs']));
+    $data["fs"] = (string)$fs;
+}
+
+if (isset($_GET['bs'])) {
+    $bs = max(0, min(255, (int)$_GET['bs']));
+    $data["bs"] = (string)$bs;
 }
 
 file_put_contents($file, json_encode($data), LOCK_EX);

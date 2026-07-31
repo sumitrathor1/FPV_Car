@@ -426,6 +426,17 @@
         gap: 0.35rem;
       }
 
+      .gallery-action-btn {
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        border-radius: 999px;
+        min-height: 30px;
+        padding: 0.2rem 0.65rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #eaf7ff;
+        background: rgba(255, 255, 255, 0.08);
+      }
+
       .playback-panel {
         margin-top: 0.85rem;
         padding: 0.85rem;
@@ -852,12 +863,10 @@
       const stopButton = stopButtons[0];
       const modeHint = document.getElementById("modeHint");
 
-      // Relative path when hosted on server, fallback to full Azure URL
-      const SERVER_URL = (window.location.protocol === "http:" || window.location.protocol === "https:")
-        ? window.location.origin + (window.location.pathname.includes("/fpv_car") ? "/fpv_car" : "")
-        : "http://20.244.113.234/fpv_car";
-      const controlBaseUrl = SERVER_URL.endsWith("/fpv_car") ? SERVER_URL : "http://20.244.113.234/fpv_car";
-      const camBaseUrl = controlBaseUrl + "/cam";
+      // Auto-detect Server endpoints
+      const SERVER_URL = "http://20.244.113.234/fpv_car";
+      const controlBaseUrl = SERVER_URL;
+      const camBaseUrl = SERVER_URL + "/cam";
 
       let controlMode = 0;
       let heldCommand = null;
