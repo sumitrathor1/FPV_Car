@@ -2,18 +2,17 @@
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
+header("Content-Type: application/json");
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(204);
-    exit;
-}
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 
 $baseDir = __DIR__;
 $folders = [];
 
-foreach (scandir($baseDir) as $item) {
-    if ($item !== "." && $item !== ".." && is_dir("$baseDir/$item") && strpos($item, "rec_") === 0) {
-        $folders[] = $item;
+$items = glob("$baseDir/rec_*", GLOB_ONLYDIR);
+if ($items) {
+    foreach ($items as $item) {
+        $folders[] = basename($item);
     }
 }
 

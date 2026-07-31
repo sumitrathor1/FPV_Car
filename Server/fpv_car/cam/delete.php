@@ -3,28 +3,29 @@ header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(204);
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
+
+$folder = isset($_GET['folder']) ? basename($_GET['folder']) : '';
+if (empty($folder) || strpos($folder, '..') !== false) {
+    http_response_code(400);
+    echo json_encode("Invalid folder");
     exit;
 }
 
 $baseDir = __DIR__;
-$folder = isset($_GET['folder']) ? basename($_GET['folder']) : '';
 $folderPath = "$baseDir/$folder";
 
-function deleteDirectory($dir) {
-    if (!file_exists($dir)) return true;
-    if (!is_dir($dir)) return unlink($dir);
-    foreach (scandir($dir) as $item) {
-        if ($item == '.' || $item == '..') continue;
-        if (!deleteDirectory($dir . DIRECTORY_SEPARATOR . $item)) return false;
+if (is_dir($folderPath)) {
+    $files = glob("$folderPath/*");
+    foreach ($files as $file) {
+        if (is_file($file)) unlink($file);
     }
-    return rmdir($dir);
+    rmdir($folderPath);
 }
 
-if ($folder !== '' && strpos($folder, 'rec_') === 0 && is_dir($folderPath)) {
-    deleteDirectory($folderPath);
-    echo json_encode(["status" => "success"]);
-} else {
-    echo json_encode(["status" => "error", "message" => "Invalid folder"]);
+$mp4File = "$baseDir/{$folder}.mp4";
+if (file_exists($mp4File)) {
+    unlink($mp4File);
 }
+
+echo "OK";
