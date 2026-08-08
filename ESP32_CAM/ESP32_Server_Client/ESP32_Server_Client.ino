@@ -16,8 +16,8 @@
 // ======================================================
 // WiFi Credentials
 // ======================================================
-const char* ssid     = "sumit";
-const char* password = "12345678";
+const char* ssid     = "Divyansh";
+const char* password = "11111112";
 
 // ======================================================
 // Azure Cloud PHP Server Endpoints

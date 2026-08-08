@@ -79,5 +79,18 @@ if (isset($_GET['bs'])) {
     $data["bs"] = (string)$bs;
 }
 
+// AI telemetry fields (written by the AI vision bot)
+$ai_keys = [
+    "ai_worker", "ai_obstacle", "ai_action", "ai_turn",
+    "ai_brightness", "ai_edge", "ai_near", "ai_near_ema",
+    "ai_vclose", "ai_pred_near", "ai_pred_risk", "ai_hit",
+    "ai_cmd", "ai_score", "ai_latency"
+];
+foreach ($ai_keys as $key) {
+    if (isset($_GET[$key])) {
+        $data[$key] = (string)$_GET[$key];
+    }
+}
+
 file_put_contents($file, json_encode($data), LOCK_EX);
 echo "OK";
