@@ -8,8 +8,8 @@
 //======================================================
 // WiFi Credentials (Apna WiFi SSID aur Password yahan daalein)
 //======================================================
-const char* ssid     = "YOUR_WIFI_SSID";
-const char* password = "YOUR_WIFI_PASSWORD";
+const char* ssid     = "sumit";
+const char* password = "12345678";
 
 //======================================================
 // ESP32-CAM AI-Thinker Pin Definitions
