@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AIML Object Detector</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+  </head>
+  <body>
+    <div class="page-bg"></div>
+    <main class="app">
+      <header class="hero">
+        <p class="tag">Simple AIML Project</p>
+        <h1>Upload a photo or video and detect objects instantly</h1>
+        <p class="subtitle">
+          This app runs object detection directly in your browser using a pre-trained AI model.
+        </p>
+      </header>
+
+      <section class="panel upload-panel">
+        <label for="fileInput" class="upload-btn">Choose Image or Video</label>
+        <input id="fileInput" type="file" accept="image/*,video/*" />
+        <p id="fileInfo" class="file-info">No file selected</p>
+      </section>
+
+      <section class="panel viewer-panel">
+        <div id="viewer" class="viewer">
+          <video id="video" class="media hidden" controls playsinline></video>
+          <img id="image" class="media hidden" alt="Preview" />
+          <canvas id="overlay"></canvas>
+        </div>
+      </section>
+
+      <section class="panel results-panel">
+        <div class="result-grid">
+          <article class="metric">
+            <h3>Model Status</h3>
+            <p id="modelStatus">Loading model...</p>
+          </article>
+          <article class="metric">
+            <h3>Object Present</h3>
+            <p id="objectPresent">-</p>
+          </article>
+          <article class="metric">
+            <h3>Total Objects</h3>
+            <p id="totalObjects">0</p>
+          </article>
+          <article class="metric">
+            <h3>Top Match</h3>
+            <p id="topMatch">-</p>
+          </article>
+        </div>
+        <div>
+          <h3>Detected Labels</h3>
+          <ul id="labels" class="labels-list"></ul>
+        </div>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
