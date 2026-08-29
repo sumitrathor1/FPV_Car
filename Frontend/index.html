@@ -892,7 +892,8 @@
                   <button class="playback-control-btn" onclick="stepFrame(-1)">⏮</button>
                   <button class="playback-control-btn" id="playPauseBtn" onclick="togglePlaybackPlay()">▶ PLAY</button>
                   <button class="playback-control-btn" onclick="stepFrame(1)">⏭</button>
-                  <button class="btn btn-outline-success btn-sm ms-auto py-1 px-2" id="downloadSessionBtn" onclick="downloadCurrentSession()" style="font-size: 0.75rem; display:none;">📥 Download ZIP</button>
+                  <button class="btn btn-outline-success btn-sm ms-auto py-1 px-2" id="downloadSessionBtn" onclick="downloadCurrentSession()" style="font-size: 0.75rem; display:none;">📥 Download</button>
+                  <button class="btn btn-outline-danger btn-sm py-1 px-2" id="deleteSessionBtn" onclick="deleteCurrentSession()" style="font-size: 0.75rem; display:none;">🗑️ Delete</button>
                 </div>
               </div>
             </div>
@@ -1206,10 +1207,12 @@
 
             folderListEl.innerHTML = "";
             folders.forEach((folder) => {
-              const btn = document.createElement("button");
+              const btn = document.createElement("div");
               btn.className = `folder-item-btn ${folder === selectedFolder ? 'active' : ''}`;
-              btn.innerHTML = `<span>📁 ${folder}</span><small class="text-info">Select →</small>`;
-              btn.onclick = () => loadFolderFrames(folder);
+              btn.innerHTML = `
+                <span style="flex:1; cursor:pointer;" onclick="loadFolderFrames('${folder}')">📁 ${folder}</span>
+                <button class="btn btn-link text-danger p-0 ms-2" style="font-size:0.85rem; text-decoration:none;" title="Delete Session" onclick="event.stopPropagation(); deleteRecordingSession('${folder}')">🗑️</button>
+              `;
               folderListEl.appendChild(btn);
             });
           })
@@ -1247,6 +1250,7 @@
             seekEl.value = "0";
 
             document.getElementById("downloadSessionBtn").style.display = "inline-block";
+            document.getElementById("deleteSessionBtn").style.display = "inline-block";
             renderCurrentFrame();
           })
           .catch(() => {
@@ -1303,6 +1307,35 @@
       function downloadCurrentSession() {
         if (!selectedFolder) return;
         window.open(`${camBaseUrl}/download_recording.php?folder=${encodeURIComponent(selectedFolder)}&type=zip`, '_blank');
+      }
+
+      function deleteCurrentSession() {
+        if (!selectedFolder) return;
+        deleteRecordingSession(selectedFolder);
+      }
+
+      function deleteRecordingSession(folderName) {
+        if (!confirm(`Are you sure you want to delete session "${folderName}"?`)) return;
+
+        fetch(`${camBaseUrl}/delete.php?folder=${encodeURIComponent(folderName)}`)
+          .then(() => {
+            if (selectedFolder === folderName) {
+              selectedFolder = "";
+              playbackFrames = [];
+              stopPlaybackTimer();
+              document.getElementById("playbackImg").style.display = "none";
+              document.getElementById("playbackPlaceholder").textContent = "Session deleted. Select another session.";
+              document.getElementById("playbackPlaceholder").style.display = "block";
+              document.getElementById("selectedSessionTitle").textContent = "No Session Selected";
+              document.getElementById("playbackCounterBadge").textContent = "0 / 0";
+              document.getElementById("downloadSessionBtn").style.display = "none";
+              document.getElementById("deleteSessionBtn").style.display = "none";
+            }
+            fetchRecordingList();
+          })
+          .catch(() => {
+            alert("Failed to delete recording.");
+          });
       }
 
       // Initialize on load
