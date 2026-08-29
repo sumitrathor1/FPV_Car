@@ -431,26 +431,46 @@
         box-shadow: 0 0 10px rgba(0, 229, 255, 0.6);
       }
 
-      /* AI & Telemetry Strip */
+      /* AI & Telemetry Strip - Single Row Horizontal Scroll/Slider */
       .telemetry-strip {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 0.4rem;
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        gap: 0.45rem;
         margin-top: 0.75rem;
+        padding-bottom: 4px;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(0, 229, 255, 0.3) transparent;
+      }
+
+      .telemetry-strip::-webkit-scrollbar {
+        height: 3px;
+      }
+
+      .telemetry-strip::-webkit-scrollbar-thumb {
+        background: rgba(0, 229, 255, 0.3);
+        border-radius: 3px;
       }
 
       .tele-item {
+        flex: 1 0 78px;
+        min-width: 78px;
         background: rgba(15, 23, 42, 0.7);
         border: 1px solid var(--card-border);
         border-radius: 8px;
-        padding: 0.35rem 0.5rem;
+        padding: 0.35rem 0.45rem;
         text-align: center;
+        white-space: nowrap;
       }
 
       .tele-label {
-        font-size: 0.65rem;
+        font-size: 0.62rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
         color: var(--text-secondary);
         display: block;
+        white-space: nowrap;
       }
 
       .tele-val {
@@ -458,6 +478,7 @@
         font-weight: 700;
         font-size: 0.8rem;
         color: #f1f5f9;
+        white-space: nowrap;
       }
 
       /* Compact Status Bar */
