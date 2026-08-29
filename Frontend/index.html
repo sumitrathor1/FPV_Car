@@ -18,6 +18,7 @@
         --accent-cyan: #00e5ff;
         --accent-emerald: #10b981;
         --accent-amber: #f59e0b;
+        --accent-purple: #a855f7;
         --accent-rose: #f43f5e;
         --text-primary: #f8fafc;
         --text-secondary: #94a3b8;
@@ -41,7 +42,6 @@
         overflow-x: hidden;
       }
 
-      /* Glow background effect */
       body::before {
         content: '';
         position: fixed;
@@ -68,7 +68,7 @@
         }
       }
 
-      /* Top Navbar Bar */
+      /* Top Navbar */
       .top-navbar {
         display: flex;
         justify-content: space-between;
@@ -124,7 +124,7 @@
         50% { opacity: 0.4; transform: scale(0.85); }
       }
 
-      /* Glass Panels */
+      /* Remote Cards */
       .remote-card {
         background: var(--card-bg);
         border: 1px solid var(--card-border);
@@ -194,7 +194,7 @@
         display: flex;
       }
 
-      /* Quick Action Bar Under Video */
+      /* Quick Actions */
       .quick-actions-bar {
         display: flex;
         flex-wrap: wrap;
@@ -252,7 +252,7 @@
         border: 1px solid var(--card-border);
         padding: 3px;
         border-radius: 12px;
-        margin-bottom: 1rem;
+        margin-bottom: 1.25rem;
       }
 
       .mode-capsule-btn {
@@ -267,57 +267,77 @@
         transition: all 0.2s ease;
       }
 
-      .mode-capsule-btn.active {
+      .mode-capsule-btn[data-mode="0"].active {
         background: var(--btn-surface);
         color: var(--accent-cyan);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        box-shadow: 0 0 12px rgba(0, 229, 255, 0.3);
+      }
+
+      .mode-capsule-btn[data-mode="1"].active {
+        background: var(--btn-surface);
+        color: var(--accent-amber);
+        box-shadow: 0 0 12px rgba(245, 158, 11, 0.3);
+      }
+
+      .mode-capsule-btn[data-mode="2"].active {
+        background: var(--btn-surface);
+        color: var(--accent-purple);
+        box-shadow: 0 0 12px rgba(168, 85, 247, 0.3);
       }
 
       /* D-PAD CONTROLLER */
       .dpad-container {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: 0.5rem;
-        max-width: 290px;
-        margin: 0.5rem auto 1rem auto;
+        gap: 0.65rem;
+        max-width: 280px;
+        margin: 0.5rem auto 1.25rem auto;
       }
 
       .dpad-btn {
         aspect-ratio: 1;
         background: #1e293b;
         border: 1px solid #334155;
-        border-radius: 14px;
+        border-radius: 16px;
         color: var(--text-primary);
-        font-size: 1.3rem;
-        font-weight: 800;
+        font-size: 1.7rem;
         display: flex;
-        flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 2px;
         cursor: pointer;
-        transition: transform 0.08s ease, background 0.08s ease, border-color 0.08s ease;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        transition: transform 0.08s ease, background 0.1s ease, border-color 0.1s ease, box-shadow 0.1s ease;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
       }
 
-      .dpad-btn span.label {
-        font-size: 0.68rem;
-        font-weight: 700;
-        letter-spacing: 0.03em;
-        text-transform: uppercase;
-        color: var(--text-secondary);
+      /* MODE 0 (STEP) EFFECT - Electric Cyan Quick Flash */
+      body.mode-step .dpad-btn:active,
+      body.mode-step .dpad-btn.pressed {
+        background: #00e5ff !important;
+        border-color: #00e5ff !important;
+        color: #04121d !important;
+        transform: scale(0.92);
+        box-shadow: 0 0 25px rgba(0, 229, 255, 0.7) !important;
       }
 
-      .dpad-btn:active, .dpad-btn.pressed {
-        background: #00e5ff;
-        border-color: #00e5ff;
-        color: #04121d;
-        transform: scale(0.93);
-        box-shadow: 0 0 20px rgba(0, 229, 255, 0.4);
+      /* MODE 1 (HOLD) EFFECT - Amber Continuous Glow */
+      body.mode-hold .dpad-btn:active,
+      body.mode-hold .dpad-btn.pressed {
+        background: #f59e0b !important;
+        border-color: #f59e0b !important;
+        color: #04121d !important;
+        transform: scale(0.92);
+        box-shadow: 0 0 25px rgba(245, 158, 11, 0.7) !important;
       }
 
-      .dpad-btn:active span.label, .dpad-btn.pressed span.label {
-        color: #04121d;
+      /* MODE 2 (LATCH) EFFECT - Purple Neon Latch Pulse */
+      body.mode-latch .dpad-btn:active,
+      body.mode-latch .dpad-btn.pressed,
+      body.mode-latch .dpad-btn.latched {
+        background: #a855f7 !important;
+        border-color: #a855f7 !important;
+        color: #ffffff !important;
+        transform: scale(0.94);
+        box-shadow: 0 0 25px rgba(168, 85, 247, 0.8) !important;
       }
 
       .dpad-btn.stop-btn {
@@ -327,38 +347,14 @@
       }
 
       .dpad-btn.stop-btn:active, .dpad-btn.stop-btn.pressed {
-        background: var(--accent-rose);
-        color: white;
-        border-color: var(--accent-rose);
+        background: var(--accent-rose) !important;
+        color: white !important;
+        border-color: var(--accent-rose) !important;
+        transform: scale(0.92);
+        box-shadow: 0 0 25px rgba(244, 63, 94, 0.8) !important;
       }
 
-      /* Emergency Stop Banner Button */
-      .e-stop-bar {
-        width: 100%;
-        background: linear-gradient(135deg, #e11d48, #be123c);
-        border: none;
-        color: white;
-        font-weight: 800;
-        font-size: 0.95rem;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
-        padding: 0.75rem;
-        border-radius: 12px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.5rem;
-        box-shadow: 0 4px 15px rgba(225, 29, 72, 0.35);
-        transition: transform 0.1s ease;
-      }
-
-      .e-stop-bar:active {
-        transform: scale(0.97);
-        filter: brightness(1.15);
-      }
-
-      /* Speed Sliders */
+      /* Speed Slider */
       .slider-box {
         background: rgba(15, 23, 42, 0.6);
         border: 1px solid var(--card-border);
@@ -388,6 +384,7 @@
         border-radius: 3px;
         background: #334155;
         outline: none;
+        appearance: none;
         -webkit-appearance: none;
       }
 
@@ -431,7 +428,7 @@
         color: #f1f5f9;
       }
 
-      /* Compact Status Bar at Bottom */
+      /* Compact Status Bar */
       .status-banner {
         display: flex;
         justify-content: space-between;
@@ -439,10 +436,10 @@
         background: rgba(15, 23, 42, 0.9);
         border: 1px solid var(--card-border);
         border-radius: 10px;
-        padding: 0.4rem 0.85rem;
+        padding: 0.45rem 0.85rem;
         font-size: 0.75rem;
         color: var(--text-secondary);
-        margin-top: 0.85rem;
+        margin-top: auto;
       }
 
       .status-banner span.val {
@@ -450,22 +447,10 @@
         color: var(--accent-cyan);
         font-weight: 600;
       }
-
-      /* Keyboard helper for Laptop/PC */
-      .key-hint {
-        display: none;
-      }
-      @media (min-width: 992px) {
-        .key-hint {
-          display: inline;
-          opacity: 0.6;
-          font-size: 0.65rem;
-        }
-      }
     </style>
   </head>
 
-  <body>
+  <body class="mode-step">
     <div class="app-shell">
       <!-- Header -->
       <header class="top-navbar">
@@ -480,9 +465,9 @@
         </div>
       </header>
 
-      <!-- Main Layout -->
+      <!-- Main Grid -->
       <main class="row g-3">
-        <!-- LEFT: Video Stream & Quick Camera Actions -->
+        <!-- LEFT: Video Stage -->
         <section class="col-12 col-lg-7">
           <div class="remote-card">
             <div class="video-viewport">
@@ -490,10 +475,10 @@
               <div id="videoPlaceholder" class="video-placeholder active">
                 <div style="font-size: 2rem; margin-bottom: 0.5rem;">📷</div>
                 <div class="fw-bold text-white mb-1">Camera Feed Offline</div>
-                <small>Tap "CAMERA ON" below to start stream</small>
+                <small>Tap "CAM ON" below to start live stream</small>
               </div>
 
-              <!-- On-Screen Telemetry Badges -->
+              <!-- Telemetry Badges -->
               <div class="video-overlay-info">
                 <span class="osd-badge" id="osdFps">CAM 1</span>
                 <span class="osd-badge" id="osdLatency">AI: OFF</span>
@@ -539,7 +524,7 @@
             <!-- Speed Tuning -->
             <div class="slider-box mt-auto">
               <div class="slider-header">
-                <span>Motor Throttle PWM</span>
+                <span>Motor Speed PWM</span>
                 <span>FWD: <span class="val" id="speedFwdVal">255</span> | REV: <span class="val" id="speedRevVal">255</span></span>
               </div>
               <input id="speedSlider" type="range" min="80" max="255" value="255" step="5" oninput="updateSpeed(this.value)" />
@@ -561,33 +546,18 @@
               <button class="mode-capsule-btn" data-mode="2" onclick="setDriveMode(2)">LATCH</button>
             </div>
 
-            <!-- D-PAD Navigation Controller -->
+            <!-- Clean D-PAD -->
             <div class="dpad-container">
               <div></div>
-              <button class="dpad-btn drive-btn" data-cmd="F">
-                ▲
-                <span class="label">FWD <span class="key-hint">(W/↑/8)</span></span>
-              </button>
+              <button class="dpad-btn drive-btn" data-cmd="F" aria-label="Forward">▲</button>
               <div></div>
 
-              <button class="dpad-btn drive-btn" data-cmd="L">
-                ◀
-                <span class="label">LEFT <span class="key-hint">(A/←/4)</span></span>
-              </button>
-              <button class="dpad-btn stop-btn stop-action" onclick="stopCar()">
-                ■
-                <span class="label">STOP <span class="key-hint">(5/0)</span></span>
-              </button>
-              <button class="dpad-btn drive-btn" data-cmd="R">
-                ▶
-                <span class="label">RIGHT <span class="key-hint">(D/→/6)</span></span>
-              </button>
+              <button class="dpad-btn drive-btn" data-cmd="L" aria-label="Left">◀</button>
+              <button class="dpad-btn stop-btn stop-action" data-cmd="S" onclick="stopCar()" aria-label="Stop">■</button>
+              <button class="dpad-btn drive-btn" data-cmd="R" aria-label="Right">▶</button>
 
               <div></div>
-              <button class="dpad-btn drive-btn" data-cmd="B">
-                ▼
-                <span class="label">REV <span class="key-hint">(S/↓/2)</span></span>
-              </button>
+              <button class="dpad-btn drive-btn" data-cmd="B" aria-label="Reverse">▼</button>
               <div></div>
             </div>
 
@@ -618,8 +588,10 @@
       let isAiOn = false;
       let isRecording = false;
       let heldCommand = null;
+      let latchedCommand = null;
       let lastSentCommand = "X";
       let camTimer = null;
+      let stepPulseTimer = null;
       let currentPwmSpeed = 255;
 
       const liveCam = document.getElementById("liveCam");
@@ -641,20 +613,51 @@
         return fetch(url, { mode: "cors", cache: "no-store", keepalive: true }).catch(() => {});
       }
 
+      /* Visual Button Feedback Helper */
+      function setButtonVisual(cmd, isPressed) {
+        const btn = document.querySelector(`.dpad-btn[data-cmd="${cmd}"]`);
+        if (!btn) return;
+
+        if (driveMode === 2) { // LATCH
+          if (cmd === "S") {
+            document.querySelectorAll(".dpad-btn").forEach(b => b.classList.remove("latched", "pressed"));
+          } else if (isPressed) {
+            document.querySelectorAll(".dpad-btn").forEach(b => b.classList.remove("latched", "pressed"));
+            btn.classList.add("latched");
+          }
+        } else if (driveMode === 0) { // STEP: Quick 180ms flash effect
+          if (isPressed) {
+            btn.classList.add("pressed");
+            setTimeout(() => btn.classList.remove("pressed"), 180);
+          }
+        } else { // HOLD: Stay pressed while active
+          if (isPressed) btn.classList.add("pressed");
+          else btn.classList.remove("pressed");
+        }
+      }
+
       /* Command Sending */
       function sendCommand(cmd, label = "DRIVE") {
-        if (cmd === lastSentCommand && cmd !== "S") return;
+        if (cmd === lastSentCommand && cmd !== "S" && driveMode !== 0) return;
         lastSentCommand = cmd;
         currentCommandLabel.textContent = commandLabels[cmd] || cmd;
         activeStatus.textContent = cmd === "S" ? "READY" : label;
+
+        setButtonVisual(cmd, true);
         fire(`${controlBaseUrl}/set.php?cmd=${cmd}`);
+
+        if (driveMode === 2) latchedCommand = (cmd === "S") ? null : cmd;
       }
 
       function stopCar() {
         heldCommand = null;
+        latchedCommand = null;
         lastSentCommand = "S";
         currentCommandLabel.textContent = "STOP";
-        activeStatus.textContent = "BRAKE APPLIED";
+        activeStatus.textContent = "STOP";
+        document.querySelectorAll(".dpad-btn").forEach(b => b.classList.remove("pressed", "latched"));
+        setButtonVisual("S", true);
+        setTimeout(() => setButtonVisual("S", false), 150);
         fire(`${controlBaseUrl}/set.php?cmd=S`);
       }
 
@@ -663,14 +666,28 @@
         stopCar();
         driveMode = mode;
         fire(`${controlBaseUrl}/set.php?mode=${mode}`);
+
         document.querySelectorAll(".mode-capsule-btn").forEach((b) => {
           b.classList.toggle("active", Number(b.dataset.mode) === mode);
         });
 
+        // Set body class for mode-specific glow effects
+        document.body.classList.remove("mode-step", "mode-hold", "mode-latch");
         const desc = document.getElementById("modeDescription");
-        if (mode === 0) desc.textContent = "STEP (One tap pulse)";
-        else if (mode === 1) desc.textContent = "HOLD (Press & hold)";
-        else desc.textContent = "LATCH (Continuous run)";
+
+        if (mode === 0) {
+          document.body.classList.add("mode-step");
+          desc.textContent = "STEP (Cyan Flash Pulse)";
+          desc.style.color = "var(--accent-cyan)";
+        } else if (mode === 1) {
+          document.body.classList.add("mode-hold");
+          desc.textContent = "HOLD (Amber Continuous Glow)";
+          desc.style.color = "var(--accent-amber)";
+        } else {
+          document.body.classList.add("mode-latch");
+          desc.textContent = "LATCH (Purple Neon Lock)";
+          desc.style.color = "var(--accent-purple)";
+        }
       }
 
       /* Camera Stream */
@@ -746,7 +763,6 @@
 
           btn.addEventListener("pointerdown", (e) => {
             e.preventDefault();
-            btn.classList.add("pressed");
             if (driveMode === 1) { // HOLD Mode
               heldCommand = cmd;
               sendCommand(cmd, "HOLDING");
@@ -757,51 +773,55 @@
 
           btn.addEventListener("pointerup", (e) => {
             e.preventDefault();
-            btn.classList.remove("pressed");
-            if (driveMode === 1) stopCar();
+            if (driveMode === 1) {
+              setButtonVisual(cmd, false);
+              stopCar();
+            }
           });
 
           btn.addEventListener("pointercancel", () => {
-            btn.classList.remove("pressed");
-            if (driveMode === 1) stopCar();
+            if (driveMode === 1) {
+              setButtonVisual(cmd, false);
+              stopCar();
+            }
           });
         });
       }
 
       /* Keyboard Driving (WASD, Arrow Keys, Numpad 8/2/4/6/5/0, Space) */
-      const forwardKeys = ["w", "arrowup", "8"];
-      const reverseKeys = ["s", "arrowdown", "2"];
-      const leftKeys = ["a", "arrowleft", "4"];
-      const rightKeys = ["d", "arrowright", "6"];
-      const stopKeys = [" ", "escape", "5", "0"];
+      const keyMap = {
+        w: "F", arrowup: "F", "8": "F",
+        s: "B", arrowdown: "B", "2": "B",
+        a: "L", arrowleft: "L", "4": "L",
+        d: "R", arrowright: "R", "6": "R",
+        " ": "S", escape: "S", "5": "S", "0": "S"
+      };
 
       window.addEventListener("keydown", (e) => {
         if (e.repeat) return;
         const k = e.key.toLowerCase();
-        
-        if (forwardKeys.includes(k)) {
+        const cmd = keyMap[k];
+
+        if (cmd) {
           e.preventDefault();
-          sendCommand("F", "KEYBOARD");
-        } else if (reverseKeys.includes(k)) {
-          e.preventDefault();
-          sendCommand("B", "KEYBOARD");
-        } else if (leftKeys.includes(k)) {
-          e.preventDefault();
-          sendCommand("L", "KEYBOARD");
-        } else if (rightKeys.includes(k)) {
-          e.preventDefault();
-          sendCommand("R", "KEYBOARD");
-        } else if (stopKeys.includes(k)) {
-          e.preventDefault();
-          stopCar();
+          if (cmd === "S") {
+            stopCar();
+          } else {
+            if (driveMode === 1) heldCommand = cmd;
+            sendCommand(cmd, "KEYBOARD");
+          }
         }
       });
 
       window.addEventListener("keyup", (e) => {
         const k = e.key.toLowerCase();
-        const allMovementKeys = [...forwardKeys, ...reverseKeys, ...leftKeys, ...rightKeys];
-        if (allMovementKeys.includes(k) && driveMode === 1) {
-          stopCar();
+        const cmd = keyMap[k];
+
+        if (cmd && cmd !== "S") {
+          if (driveMode === 1 && heldCommand === cmd) {
+            setButtonVisual(cmd, false);
+            stopCar();
+          }
         }
       });
 
