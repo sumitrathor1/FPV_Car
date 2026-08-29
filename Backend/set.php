@@ -92,7 +92,9 @@ $ai_keys = [
 ];
 foreach ($ai_keys as $key) {
     if (isset($_GET[$key])) {
-        $data[$key] = (string)$_GET[$key];
+        // Sanitize string to alphanumeric and basic punctuation only
+        $val = substr((string)$_GET[$key], 0, 32);
+        $data[$key] = preg_replace('/[^a-zA-Z0-9_.\-]/', '', $val);
     }
 }
 

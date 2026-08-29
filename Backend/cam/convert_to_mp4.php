@@ -11,7 +11,9 @@ if ($method === 'OPTIONS') {
 }
 
 $folder = isset($_GET['folder']) ? basename($_GET['folder']) : '';
-if ($folder === '' || strpos($folder, '..') !== false) {
+
+// Security: Enforce strict rec_ folder naming to prevent directory traversal
+if (empty($folder) || !preg_match('/^rec_[a-zA-Z0-9_-]+$/', $folder)) {
     http_response_code(400);
     echo json_encode(["error" => "Invalid folder"]);
     exit;

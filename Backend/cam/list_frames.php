@@ -7,7 +7,9 @@ header("Content-Type: application/json");
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 
 $folder = isset($_GET['folder']) ? basename($_GET['folder']) : '';
-if (empty($folder) || strpos($folder, '..') !== false) {
+
+// Security: Enforce strict rec_ folder naming to prevent directory traversal
+if (empty($folder) || !preg_match('/^rec_[a-zA-Z0-9_-]+$/', $folder)) {
     http_response_code(400);
     echo json_encode(["error" => "Invalid folder"]);
     exit;

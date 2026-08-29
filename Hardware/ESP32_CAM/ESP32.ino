@@ -32,9 +32,9 @@ bool isApMode         = false;
 // ======================================================
 // Cloud Server Endpoints
 // ======================================================
-const char* controlUrl = "https://jeeneettracker.me/fpv_car/get.php";
-const char* uploadUrl  = "https://jeeneettracker.me/fpv_car/cam/upload.php";
-const char* heartbeatUrl = "https://jeeneettracker.me/fpv_car/set.php?esp_hb=1";
+const char* controlUrl = "http://20.244.113.234/fpv_car/get.php";
+const char* uploadUrl  = "http://20.244.113.234/fpv_car/cam/upload.php";
+const char* heartbeatUrl = "http://20.244.113.234/fpv_car/set.php?esp_hb=1";
 
 const uint32_t CONTROL_INTERVAL_MS   = 30;    // 30ms polling for steering & speed
 const uint32_t UPLOAD_INTERVAL_MS    = 110;   // ~9 FPS image upload
