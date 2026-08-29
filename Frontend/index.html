@@ -567,19 +567,8 @@
         <!-- RIGHT: Drive Controller -->
         <section class="col-12 col-lg-5">
           <div class="remote-card">
-            <!-- Drive Mode Selector -->
-            <div class="section-heading">
-              <span>Drive Mode</span>
-              <small id="modeDescription" style="color: var(--accent-cyan); text-transform: none; font-size: 0.72rem;">STEP (One tap pulse)</small>
-            </div>
-            <div class="mode-capsule-group">
-              <button class="mode-capsule-btn active" data-mode="0" onclick="setDriveMode(0)">STEP</button>
-              <button class="mode-capsule-btn" data-mode="1" onclick="setDriveMode(1)">HOLD</button>
-              <button class="mode-capsule-btn" data-mode="2" onclick="setDriveMode(2)">LATCH</button>
-            </div>
-
-            <!-- Clean D-PAD -->
-            <div class="dpad-container">
+            <!-- D-PAD Controller First -->
+            <div class="dpad-container mt-2">
               <div></div>
               <button class="dpad-btn drive-btn" data-cmd="F" aria-label="Forward">
                 ▲
@@ -606,6 +595,17 @@
                 <span class="label">BACKWARD</span>
               </button>
               <div></div>
+            </div>
+
+            <!-- Drive Mode Selector (Placed Below Backward) -->
+            <div class="section-heading mt-2">
+              <span>Drive Mode</span>
+              <small id="modeDescription" style="color: var(--accent-cyan); text-transform: none; font-size: 0.72rem;">STEP (One tap pulse)</small>
+            </div>
+            <div class="mode-capsule-group mb-2">
+              <button class="mode-capsule-btn active" data-mode="0" onclick="setDriveMode(0)">STEP</button>
+              <button class="mode-capsule-btn" data-mode="1" onclick="setDriveMode(1)">HOLD</button>
+              <button class="mode-capsule-btn" data-mode="2" onclick="setDriveMode(2)">LATCH</button>
             </div>
 
             <!-- Bottom Live State Bar -->
