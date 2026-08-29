@@ -355,6 +355,12 @@ void loop() {
       // Direction Command to Arduino UNO
       Serial.println(cmd);
       lastCmd = cmd;
+    } else {
+      // Fail-Safe: Cloud poll failed / connection dropped -> Stop car immediately
+      if (lastCmd != 'S') {
+        Serial.println('S');
+        lastCmd = 'S';
+      }
     }
 
     http.end();

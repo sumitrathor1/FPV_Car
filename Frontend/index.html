@@ -386,6 +386,16 @@
         box-shadow: 0 0 25px rgba(244, 63, 94, 0.8) !important;
       }
 
+      /* Offline Lock Visual State */
+      .dpad-btn.offline-disabled {
+        opacity: 0.35 !important;
+        cursor: not-allowed !important;
+        filter: grayscale(80%) !important;
+        pointer-events: none !important;
+        transform: none !important;
+        box-shadow: none !important;
+      }
+
       /* Speed Slider */
       .slider-box {
         background: rgba(15, 23, 42, 0.6);
@@ -1030,8 +1040,16 @@
         }
       }
 
+      let espOnlineState = false;
+
       /* Command Sending */
       function sendCommand(cmd, label = "DRIVE") {
+        if (!espOnlineState && cmd !== "S") {
+          activeStatus.textContent = "ESP32 OFFLINE (LOCKED)";
+          currentCommandLabel.textContent = "STOP";
+          return;
+        }
+
         if (cmd === lastSentCommand && cmd !== "S" && driveMode !== 0) return;
         lastSentCommand = cmd;
         currentCommandLabel.textContent = commandLabels[cmd] || cmd;
@@ -1236,10 +1254,13 @@
             const currentEpoch = Math.floor(Date.now() / 1000);
             const espHbTime = Number(data.esp_hb || 0);
             const isEspOnline = (currentEpoch - espHbTime) <= 6 && espHbTime > 0;
+            const wasOnline = espOnlineState;
+            espOnlineState = isEspOnline;
 
             const pill = document.getElementById("espStatusPill");
             const dot = document.getElementById("espStatusDot");
             const text = document.getElementById("espStatusText");
+            const dpadButtons = document.querySelectorAll(".dpad-btn:not(.stop-btn)");
 
             if (isEspOnline) {
               pill.style.background = "rgba(16, 185, 129, 0.15)";
@@ -1248,6 +1269,7 @@
               dot.style.backgroundColor = "#10b981";
               dot.style.boxShadow = "0 0 8px #10b981";
               text.textContent = "ESP32 ONLINE";
+              dpadButtons.forEach(b => b.classList.remove("offline-disabled"));
             } else {
               pill.style.background = "rgba(239, 68, 68, 0.15)";
               pill.style.color = "#f87171";
@@ -1255,6 +1277,12 @@
               dot.style.backgroundColor = "#ef4444";
               dot.style.boxShadow = "0 0 8px #ef4444";
               text.textContent = "ESP32 OFFLINE";
+              dpadButtons.forEach(b => b.classList.add("offline-disabled"));
+
+              // If car just went offline while driving, reset UI state and trigger stop
+              if (wasOnline) {
+                stopCar();
+              }
             }
           })
           .catch(() => {});
