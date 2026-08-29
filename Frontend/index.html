@@ -690,10 +690,16 @@
           <span>🏎️ FPV</span> REMOTE
         </h1>
         <div class="d-flex align-items-center gap-2">
-          <div class="live-pill" id="connStatus">
-            <div class="pulse-dot"></div>
-            <span>LINK ONLINE</span>
+          <!-- ESP32 Online / Offline Status -->
+          <div class="live-pill" id="espStatusPill" style="background: rgba(239, 68, 68, 0.12); color: #f87171; border-color: rgba(239, 68, 68, 0.3);">
+            <div class="pulse-dot" id="espStatusDot" style="background-color: #ef4444; box-shadow: 0 0 8px #ef4444;"></div>
+            <span id="espStatusText">ESP32 OFFLINE</span>
           </div>
+
+          <!-- WiFi Provisioning Config Button -->
+          <button class="btn btn-outline-info btn-sm d-flex align-items-center gap-1 py-1 px-2" onclick="openWifiModal()" style="border-radius: 999px; font-size: 0.75rem; font-weight: 700;">
+            <span>📶</span> <span>WIFI SETUP</span>
+          </button>
         </div>
       </header>
 
@@ -897,6 +903,60 @@
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WiFi Provisioning & Setup Modal -->
+    <div class="modal fade" id="wifiModal" tabindex="-1" aria-labelledby="wifiModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content dark-modal">
+          <div class="modal-header dark-modal-header">
+            <h5 class="modal-title fs-6 fw-bold" id="wifiModalLabel">📶 Connect ESP32 to WiFi</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body p-3">
+            <div class="alert alert-info py-2 px-3 mb-3" style="font-size: 0.8rem; background: rgba(0, 229, 255, 0.1); border-color: rgba(0, 229, 255, 0.25); color: #bae6fd;">
+              <strong>💡 Quick Setup Guide:</strong><br>
+              1. Apne mobile/laptop ke WiFi me connect karein: <strong>"FPV-Car-Setup"</strong>.<br>
+              2. Niche <strong>"Scan Wi-Fi Networks"</strong> dabayein.<br>
+              3. Apna WiFi select karke password daalein aur <strong>"Connect & Save"</strong> karein.
+            </div>
+
+            <!-- ESP Local IP / Target Selector -->
+            <div class="mb-2">
+              <label class="form-label text-secondary small fw-bold mb-1">ESP32 Setup IP</label>
+              <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary" id="espIpInput" value="http://192.168.4.1" />
+            </div>
+
+            <!-- Scan Button -->
+            <div class="d-flex justify-content-between align-items-center mb-2 mt-3">
+              <span class="text-secondary small fw-bold text-uppercase">Available Wi-Fi Networks</span>
+              <button class="btn btn-outline-info btn-sm py-0 px-2" id="scanWifiBtn" onclick="scanWifiNetworks()" style="font-size: 0.75rem;">🔍 Scan</button>
+            </div>
+
+            <!-- Network Select / Input -->
+            <div class="mb-3">
+              <select class="form-select form-select-sm bg-dark text-light border-secondary mb-2" id="wifiSelect" onchange="onWifiSelected(this.value)">
+                <option value="">-- Select scanned network or type below --</option>
+              </select>
+              <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary" id="wifiSsidInput" placeholder="Enter WiFi SSID name..." />
+            </div>
+
+            <!-- Password Input -->
+            <div class="mb-3">
+              <label class="form-label text-secondary small fw-bold mb-1">WiFi Password</label>
+              <input type="password" class="form-control form-control-sm bg-dark text-light border-secondary" id="wifiPassInput" placeholder="Enter WiFi password..." />
+            </div>
+
+            <!-- Status Msg -->
+            <div id="wifiStatusMsg" class="small text-center mb-2" style="display:none;"></div>
+
+            <!-- Save & Connect Button -->
+            <button class="btn btn-info w-100 py-2 fw-bold text-dark" id="saveWifiBtn" onclick="saveWifiCredentials()">
+              🚀 CONNECT & SAVE TO FLASH
+            </button>
           </div>
         </div>
       </div>
@@ -1159,7 +1219,7 @@
         }
       });
 
-      /* Telemetry Polling */
+      /* Telemetry Polling with Live ESP32 Status Check */
       function pollTelemetry() {
         fetch(`${controlBaseUrl}/get.php?t=${Date.now()}`, { cache: "no-store" })
           .then((r) => r.json())
@@ -1171,8 +1231,142 @@
             teleObstacle.style.color = obstacle ? "#f43f5e" : "#10b981";
             teleRisk.textContent = Number(data.ai_score || 0).toFixed(1);
             teleCmd.textContent = data.cmd || "S";
+
+            // ESP32 Heartbeat Live Verification (online if last heartbeat < 6s ago)
+            const currentEpoch = Math.floor(Date.now() / 1000);
+            const espHbTime = Number(data.esp_hb || 0);
+            const isEspOnline = (currentEpoch - espHbTime) <= 6 && espHbTime > 0;
+
+            const pill = document.getElementById("espStatusPill");
+            const dot = document.getElementById("espStatusDot");
+            const text = document.getElementById("espStatusText");
+
+            if (isEspOnline) {
+              pill.style.background = "rgba(16, 185, 129, 0.15)";
+              pill.style.color = "#34d399";
+              pill.style.borderColor = "rgba(16, 185, 129, 0.4)";
+              dot.style.backgroundColor = "#10b981";
+              dot.style.boxShadow = "0 0 8px #10b981";
+              text.textContent = "ESP32 ONLINE";
+            } else {
+              pill.style.background = "rgba(239, 68, 68, 0.15)";
+              pill.style.color = "#f87171";
+              pill.style.borderColor = "rgba(239, 68, 68, 0.4)";
+              dot.style.backgroundColor = "#ef4444";
+              dot.style.boxShadow = "0 0 8px #ef4444";
+              text.textContent = "ESP32 OFFLINE";
+            }
           })
           .catch(() => {});
+      }
+
+      /* ======================================================
+       * WiFi Provisioning & Captive Portal Client
+       * ====================================================== */
+      let wifiModalInstance = null;
+
+      function openWifiModal() {
+        if (!wifiModalInstance && window.bootstrap) {
+          wifiModalInstance = new bootstrap.Modal(document.getElementById('wifiModal'));
+        }
+        if (wifiModalInstance) wifiModalInstance.show();
+        scanWifiNetworks();
+      }
+
+      function getEspBaseUrl() {
+        let ip = document.getElementById("espIpInput").value.trim();
+        if (!ip.startsWith("http://") && !ip.startsWith("https://")) {
+          ip = "http://" + ip;
+        }
+        return ip.replace(/\/+$/, "");
+      }
+
+      function scanWifiNetworks() {
+        const btn = document.getElementById("scanWifiBtn");
+        const select = document.getElementById("wifiSelect");
+        const msg = document.getElementById("wifiStatusMsg");
+        const espUrl = getEspBaseUrl();
+
+        btn.disabled = true;
+        btn.textContent = "Scanning...";
+        msg.style.display = "block";
+        msg.className = "small text-info text-center mb-2";
+        msg.textContent = `Connecting to ESP32 at ${espUrl}...`;
+
+        fetch(`${espUrl}/scan?t=${Date.now()}`, { mode: "cors" })
+          .then((r) => r.json())
+          .then((networks) => {
+            btn.disabled = false;
+            btn.textContent = "🔍 Scan";
+
+            if (!Array.isArray(networks) || networks.length === 0) {
+              msg.className = "small text-warning text-center mb-2";
+              msg.textContent = "No WiFi networks found in range.";
+              return;
+            }
+
+            select.innerHTML = '<option value="">-- Select scanned network or type below --</option>';
+            networks.forEach((net) => {
+              const opt = document.createElement("option");
+              opt.value = net.ssid;
+              opt.textContent = `📶 ${net.ssid} (${net.rssi} dBm)`;
+              select.appendChild(opt);
+            });
+
+            msg.className = "small text-success text-center mb-2";
+            msg.textContent = `Found ${networks.length} networks. Select yours and enter password.`;
+          })
+          .catch((err) => {
+            btn.disabled = false;
+            btn.textContent = "🔍 Scan";
+            msg.className = "small text-danger text-center mb-2";
+            msg.innerHTML = `Cannot reach ESP32 at ${espUrl}.<br>Make sure you are connected to <strong>"FPV-Car-Setup"</strong> WiFi.`;
+          });
+      }
+
+      function onWifiSelected(ssid) {
+        if (ssid) {
+          document.getElementById("wifiSsidInput").value = ssid;
+        }
+      }
+
+      function saveWifiCredentials() {
+        const ssid = document.getElementById("wifiSsidInput").value.trim();
+        const pass = document.getElementById("wifiPassInput").value;
+        const msg = document.getElementById("wifiStatusMsg");
+        const btn = document.getElementById("saveWifiBtn");
+        const espUrl = getEspBaseUrl();
+
+        if (!ssid) {
+          msg.style.display = "block";
+          msg.className = "small text-warning text-center mb-2";
+          msg.textContent = "Please enter or select a WiFi SSID.";
+          return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = "SAVING & RESTARTING...";
+        msg.style.display = "block";
+        msg.className = "small text-info text-center mb-2";
+        msg.textContent = "Sending credentials to ESP32 Flash Memory...";
+
+        fetch(`${espUrl}/save-wifi?ssid=${encodeURIComponent(ssid)}&password=${encodeURIComponent(pass)}`, { mode: "cors" })
+          .then((r) => r.json())
+          .then((data) => {
+            msg.className = "small text-success text-center mb-2";
+            msg.innerHTML = "✅ <strong>WiFi Saved!</strong> ESP32 is now restarting and connecting to your home WiFi.<br>Switch your phone/laptop back to your regular WiFi to control the car.";
+            setTimeout(() => {
+              if (wifiModalInstance) wifiModalInstance.hide();
+              btn.disabled = false;
+              btn.textContent = "🚀 CONNECT & SAVE TO FLASH";
+            }, 5000);
+          })
+          .catch(() => {
+            btn.disabled = false;
+            btn.textContent = "🚀 CONNECT & SAVE TO FLASH";
+            msg.className = "small text-warning text-center mb-2";
+            msg.textContent = "Credentials sent (ESP32 may have restarted). Reconnect your phone/PC to your home WiFi to check if ESP32 comes ONLINE.";
+          });
       }
 
       /* ======================================================

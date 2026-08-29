@@ -1,34 +1,47 @@
 /*************************************************
- * FPV Car - Advanced ESP32-CAM Firmware
+ * FPV Car - Advanced ESP32-CAM Firmware with Smart WiFi Provisioning
  * Features:
+ * - Permanent Flash Memory (Preferences.h) for WiFi Credentials
+ * - Fallback AP Hotspot "FPV-Car-Setup" (IP 192.168.4.1) with Captive Portal & REST APIs
+ * - Live WiFi Network Scanner (/scan) & WiFi Credential Setter (/save-wifi)
  * - Hardware Camera Power Off (De-init sensor & GPIO PWDN power down)
  * - Zero CPU/Network load when camera is OFF (No capture, No uploads)
  * - Flash LED Light Control (GPIO 4 Headlight ON/OFF)
- * - Low latency 30ms polling from Azure Cloud PHP Server
+ * - Low latency 30ms polling from HTTPS Cloud Server
  * - Dynamic Forward & Backward speed transmission (FSP / BSP) to UNO
  * - High-speed JPEG video streaming upload (110ms interval)
+ * - Cloud Heartbeat Sync (esp_hb) for real-time Frontend Online/Offline detection
  *************************************************/
 
 #include "esp_camera.h"
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <WebServer.h>
+#include <Preferences.h>
 
 // ======================================================
-// WiFi Credentials
+// Preferences & WebServer for WiFi Configuration
 // ======================================================
-const char* ssid     = "sumit";
-const char* password = "12345678";
+Preferences prefs;
+WebServer server(80);
+
+String saved_ssid     = "";
+String saved_password = "";
+bool isApMode         = false;
 
 // ======================================================
-// Azure Cloud PHP Server Endpoints
+// Cloud Server Endpoints
 // ======================================================
-const char* controlUrl = "http://20.244.113.234/fpv_car/get.php";
-const char* uploadUrl  = "http://20.244.113.234/fpv_car/cam/upload.php";
+const char* controlUrl = "https://jeeneettracker.me/fpv_car/get.php";
+const char* uploadUrl  = "https://jeeneettracker.me/fpv_car/cam/upload.php";
+const char* heartbeatUrl = "https://jeeneettracker.me/fpv_car/set.php?esp_hb=1";
 
-const uint32_t CONTROL_INTERVAL_MS = 30;  // 30ms polling for steering & speed
-const uint32_t UPLOAD_INTERVAL_MS  = 110; // ~9 FPS image upload
-uint32_t lastControlAt = 0;
-uint32_t lastUploadAt  = 0;
+const uint32_t CONTROL_INTERVAL_MS   = 30;    // 30ms polling for steering & speed
+const uint32_t UPLOAD_INTERVAL_MS    = 110;   // ~9 FPS image upload
+const uint32_t HEARTBEAT_INTERVAL_MS = 2000;  // 2s cloud heartbeat sync
+uint32_t lastControlAt   = 0;
+uint32_t lastUploadAt    = 0;
+uint32_t lastHeartbeatAt = 0;
 
 char lastCmd = 'X';
 bool cameraPowerOn = false;
@@ -158,6 +171,69 @@ void setCameraHardwarePower(bool on) {
 }
 
 // ======================================================
+// AP Mode & Local REST API Handlers (CORS Enabled)
+// ======================================================
+void handleCORS() {
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+}
+
+void handleScanWifi() {
+  handleCORS();
+  int n = WiFi.scanNetworks();
+  String json = "[";
+  for (int i = 0; i < n; ++i) {
+    if (i > 0) json += ",";
+    json += "{\"ssid\":\"" + WiFi.SSID(i) + "\",\"rssi\":" + String(WiFi.RSSI(i)) + "}";
+  }
+  json += "]";
+  server.send(200, "application/json", json);
+}
+
+void handleSaveWifi() {
+  handleCORS();
+  String newSsid = server.arg("ssid");
+  String newPass = server.arg("password");
+
+  if (newSsid.length() > 0) {
+    prefs.begin("fpv_wifi", false);
+    prefs.putString("ssid", newSsid);
+    prefs.putString("pass", newPass);
+    prefs.end();
+
+    server.send(200, "application/json", "{\"status\":\"saved\",\"message\":\"Restarting and connecting...\"}");
+    delay(1000);
+    ESP.restart();
+  } else {
+    server.send(400, "application/json", "{\"error\":\"SSID cannot be empty\"}");
+  }
+}
+
+void handleStatus() {
+  handleCORS();
+  String json = "{\"mode\":\"" + String(isApMode ? "AP" : "STA") + "\",\"connected\":" + String(WiFi.status() == WL_CONNECTED ? "true" : "false") + ",\"ip\":\"" + WiFi.localIP().toString() + "\"}";
+  server.send(200, "application/json", json);
+}
+
+void startApMode() {
+  isApMode = true;
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP("FPV-Car-Setup", ""); // Open setup hotspot
+
+  server.on("/scan", HTTP_GET, handleScanWifi);
+  server.on("/save-wifi", HTTP_GET, handleSaveWifi);
+  server.on("/status", HTTP_GET, handleStatus);
+  server.onNotFound([]() {
+    handleCORS();
+    server.send(200, "text/plain", "FPV Car Setup Ready at 192.168.4.1");
+  });
+
+  server.begin();
+  Serial.println("[WIFI] AP Hotspot Started: FPV-Car-Setup (IP: 192.168.4.1)");
+}
+
+// ======================================================
 // Setup
 // ======================================================
 void setup() {
@@ -167,29 +243,73 @@ void setup() {
   pinMode(FLASH_LED_PIN, OUTPUT);
   digitalWrite(FLASH_LED_PIN, LOW); // Flash OFF initially
 
-  WiFi.setSleep(false); // Disables WiFi power save for ultra-low latency
-  WiFi.begin(ssid, password);
+  // Load Saved WiFi from Flash (NVS)
+  prefs.begin("fpv_wifi", true);
+  saved_ssid     = prefs.getString("ssid", "");
+  saved_password = prefs.getString("pass", "");
+  prefs.end();
 
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(300);
+  WiFi.setSleep(false); // Disables WiFi power save for ultra-low latency
+
+  bool connected = false;
+  if (saved_ssid.length() > 0) {
+    Serial.print("[WIFI] Connecting to saved WiFi: ");
+    Serial.println(saved_ssid);
+    WiFi.begin(saved_ssid.c_str(), saved_password.c_str());
+
+    int attempts = 0;
+    while (WiFi.status() != WL_CONNECTED && attempts < 25) {
+      delay(300);
+      Serial.print(".");
+      attempts++;
+    }
+
+    if (WiFi.status() == WL_CONNECTED) {
+      connected = true;
+      Serial.println("\n[WIFI] Connected! IP: " + WiFi.localIP().toString());
+    }
   }
 
-  startCamera();
-  setCameraHardwarePower(true);
+  if (!connected) {
+    Serial.println("\n[WIFI] No saved WiFi or connection failed. Starting Setup Hotspot...");
+    startApMode();
+  } else {
+    // Start local server in Station mode as well so local tools can query /status or change wifi
+    server.on("/scan", HTTP_GET, handleScanWifi);
+    server.on("/save-wifi", HTTP_GET, handleSaveWifi);
+    server.on("/status", HTTP_GET, handleStatus);
+    server.begin();
+
+    startCamera();
+    setCameraHardwarePower(true);
+  }
 }
 
 // ======================================================
 // Loop
 // ======================================================
 void loop() {
-  if (WiFi.status() != WL_CONNECTED) {
-    delay(50);
+  // Always handle local WebServer requests
+  server.handleClient();
+
+  if (isApMode || WiFi.status() != WL_CONNECTED) {
+    delay(10);
     return;
   }
 
   uint32_t now = millis();
 
-  // 1. Poll Server for Commands, Speeds & Flash Light (Every 30ms)
+  // 1. Send Cloud Heartbeat (Every 2 seconds)
+  if (now - lastHeartbeatAt >= HEARTBEAT_INTERVAL_MS) {
+    lastHeartbeatAt = now;
+    HTTPClient http;
+    http.begin(heartbeatUrl);
+    http.setTimeout(120);
+    http.GET();
+    http.end();
+  }
+
+  // 2. Poll Server for Commands, Speeds & Flash Light (Every 30ms)
   if (now - lastControlAt >= CONTROL_INTERVAL_MS) {
     lastControlAt = now;
 
@@ -240,7 +360,7 @@ void loop() {
     http.end();
   }
 
-  // 2. Upload Camera Frames (ONLY IF CAMERA POWER IS ON & SENSOR READY)
+  // 3. Upload Camera Frames (ONLY IF CAMERA POWER IS ON & SENSOR READY)
   if (cameraPowerOn && cameraReady && (now - lastUploadAt >= UPLOAD_INTERVAL_MS)) {
     lastUploadAt = now;
 
@@ -257,5 +377,5 @@ void loop() {
     }
   }
 
-  delay(5);
+  delay(2);
 }

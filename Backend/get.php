@@ -35,7 +35,8 @@ $default = [
     "ai_latency" => "0",
     "ai_worker" => "0",
     "fs" => "255",
-    "bs" => "255"
+    "bs" => "255",
+    "esp_hb" => "0"
 ];
 
 if (file_exists($file)) {

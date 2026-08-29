@@ -79,6 +79,10 @@ if (isset($_GET['bs'])) {
     $data["bs"] = (string)$bs;
 }
 
+if (isset($_GET['esp_hb'])) {
+    $data["esp_hb"] = (string)time();
+}
+
 // AI telemetry fields (written by the AI vision bot)
 $ai_keys = [
     "ai_worker", "ai_obstacle", "ai_action", "ai_turn",
