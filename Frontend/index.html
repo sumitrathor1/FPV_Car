@@ -398,16 +398,24 @@
       .slider-header {
         display: flex;
         justify-content: space-between;
-        font-size: 0.8rem;
+        align-items: center;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        white-space: nowrap;
+        gap: 0.5rem;
+        font-size: 0.78rem;
         font-weight: 600;
         color: var(--text-secondary);
         margin-bottom: 0.4rem;
+        padding-bottom: 2px;
       }
 
       .slider-header span.val {
         font-family: 'JetBrains Mono', monospace;
         color: var(--accent-cyan);
         font-weight: 700;
+        white-space: nowrap;
       }
 
       input[type="range"] {
