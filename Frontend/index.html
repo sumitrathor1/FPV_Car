@@ -756,10 +756,13 @@
 
     <!-- JavaScript Controller Engine -->
     <script>
-      const SERVER_URL = (window.location.protocol === "http:" || window.location.protocol === "https:")
-        ? window.location.origin + (window.location.pathname.includes("/fpv_car") ? "/fpv_car" : "")
+      // Automatically use the current hosting domain if hosted, fallback to Azure IP for local development
+      const isHosted = window.location.hostname && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1";
+      const SERVER_URL = isHosted 
+        ? window.location.origin + (window.location.pathname.includes("/FPV_Car") ? "/FPV_Car" : (window.location.pathname.includes("/fpv_car") ? "/fpv_car" : ""))
         : "http://20.244.113.234/fpv_car";
-      const controlBaseUrl = SERVER_URL.endsWith("/fpv_car") ? SERVER_URL : "http://20.244.113.234/fpv_car";
+      
+      const controlBaseUrl = SERVER_URL;
       const camBaseUrl = controlBaseUrl + "/cam";
 
       const commandLabels = { F: "FORWARD", B: "REVERSE", L: "LEFT", R: "RIGHT", S: "STOP" };
