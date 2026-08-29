@@ -300,13 +300,30 @@
         border: 1px solid #334155;
         border-radius: 16px;
         color: var(--text-primary);
-        font-size: 1.7rem;
+        font-size: 1.25rem;
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
+        gap: 3px;
         cursor: pointer;
         transition: transform 0.08s ease, background 0.1s ease, border-color 0.1s ease, box-shadow 0.1s ease;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      }
+
+      .dpad-btn span.label {
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+        pointer-events: none;
+      }
+
+      .dpad-btn:active span.label,
+      .dpad-btn.pressed span.label,
+      .dpad-btn.latched span.label {
+        color: inherit !important;
       }
 
       /* MODE 0 (STEP) EFFECT - Electric Cyan Quick Flash */
@@ -549,15 +566,30 @@
             <!-- Clean D-PAD -->
             <div class="dpad-container">
               <div></div>
-              <button class="dpad-btn drive-btn" data-cmd="F" aria-label="Forward">▲</button>
+              <button class="dpad-btn drive-btn" data-cmd="F" aria-label="Forward">
+                ▲
+                <span class="label">FORWARD</span>
+              </button>
               <div></div>
 
-              <button class="dpad-btn drive-btn" data-cmd="L" aria-label="Left">◀</button>
-              <button class="dpad-btn stop-btn stop-action" data-cmd="S" onclick="stopCar()" aria-label="Stop">■</button>
-              <button class="dpad-btn drive-btn" data-cmd="R" aria-label="Right">▶</button>
+              <button class="dpad-btn drive-btn" data-cmd="L" aria-label="Left">
+                ◀
+                <span class="label">LEFT</span>
+              </button>
+              <button class="dpad-btn stop-btn stop-action" data-cmd="S" onclick="stopCar()" aria-label="Stop">
+                ■
+                <span class="label">STOP</span>
+              </button>
+              <button class="dpad-btn drive-btn" data-cmd="R" aria-label="Right">
+                ▶
+                <span class="label">RIGHT</span>
+              </button>
 
               <div></div>
-              <button class="dpad-btn drive-btn" data-cmd="B" aria-label="Reverse">▼</button>
+              <button class="dpad-btn drive-btn" data-cmd="B" aria-label="Backward">
+                ▼
+                <span class="label">BACKWARD</span>
+              </button>
               <div></div>
             </div>
 
