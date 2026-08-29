@@ -919,9 +919,9 @@
           <div class="modal-body p-3">
             <div class="alert alert-info py-2 px-3 mb-3" style="font-size: 0.8rem; background: rgba(0, 229, 255, 0.1); border-color: rgba(0, 229, 255, 0.25); color: #bae6fd;">
               <strong>💡 Quick Setup Guide:</strong><br>
-              1. Apne mobile/laptop ke WiFi me connect karein: <strong>"FPV-Car-Setup"</strong>.<br>
-              2. Niche <strong>"Scan Wi-Fi Networks"</strong> dabayein.<br>
-              3. Apna WiFi select karke password daalein aur <strong>"Connect & Save"</strong> karein.
+              1. Connect your phone/laptop to the WiFi hotspot: <strong>"FPV-Car-Setup"</strong>.<br>
+              2. Click <strong>"Scan"</strong> to find nearby Wi-Fi networks.<br>
+              3. Select your network, enter the password, and click <strong>"Connect & Save"</strong>.
             </div>
 
             <!-- ESP Local IP / Target Selector -->
@@ -1320,7 +1320,7 @@
             btn.disabled = false;
             btn.textContent = "🔍 Scan";
             msg.className = "small text-danger text-center mb-2";
-            msg.innerHTML = `Cannot reach ESP32 at ${espUrl}.<br>Make sure you are connected to <strong>"FPV-Car-Setup"</strong> WiFi.`;
+            msg.innerHTML = `Cannot reach ESP32 at ${espUrl}.<br>Please verify your device is connected to the <strong>"FPV-Car-Setup"</strong> WiFi.`;
           });
       }
 
@@ -1354,7 +1354,7 @@
           .then((r) => r.json())
           .then((data) => {
             msg.className = "small text-success text-center mb-2";
-            msg.innerHTML = "✅ <strong>WiFi Saved!</strong> ESP32 is now restarting and connecting to your home WiFi.<br>Switch your phone/laptop back to your regular WiFi to control the car.";
+            msg.innerHTML = "✅ <strong>WiFi Saved!</strong> ESP32 is restarting and connecting to your network.<br>Please reconnect your device back to your regular WiFi to operate the car.";
             setTimeout(() => {
               if (wifiModalInstance) wifiModalInstance.hide();
               btn.disabled = false;
@@ -1365,7 +1365,7 @@
             btn.disabled = false;
             btn.textContent = "🚀 CONNECT & SAVE TO FLASH";
             msg.className = "small text-warning text-center mb-2";
-            msg.textContent = "Credentials sent (ESP32 may have restarted). Reconnect your phone/PC to your home WiFi to check if ESP32 comes ONLINE.";
+            msg.textContent = "Credentials dispatched (ESP32 is restarting). Reconnect your device to your home WiFi to check if ESP32 comes ONLINE.";
           });
       }
 
