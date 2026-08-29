@@ -387,7 +387,10 @@
       }
 
       /* Offline Lock Visual State */
-      .dpad-btn.offline-disabled {
+      .dpad-btn.offline-disabled,
+      .action-pill-btn.offline-disabled,
+      .mode-capsule-btn.offline-disabled,
+      .slider-box.offline-disabled {
         opacity: 0.35 !important;
         cursor: not-allowed !important;
         filter: grayscale(80%) !important;
@@ -1104,6 +1107,7 @@
 
       /* Camera Stream */
       function toggleCameraPower() {
+        if (!espOnlineState) return;
         if (isCamOn) {
           isCamOn = false;
           clearTimeout(camTimer);
@@ -1125,13 +1129,14 @@
       }
 
       function updateCameraFeed() {
-        if (!isCamOn) return;
+        if (!isCamOn || !espOnlineState) return;
         liveCam.src = `${camBaseUrl}/latest.jpg?t=${Date.now()}`;
         camTimer = setTimeout(updateCameraFeed, 95);
       }
 
       /* Flashlight / Headlight */
       function toggleHeadlight() {
+        if (!espOnlineState) return;
         isFlashOn = !isFlashOn;
         const btn = document.getElementById("flashToggleBtn");
         btn.classList.toggle("active", isFlashOn);
@@ -1141,6 +1146,7 @@
 
       /* AI Auto-Drive Assist */
       function toggleAiAssist() {
+        if (!espOnlineState) return;
         isAiOn = !isAiOn;
         const btn = document.getElementById("aiToggleBtn");
         btn.classList.toggle("active", isAiOn);
@@ -1261,6 +1267,8 @@
             const dot = document.getElementById("espStatusDot");
             const text = document.getElementById("espStatusText");
             const dpadButtons = document.querySelectorAll(".dpad-btn:not(.stop-btn)");
+            const actionButtons = document.querySelectorAll("#camToggleBtn, #flashToggleBtn, #aiToggleBtn, #recToggleBtn");
+            const speedSliderBox = document.querySelector(".slider-box");
 
             if (isEspOnline) {
               pill.style.background = "rgba(16, 185, 129, 0.15)";
@@ -1270,6 +1278,8 @@
               dot.style.boxShadow = "0 0 8px #10b981";
               text.textContent = "ESP32 ONLINE";
               dpadButtons.forEach(b => b.classList.remove("offline-disabled"));
+              actionButtons.forEach(b => b.classList.remove("offline-disabled"));
+              if (speedSliderBox) speedSliderBox.classList.remove("offline-disabled");
             } else {
               pill.style.background = "rgba(239, 68, 68, 0.15)";
               pill.style.color = "#f87171";
@@ -1278,6 +1288,8 @@
               dot.style.boxShadow = "0 0 8px #ef4444";
               text.textContent = "ESP32 OFFLINE";
               dpadButtons.forEach(b => b.classList.add("offline-disabled"));
+              actionButtons.forEach(b => b.classList.add("offline-disabled"));
+              if (speedSliderBox) speedSliderBox.classList.add("offline-disabled");
 
               // If car just went offline while driving, reset UI state and trigger stop
               if (wasOnline) {

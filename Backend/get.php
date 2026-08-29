@@ -42,11 +42,15 @@ $default = [
 if (file_exists($file)) {
     $raw = file_get_contents($file);
     $decoded = json_decode($raw, true);
-    if (is_array($decoded)) {
-        echo json_encode(array_merge($default, $decoded));
-    } else {
-        echo json_encode($default);
+    $state = is_array($decoded) ? array_merge($default, $decoded) : $default;
+
+    // Server-Side Safety: If ESP32 heartbeat is older than 4s or missing, force cmd to STOP ('S')
+    $hb = isset($state['esp_hb']) ? (int)$state['esp_hb'] : 0;
+    if ($hb === 0 || (time() - $hb) > 4) {
+        $state['cmd'] = 'S';
     }
+
+    echo json_encode($state);
 } else {
     echo json_encode($default);
 }
