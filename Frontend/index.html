@@ -566,35 +566,30 @@
               <div></div>
               <button class="dpad-btn drive-btn" data-cmd="F">
                 ▲
-                <span class="label">FWD <span class="key-hint">(W)</span></span>
+                <span class="label">FWD <span class="key-hint">(W/↑/8)</span></span>
               </button>
               <div></div>
 
               <button class="dpad-btn drive-btn" data-cmd="L">
                 ◀
-                <span class="label">LEFT <span class="key-hint">(A)</span></span>
+                <span class="label">LEFT <span class="key-hint">(A/←/4)</span></span>
               </button>
               <button class="dpad-btn stop-btn stop-action" onclick="stopCar()">
                 ■
-                <span class="label">STOP</span>
+                <span class="label">STOP <span class="key-hint">(5/0)</span></span>
               </button>
               <button class="dpad-btn drive-btn" data-cmd="R">
                 ▶
-                <span class="label">RIGHT <span class="key-hint">(D)</span></span>
+                <span class="label">RIGHT <span class="key-hint">(D/→/6)</span></span>
               </button>
 
               <div></div>
               <button class="dpad-btn drive-btn" data-cmd="B">
                 ▼
-                <span class="label">REV <span class="key-hint">(S)</span></span>
+                <span class="label">REV <span class="key-hint">(S/↓/2)</span></span>
               </button>
               <div></div>
             </div>
-
-            <!-- Full Width Emergency Stop -->
-            <button class="e-stop-bar stop-action" onclick="stopCar()">
-              🛑 EMERGENCY BRAKE <span class="key-hint">(SPACE)</span>
-            </button>
 
             <!-- Bottom Live State Bar -->
             <div class="status-banner">
@@ -773,20 +768,39 @@
         });
       }
 
-      /* Keyboard Driving (W, A, S, D, Space) */
+      /* Keyboard Driving (WASD, Arrow Keys, Numpad 8/2/4/6/5/0, Space) */
+      const forwardKeys = ["w", "arrowup", "8"];
+      const reverseKeys = ["s", "arrowdown", "2"];
+      const leftKeys = ["a", "arrowleft", "4"];
+      const rightKeys = ["d", "arrowright", "6"];
+      const stopKeys = [" ", "escape", "5", "0"];
+
       window.addEventListener("keydown", (e) => {
         if (e.repeat) return;
         const k = e.key.toLowerCase();
-        if (k === "w") sendCommand("F", "KEYBOARD");
-        else if (k === "s") sendCommand("B", "KEYBOARD");
-        else if (k === "a") sendCommand("L", "KEYBOARD");
-        else if (k === "d") sendCommand("R", "KEYBOARD");
-        else if (k === " " || k === "escape") stopCar();
+        
+        if (forwardKeys.includes(k)) {
+          e.preventDefault();
+          sendCommand("F", "KEYBOARD");
+        } else if (reverseKeys.includes(k)) {
+          e.preventDefault();
+          sendCommand("B", "KEYBOARD");
+        } else if (leftKeys.includes(k)) {
+          e.preventDefault();
+          sendCommand("L", "KEYBOARD");
+        } else if (rightKeys.includes(k)) {
+          e.preventDefault();
+          sendCommand("R", "KEYBOARD");
+        } else if (stopKeys.includes(k)) {
+          e.preventDefault();
+          stopCar();
+        }
       });
 
       window.addEventListener("keyup", (e) => {
         const k = e.key.toLowerCase();
-        if (["w", "s", "a", "d"].includes(k) && driveMode === 1) {
+        const allMovementKeys = [...forwardKeys, ...reverseKeys, ...leftKeys, ...rightKeys];
+        if (allMovementKeys.includes(k) && driveMode === 1) {
           stopCar();
         }
       });
