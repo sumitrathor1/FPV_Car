@@ -509,6 +509,96 @@
         font-weight: 600;
       }
 
+      /* Modal & Recording Gallery Player */
+      .modal-content.dark-modal {
+        background: rgba(13, 20, 34, 0.96);
+        border: 1px solid var(--card-border);
+        border-radius: 18px;
+        backdrop-filter: blur(20px);
+        color: var(--text-primary);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+      }
+
+      .modal-header.dark-modal-header {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 0.85rem 1.25rem;
+      }
+
+      .folder-card-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        max-height: 220px;
+        overflow-y: auto;
+      }
+
+      .folder-item-btn {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 10px;
+        padding: 0.6rem 0.85rem;
+        color: var(--text-primary);
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+
+      .folder-item-btn:hover, .folder-item-btn.active {
+        background: rgba(0, 229, 255, 0.15);
+        border-color: var(--accent-cyan);
+        color: var(--accent-cyan);
+      }
+
+      .playback-stage {
+        position: relative;
+        width: 100%;
+        background: #000;
+        border-radius: 10px;
+        aspect-ratio: 16 / 9;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .playback-stage img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .playback-actions-bar {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+      }
+
+      .playback-control-btn {
+        background: #1e293b;
+        border: 1px solid #334155;
+        color: #f1f5f9;
+        font-weight: 700;
+        font-size: 0.82rem;
+        padding: 0.4rem 0.85rem;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+
+      .playback-control-btn:hover, .playback-control-btn:active {
+        background: var(--accent-cyan);
+        color: #04121d;
+        border-color: var(--accent-cyan);
+      }
+
       /* App Footer */
       .app-footer {
         margin-top: 1.25rem;
@@ -641,6 +731,9 @@
               <button class="action-pill-btn" id="recToggleBtn" onclick="toggleRecording()">
                 <span>🔴</span> <span id="recText">REC</span>
               </button>
+              <button class="action-pill-btn" id="galleryOpenBtn" onclick="openGalleryModal()">
+                <span>📼</span> <span>RECORDINGS</span>
+              </button>
             </div>
 
             <!-- Mini Telemetry Strip -->
@@ -752,6 +845,60 @@
           </a>
         </div>
       </footer>
+    </div>
+
+    <!-- Recordings Gallery & Playback Modal -->
+    <div class="modal fade" id="galleryModal" tabindex="-1" aria-labelledby="galleryModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content dark-modal">
+          <div class="modal-header dark-modal-header">
+            <h5 class="modal-title fs-6 fw-bold" id="galleryModalLabel">📼 Recorded Video Sessions</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" onclick="stopPlaybackTimer()"></button>
+          </div>
+          <div class="modal-body p-3">
+            <div class="row g-3">
+              <!-- Left Col: Folder List -->
+              <div class="col-12 col-md-5">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <span class="text-secondary small fw-bold text-uppercase">Saved Sessions</span>
+                  <button class="btn btn-outline-info btn-sm py-0 px-2" onclick="fetchRecordingList()" style="font-size: 0.75rem;">🔄 Refresh</button>
+                </div>
+                <div id="folderList" class="folder-card-list">
+                  <div class="text-secondary small text-center py-3">Loading sessions...</div>
+                </div>
+              </div>
+
+              <!-- Right Col: Playback Screen & Controls -->
+              <div class="col-12 col-md-7">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <span class="text-secondary small fw-bold text-uppercase" id="selectedSessionTitle">No Session Selected</span>
+                  <span class="badge bg-secondary" id="playbackCounterBadge">0 / 0</span>
+                </div>
+                
+                <div class="playback-stage">
+                  <img id="playbackImg" alt="Recording playback frame" src="" style="display:none;" />
+                  <div id="playbackPlaceholder" class="text-secondary small text-center px-3">
+                    Select a recorded session from the list to start playback.
+                  </div>
+                </div>
+
+                <!-- Scrub Range -->
+                <div class="mt-2">
+                  <input type="range" id="playbackSeek" min="0" max="0" value="0" step="1" oninput="onSeekChange(this.value)" />
+                </div>
+
+                <!-- Action Controls -->
+                <div class="playback-actions-bar">
+                  <button class="playback-control-btn" onclick="stepFrame(-1)">⏮</button>
+                  <button class="playback-control-btn" id="playPauseBtn" onclick="togglePlaybackPlay()">▶ PLAY</button>
+                  <button class="playback-control-btn" onclick="stepFrame(1)">⏭</button>
+                  <button class="btn btn-outline-success btn-sm ms-auto py-1 px-2" id="downloadSessionBtn" onclick="downloadCurrentSession()" style="font-size: 0.75rem; display:none;">📥 Download ZIP</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- JavaScript Controller Engine -->
@@ -1027,6 +1174,137 @@
           .catch(() => {});
       }
 
+      /* ======================================================
+       * Recordings Gallery & Frame Playback Engine
+       * ====================================================== */
+      let galleryModalInstance = null;
+      let selectedFolder = "";
+      let playbackFrames = [];
+      let playbackIndex = 0;
+      let playbackTimer = null;
+      let isPlaying = false;
+
+      function openGalleryModal() {
+        if (!galleryModalInstance && window.bootstrap) {
+          galleryModalInstance = new bootstrap.Modal(document.getElementById('galleryModal'));
+        }
+        if (galleryModalInstance) galleryModalInstance.show();
+        fetchRecordingList();
+      }
+
+      function fetchRecordingList() {
+        const folderListEl = document.getElementById("folderList");
+        folderListEl.innerHTML = `<div class="text-secondary small text-center py-3">Fetching recordings...</div>`;
+
+        fetch(`${camBaseUrl}/list.php?t=${Date.now()}`)
+          .then((r) => r.json())
+          .then((folders) => {
+            if (!Array.isArray(folders) || folders.length === 0) {
+              folderListEl.innerHTML = `<div class="text-secondary small text-center py-3">No recorded sessions found.</div>`;
+              return;
+            }
+
+            folderListEl.innerHTML = "";
+            folders.forEach((folder) => {
+              const btn = document.createElement("button");
+              btn.className = `folder-item-btn ${folder === selectedFolder ? 'active' : ''}`;
+              btn.innerHTML = `<span>📁 ${folder}</span><small class="text-info">Select →</small>`;
+              btn.onclick = () => loadFolderFrames(folder);
+              folderListEl.appendChild(btn);
+            });
+          })
+          .catch(() => {
+            folderListEl.innerHTML = `<div class="text-danger small text-center py-3">Failed to load recordings list.</div>`;
+          });
+      }
+
+      function loadFolderFrames(folder) {
+        selectedFolder = folder;
+        stopPlaybackTimer();
+        document.querySelectorAll(".folder-item-btn").forEach(b => {
+          b.classList.toggle("active", b.textContent.includes(folder));
+        });
+
+        document.getElementById("selectedSessionTitle").textContent = folder;
+        document.getElementById("playbackPlaceholder").textContent = "Loading frames...";
+        document.getElementById("playbackPlaceholder").style.display = "block";
+        document.getElementById("playbackImg").style.display = "none";
+
+        fetch(`${camBaseUrl}/list_frames.php?folder=${encodeURIComponent(folder)}&t=${Date.now()}`)
+          .then((r) => r.json())
+          .then((frames) => {
+            if (!Array.isArray(frames) || frames.length === 0) {
+              document.getElementById("playbackPlaceholder").textContent = "No frames in this recording.";
+              playbackFrames = [];
+              return;
+            }
+
+            playbackFrames = frames;
+            playbackIndex = 0;
+            
+            const seekEl = document.getElementById("playbackSeek");
+            seekEl.max = String(playbackFrames.length - 1);
+            seekEl.value = "0";
+
+            document.getElementById("downloadSessionBtn").style.display = "inline-block";
+            renderCurrentFrame();
+          })
+          .catch(() => {
+            document.getElementById("playbackPlaceholder").textContent = "Failed to load frames.";
+          });
+      }
+
+      function renderCurrentFrame() {
+        if (!playbackFrames.length) return;
+        const frameName = playbackFrames[playbackIndex];
+        const img = document.getElementById("playbackImg");
+        img.src = `${camBaseUrl}/${selectedFolder}/${frameName}`;
+        img.style.display = "block";
+        document.getElementById("playbackPlaceholder").style.display = "none";
+
+        document.getElementById("playbackSeek").value = String(playbackIndex);
+        document.getElementById("playbackCounterBadge").textContent = `${playbackIndex + 1} / ${playbackFrames.length}`;
+      }
+
+      function onSeekChange(val) {
+        stopPlaybackTimer();
+        playbackIndex = Math.min(playbackFrames.length - 1, Math.max(0, Number(val)));
+        renderCurrentFrame();
+      }
+
+      function stepFrame(step) {
+        if (!playbackFrames.length) return;
+        stopPlaybackTimer();
+        playbackIndex = (playbackIndex + step + playbackFrames.length) % playbackFrames.length;
+        renderCurrentFrame();
+      }
+
+      function togglePlaybackPlay() {
+        if (!playbackFrames.length) return;
+        if (isPlaying) {
+          stopPlaybackTimer();
+        } else {
+          isPlaying = true;
+          document.getElementById("playPauseBtn").textContent = "⏸ PAUSE";
+          playbackTimer = setInterval(() => {
+            playbackIndex = (playbackIndex + 1) % playbackFrames.length;
+            renderCurrentFrame();
+          }, 120);
+        }
+      }
+
+      function stopPlaybackTimer() {
+        isPlaying = false;
+        clearInterval(playbackTimer);
+        const playBtn = document.getElementById("playPauseBtn");
+        if (playBtn) playBtn.textContent = "▶ PLAY";
+      }
+
+      function downloadCurrentSession() {
+        if (!selectedFolder) return;
+        window.open(`${camBaseUrl}/download_recording.php?folder=${encodeURIComponent(selectedFolder)}&type=zip`, '_blank');
+      }
+
       // Initialize on load
       window.addEventListener("DOMContentLoaded", () => {
         initTouchControls();
@@ -1034,5 +1312,6 @@
         setInterval(pollTelemetry, 500);
       });
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   </body>
 </html>
