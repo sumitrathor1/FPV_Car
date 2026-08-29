@@ -2,1423 +2,817 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FPV Car Command Center</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>FPV Car Remote Controller</title>
     <link rel="icon" href="data:," />
-
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Urbanist:wght@500;700;800&display=swap"
-      rel="stylesheet"
-    />
-    <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-      rel="stylesheet"
-      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
-      crossorigin="anonymous"
-    />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
 
     <style>
       :root {
-        --bg-1: #06182a;
-        --bg-2: #0a2f44;
-        --surface: rgba(255, 255, 255, 0.09);
-        --surface-strong: rgba(255, 255, 255, 0.15);
-        --text-soft: #c8d8e6;
-        --accent: #3dd5f3;
-        --accent-2: #47f3ab;
-        --danger: #ff5d73;
+        --bg-dark: #090d16;
+        --card-bg: rgba(18, 24, 38, 0.85);
+        --card-border: rgba(255, 255, 255, 0.08);
+        --accent-cyan: #00e5ff;
+        --accent-emerald: #10b981;
+        --accent-amber: #f59e0b;
+        --accent-rose: #f43f5e;
+        --text-primary: #f8fafc;
+        --text-secondary: #94a3b8;
+        --btn-surface: #1e293b;
+        --btn-border: #334155;
       }
 
       * {
         box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
       }
 
-      body {
-        margin: 0;
+      html, body {
+        user-select: none;
+        -webkit-user-select: none;
+        touch-action: manipulation;
+        background-color: var(--bg-dark);
+        color: var(--text-primary);
+        font-family: 'Plus Jakarta Sans', sans-serif;
         min-height: 100vh;
-        font-family: "Space Grotesk", sans-serif;
-        color: #f4fbff;
-        background:
-          radial-gradient(
-            1200px 600px at 5% -10%,
-            rgba(61, 213, 243, 0.25),
-            transparent 60%
-          ),
-          radial-gradient(
-            900px 500px at 95% 0%,
-            rgba(71, 243, 171, 0.18),
-            transparent 60%
-          ),
-          linear-gradient(135deg, var(--bg-1), var(--bg-2));
         overflow-x: hidden;
       }
 
-      html,
-      body {
-        user-select: none;
-        -webkit-user-select: none;
-        -webkit-touch-callout: none;
+      /* Glow background effect */
+      body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 100vw;
+        height: 100vh;
+        background: radial-gradient(circle at 50% 0%, rgba(0, 229, 255, 0.08) 0%, transparent 60%),
+                    radial-gradient(circle at 100% 100%, rgba(16, 185, 129, 0.05) 0%, transparent 50%);
+        pointer-events: none;
+        z-index: -1;
       }
 
-      .brand-font {
-        font-family: "Urbanist", sans-serif;
-        letter-spacing: 0.02em;
+      .app-shell {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0.75rem;
       }
 
-      .glass-card {
-        background: var(--surface);
-        border: 1px solid rgba(255, 255, 255, 0.18);
-        backdrop-filter: blur(14px);
-        border-radius: 1.25rem;
-        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.22);
+      @media (min-width: 768px) {
+        .app-shell {
+          padding: 1.25rem;
+        }
       }
 
-      .hero-title {
-        font-size: clamp(1.4rem, 2.6vw, 2.2rem);
-        line-height: 1.1;
+      /* Top Navbar Bar */
+      .top-navbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 14px;
+        padding: 0.6rem 1rem;
+        backdrop-filter: blur(12px);
+        margin-bottom: 0.85rem;
+      }
+
+      .brand-title {
         font-weight: 800;
+        font-size: 1.1rem;
+        letter-spacing: -0.02em;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 0;
       }
 
-      .hero-sub {
-        color: var(--text-soft);
-        max-width: 700px;
-        font-size: 0.93rem;
+      .brand-title span {
+        color: var(--accent-cyan);
       }
 
-      .status-pill {
+      .live-pill {
         display: inline-flex;
         align-items: center;
-        gap: 0.45rem;
-        background: rgba(71, 243, 171, 0.18);
-        color: #d7ffef;
-        border: 1px solid rgba(71, 243, 171, 0.5);
+        gap: 0.4rem;
+        background: rgba(16, 185, 129, 0.12);
+        color: #34d399;
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        padding: 0.25rem 0.65rem;
         border-radius: 999px;
-        padding: 0.45rem 0.85rem;
-        font-size: 0.85rem;
-        font-weight: 600;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
       }
 
-      .status-dot {
-        width: 9px;
-        height: 9px;
+      .pulse-dot {
+        width: 7px;
+        height: 7px;
         border-radius: 50%;
-        background: var(--accent-2);
-        box-shadow: 0 0 0 0 rgba(71, 243, 171, 0.6);
-        animation: pulse 1.8s infinite;
+        background-color: var(--accent-emerald);
+        box-shadow: 0 0 8px var(--accent-emerald);
+        animation: pulse 1.6s infinite;
       }
 
-      .stream-wrap {
+      @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.4; transform: scale(0.85); }
+      }
+
+      /* Glass Panels */
+      .remote-card {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 16px;
+        backdrop-filter: blur(16px);
+        padding: 1rem;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* Video Stage */
+      .video-viewport {
         position: relative;
-        border-radius: 1rem;
+        width: 100%;
+        background: #000;
+        border-radius: 12px;
         overflow: hidden;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        background: rgba(0, 0, 0, 0.2);
-        aspect-ratio: 16 / 8.2;
+        aspect-ratio: 16 / 9;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
       }
 
-      .stream-wrap img {
+      .video-viewport img {
         width: 100%;
         height: 100%;
         object-fit: cover;
         display: block;
       }
 
-      .live-placeholder {
+      .video-overlay-info {
         position: absolute;
-        inset: 0;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-        padding: 1rem;
-        background:
-          radial-gradient(
-            circle at 20% 20%,
-            rgba(61, 213, 243, 0.2),
-            transparent 52%
-          ),
-          radial-gradient(
-            circle at 80% 25%,
-            rgba(71, 243, 171, 0.16),
-            transparent 45%
-          ),
-          linear-gradient(150deg, rgba(4, 18, 31, 0.96), rgba(8, 34, 51, 0.96));
-        color: #d8e9f8;
-      }
-
-      .live-placeholder.show {
+        top: 8px;
+        left: 8px;
+        right: 8px;
         display: flex;
-      }
-
-      .live-placeholder h4 {
-        margin: 0;
-        font-size: 1rem;
-        font-weight: 700;
-      }
-
-      .live-placeholder p {
-        margin: 0.35rem 0 0;
-        color: #aac3d7;
-        font-size: 0.85rem;
-      }
-
-      .segmented-toggle {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 0.3rem;
-        padding: 0.28rem;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.12);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-      }
-
-      .segmented-toggle.two-option {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .seg-btn {
-        border: 0;
-        border-radius: 999px;
-        min-height: 42px;
-        font-weight: 700;
-        font-size: 0.82rem;
-        color: #e8f6ff;
-        background: transparent;
-        transition:
-          background 0.2s ease,
-          transform 0.15s ease,
-          box-shadow 0.2s ease;
-      }
-
-      .seg-btn.active-seg {
-        background: linear-gradient(
-          135deg,
-          rgba(61, 213, 243, 0.8),
-          rgba(71, 243, 171, 0.7)
-        );
-        color: #04283b;
-        box-shadow: 0 8px 22px rgba(61, 213, 243, 0.25);
-      }
-
-      .control-pad {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(70px, 1fr));
-        gap: 0.6rem;
-        max-width: 320px;
-        margin: 0 auto;
-      }
-
-      .pad-btn {
-        min-height: 56px;
-        border-radius: 0.9rem;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        background: var(--surface-strong);
-        color: #fff;
-        font-weight: 700;
-        touch-action: none;
-        user-select: none;
-        transition:
-          transform 0.18s ease,
-          background 0.2s ease;
-      }
-
-      .pad-btn:hover {
-        transform: translateY(-2px);
-        background: rgba(255, 255, 255, 0.22);
-      }
-
-      .pad-btn.active-cmd {
-        background: rgba(61, 213, 243, 0.25);
-        border-color: rgba(61, 213, 243, 0.8);
-        box-shadow: 0 0 0 0.2rem rgba(61, 213, 243, 0.22);
-      }
-
-      .drive-btn:active {
-        transform: scale(0.98);
-      }
-
-      .pad-btn.stop {
-        background: rgba(255, 93, 115, 0.2);
-        border-color: rgba(255, 93, 115, 0.6);
-      }
-
-      .control-theme {
-        display: none;
-        animation: slideIn 0.35s ease;
-      }
-
-      .control-theme.active-theme {
-        display: block;
-      }
-
-      .split-layout {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(120px, 1fr));
-        gap: 0.7rem;
-        max-width: 420px;
-        margin: 0 auto;
-      }
-
-      .stick-col {
-        border-radius: 1rem;
-        border: 1px solid rgba(255, 255, 255, 0.16);
-        background: rgba(255, 255, 255, 0.08);
-        padding: 0.65rem;
-        display: grid;
-        gap: 0.55rem;
-      }
-
-      .stick-title {
-        font-size: 0.74rem;
-        letter-spacing: 0.07em;
-        text-transform: uppercase;
-        color: var(--text-soft);
-        text-align: center;
-        margin-bottom: 0.15rem;
-      }
-
-      .tall-btn {
-        min-height: 62px;
-      }
-
-      .section-label {
-        font-size: 0.8rem;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: #cde2f2;
-        margin-bottom: 0.45rem;
-        display: block;
-      }
-
-      @keyframes slideIn {
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-
-      @keyframes pulse {
-        0% {
-          box-shadow: 0 0 0 0 rgba(71, 243, 171, 0.5);
-        }
-        70% {
-          box-shadow: 0 0 0 9px rgba(71, 243, 171, 0);
-        }
-        100% {
-          box-shadow: 0 0 0 0 rgba(71, 243, 171, 0);
-        }
-      }
-
-      .muted-note {
-        color: var(--text-soft);
-        font-size: 0.88rem;
-      }
-
-      .cam-panel {
-        margin-top: 0.9rem;
-        padding: 0.85rem;
-        border-radius: 1rem;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        background: rgba(0, 0, 0, 0.18);
-      }
-
-      .cam-status {
-        color: var(--text-soft);
-        font-size: 0.84rem;
-        margin-top: 0.45rem;
-        min-height: 1.2rem;
-      }
-
-      .ai-telemetry-card {
-        margin-top: 0.6rem;
-        border: 1px solid rgba(61, 213, 243, 0.25);
-        border-radius: 0.85rem;
-        background: linear-gradient(
-          135deg,
-          rgba(5, 22, 36, 0.78),
-          rgba(8, 34, 52, 0.72)
-        );
-        padding: 0.7rem;
-      }
-
-      .ai-telemetry-grid {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 0.45rem;
-      }
-
-      .ai-metric {
-        border-radius: 0.6rem;
-        padding: 0.42rem 0.5rem;
-        background: rgba(255, 255, 255, 0.07);
-        border: 1px solid rgba(255, 255, 255, 0.16);
-      }
-
-      .ai-metric span {
-        display: block;
-        font-size: 0.64rem;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        color: #9fc0d8;
-      }
-
-      .ai-metric strong {
-        font-family: "Space Grotesk", sans-serif;
-        font-size: 0.9rem;
-        color: #eff8ff;
-      }
-
-      .ai-raw-line {
-        margin: 0.55rem 0 0;
-        padding: 0.5rem 0.6rem;
-        border-radius: 0.6rem;
-        border: 1px dashed rgba(61, 213, 243, 0.38);
-        background: rgba(0, 0, 0, 0.25);
-        color: #beddff;
-        font-size: 0.76rem;
-        line-height: 1.35;
-        white-space: pre-wrap;
-        word-break: break-word;
-      }
-
-      .cam-switch-label {
-        font-size: 0.74rem;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: #cde2f2;
-        margin-bottom: 0.35rem;
-        display: block;
-      }
-
-      .gallery-box {
-        margin-top: 0.7rem;
-        max-height: 210px;
-        overflow-y: auto;
-        padding-right: 0.2rem;
-      }
-
-      .gallery-item {
-        display: flex;
-        align-items: center;
         justify-content: space-between;
-        gap: 0.45rem;
-        padding: 0.45rem 0.5rem;
-        border: 1px solid rgba(255, 255, 255, 0.16);
-        border-radius: 0.75rem;
-        background: rgba(255, 255, 255, 0.06);
-        margin-bottom: 0.45rem;
-      }
-
-      .gallery-name {
-        font-size: 0.84rem;
-        font-weight: 600;
-        color: #dcf0ff;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        max-width: 52%;
-      }
-
-      .gallery-actions {
-        display: flex;
-        gap: 0.35rem;
-      }
-
-      .playback-panel {
-        margin-top: 0.85rem;
-        padding: 0.85rem;
-        border-radius: 1rem;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        background: rgba(255, 255, 255, 0.06);
-      }
-
-      .playback-stage {
-        position: relative;
-        width: 100%;
-        border-radius: 0.9rem;
-        overflow: hidden;
-        background: rgba(5, 15, 24, 0.7);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        aspect-ratio: 16 / 8.2;
-        display: flex;
         align-items: center;
-        justify-content: center;
+        pointer-events: none;
       }
 
-      .playback-stage img {
-        width: 100%;
-        height: 100%;
-        object-fit: contain;
-        display: block;
+      .osd-badge {
+        background: rgba(0, 0, 0, 0.65);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 6px;
+        padding: 2px 8px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.72rem;
+        color: #e2e8f0;
+        backdrop-filter: blur(4px);
       }
 
-      .playback-empty {
+      .video-placeholder {
         position: absolute;
         inset: 0;
         display: none;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
+        background: #0b111e;
+        color: var(--text-secondary);
         text-align: center;
         padding: 1rem;
-        color: #d8e9f8;
       }
 
-      .playback-empty.show {
+      .video-placeholder.active {
         display: flex;
       }
 
-      .playback-meta {
-        color: var(--text-soft);
-        font-size: 0.82rem;
-        margin-top: 0.45rem;
+      /* Quick Action Bar Under Video */
+      .quick-actions-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.85rem;
       }
 
-      .playback-controls {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 0.45rem;
-        margin-top: 0.65rem;
-      }
-
-      .playback-controls .btn {
-        width: 100%;
-      }
-
-      .recording-badge {
-        display: none;
+      .action-pill-btn {
+        flex: 1 1 auto;
+        display: flex;
         align-items: center;
+        justify-content: center;
         gap: 0.4rem;
-        border-radius: 999px;
-        padding: 0.28rem 0.6rem;
-        background: rgba(255, 93, 115, 0.18);
-        border: 1px solid rgba(255, 93, 115, 0.55);
-        color: #ffe2e7;
-        font-size: 0.72rem;
+        background: var(--btn-surface);
+        border: 1px solid var(--btn-border);
+        color: var(--text-primary);
+        font-weight: 600;
+        font-size: 0.82rem;
+        padding: 0.55rem 0.75rem;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+
+      .action-pill-btn:active, .action-pill-btn.active {
+        background: rgba(0, 229, 255, 0.15);
+        border-color: var(--accent-cyan);
+        color: var(--accent-cyan);
+      }
+
+      .action-pill-btn.danger-action:active, .action-pill-btn.danger-action.active {
+        background: rgba(244, 63, 94, 0.2);
+        border-color: var(--accent-rose);
+        color: var(--accent-rose);
+      }
+
+      /* Controls Section */
+      .section-heading {
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-secondary);
+        margin-bottom: 0.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      /* Mode Toggle Capsules */
+      .mode-capsule-group {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        background: #0f172a;
+        border: 1px solid var(--card-border);
+        padding: 3px;
+        border-radius: 12px;
+        margin-bottom: 1rem;
+      }
+
+      .mode-capsule-btn {
+        background: transparent;
+        border: none;
+        color: var(--text-secondary);
+        font-size: 0.78rem;
+        font-weight: 700;
+        padding: 0.45rem;
+        border-radius: 9px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .mode-capsule-btn.active {
+        background: var(--btn-surface);
+        color: var(--accent-cyan);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      }
+
+      /* D-PAD CONTROLLER */
+      .dpad-container {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.5rem;
+        max-width: 290px;
+        margin: 0.5rem auto 1rem auto;
+      }
+
+      .dpad-btn {
+        aspect-ratio: 1;
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 14px;
+        color: var(--text-primary);
+        font-size: 1.3rem;
+        font-weight: 800;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        cursor: pointer;
+        transition: transform 0.08s ease, background 0.08s ease, border-color 0.08s ease;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+      }
+
+      .dpad-btn span.label {
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+      }
+
+      .dpad-btn:active, .dpad-btn.pressed {
+        background: #00e5ff;
+        border-color: #00e5ff;
+        color: #04121d;
+        transform: scale(0.93);
+        box-shadow: 0 0 20px rgba(0, 229, 255, 0.4);
+      }
+
+      .dpad-btn:active span.label, .dpad-btn.pressed span.label {
+        color: #04121d;
+      }
+
+      .dpad-btn.stop-btn {
+        background: rgba(244, 63, 94, 0.15);
+        border-color: rgba(244, 63, 94, 0.4);
+        color: var(--accent-rose);
+      }
+
+      .dpad-btn.stop-btn:active, .dpad-btn.stop-btn.pressed {
+        background: var(--accent-rose);
+        color: white;
+        border-color: var(--accent-rose);
+      }
+
+      /* Emergency Stop Banner Button */
+      .e-stop-bar {
+        width: 100%;
+        background: linear-gradient(135deg, #e11d48, #be123c);
+        border: none;
+        color: white;
+        font-weight: 800;
+        font-size: 0.95rem;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        padding: 0.75rem;
+        border-radius: 12px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        box-shadow: 0 4px 15px rgba(225, 29, 72, 0.35);
+        transition: transform 0.1s ease;
+      }
+
+      .e-stop-bar:active {
+        transform: scale(0.97);
+        filter: brightness(1.15);
+      }
+
+      /* Speed Sliders */
+      .slider-box {
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        padding: 0.75rem 0.85rem;
+        margin-top: 0.75rem;
+      }
+
+      .slider-header {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        margin-bottom: 0.4rem;
+      }
+
+      .slider-header span.val {
+        font-family: 'JetBrains Mono', monospace;
+        color: var(--accent-cyan);
         font-weight: 700;
       }
 
-      .recording-badge.active {
-        display: inline-flex;
-      }
-
-      .recording-badge .dot {
-        width: 7px;
-        height: 7px;
-        border-radius: 50%;
-        background: #ff5d73;
-        animation: pulse 1.6s infinite;
-      }
-
-      .drive-footer {
-        margin-top: 0.8rem;
-        padding-top: 0.7rem;
-        border-top: 1px solid rgba(255, 255, 255, 0.12);
-        display: grid;
-        gap: 0.55rem;
-      }
-
-      .playback-slider {
-        margin-top: 0.7rem;
-        padding: 0.45rem 0.55rem;
-        border-radius: 0.7rem;
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        background: rgba(255, 255, 255, 0.05);
-      }
-
-      .playback-slider input[type="range"] {
+      input[type="range"] {
         width: 100%;
+        height: 6px;
+        border-radius: 3px;
+        background: #334155;
+        outline: none;
+        -webkit-appearance: none;
+      }
+
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
         appearance: none;
-        -webkit-appearance: none;
-        background: transparent;
-      }
-
-      .playback-slider input[type="range"]::-webkit-slider-runnable-track {
-        height: 7px;
-        border-radius: 999px;
-        background: linear-gradient(90deg, rgba(61, 213, 243, 0.95), rgba(71, 243, 171, 0.9));
-      }
-
-      .playback-slider input[type="range"]::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        width: 16px;
-        height: 16px;
+        width: 18px;
+        height: 18px;
         border-radius: 50%;
-        margin-top: -4px;
-        border: 2px solid rgba(255, 255, 255, 0.95);
-        background: #072535;
+        background: var(--accent-cyan);
+        cursor: pointer;
+        box-shadow: 0 0 10px rgba(0, 229, 255, 0.6);
       }
 
-      .snapshot-section .compact-card {
-        padding: 0.75rem !important;
-      }
-
-      .snapshot-grid {
+      /* AI & Telemetry Strip */
+      .telemetry-strip {
         display: grid;
-        gap: 0.8rem;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0.4rem;
+        margin-top: 0.75rem;
       }
 
-      #emergencyStop {
-        max-width: 420px;
-        margin-inline: auto;
+      .tele-item {
+        background: rgba(15, 23, 42, 0.7);
+        border: 1px solid var(--card-border);
+        border-radius: 8px;
+        padding: 0.35rem 0.5rem;
+        text-align: center;
+      }
+
+      .tele-label {
+        font-size: 0.65rem;
+        color: var(--text-secondary);
         display: block;
       }
 
+      .tele-val {
+        font-family: 'JetBrains Mono', monospace;
+        font-weight: 700;
+        font-size: 0.8rem;
+        color: #f1f5f9;
+      }
+
+      /* Compact Status Bar at Bottom */
+      .status-banner {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: rgba(15, 23, 42, 0.9);
+        border: 1px solid var(--card-border);
+        border-radius: 10px;
+        padding: 0.4rem 0.85rem;
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        margin-top: 0.85rem;
+      }
+
+      .status-banner span.val {
+        font-family: 'JetBrains Mono', monospace;
+        color: var(--accent-cyan);
+        font-weight: 600;
+      }
+
+      /* Keyboard helper for Laptop/PC */
+      .key-hint {
+        display: none;
+      }
       @media (min-width: 992px) {
-        .snapshot-grid {
-          grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
-          align-items: start;
+        .key-hint {
+          display: inline;
+          opacity: 0.6;
+          font-size: 0.65rem;
         }
       }
     </style>
   </head>
 
   <body>
-    <div class="container compact-shell py-3 py-md-4">
-      <header class="compact-header mb-3 mb-md-4">
-        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
-          <div>
-            <span class="status-pill mb-2">
-              <span class="status-dot" aria-hidden="true"></span>
-              Live Link Ready
-            </span>
-            <h1 class="hero-title brand-font mb-2">FPV Car Command Center</h1>
-          </div>
-          <div class="text-md-end">
-            <div class="fw-semibold">Control Mode</div>
-            <small class="muted-note">STEP, HOLD, LATCH with capsule selector</small>
+    <div class="app-shell">
+      <!-- Header -->
+      <header class="top-navbar">
+        <h1 class="brand-title">
+          <span>🏎️ FPV</span> REMOTE
+        </h1>
+        <div class="d-flex align-items-center gap-2">
+          <div class="live-pill" id="connStatus">
+            <div class="pulse-dot"></div>
+            <span>LINK ONLINE</span>
           </div>
         </div>
       </header>
 
-      <main class="row g-3 compact-main align-items-stretch">
-        <section class="col-12 col-lg-7 order-1">
-          <div class="glass-card compact-card p-3 p-md-4 h-100">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <h2 class="h4 brand-font mb-0">Live Camera Feed</h2>
-              <span class="badge text-bg-info">ESP32 FPV</span>
-            </div>
+      <!-- Main Layout -->
+      <main class="row g-3">
+        <!-- LEFT: Video Stream & Quick Camera Actions -->
+        <section class="col-12 col-lg-7">
+          <div class="remote-card">
+            <div class="video-viewport">
+              <img id="liveCam" alt="FPV Live Video Feed" src="" />
+              <div id="videoPlaceholder" class="video-placeholder active">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">📷</div>
+                <div class="fw-bold text-white mb-1">Camera Feed Offline</div>
+                <small>Tap "CAMERA ON" below to start stream</small>
+              </div>
 
-            <div class="stream-wrap mb-2">
-              <img id="liveCam" src="" alt="FPV live stream" width="100%" style="border-radius: 10px" />
-              <div id="livePlaceholder" class="live-placeholder">
-                <div>
-                  <h4>Camera is OFF (Hardware Powered Down)</h4>
-                  <p>Zero CPU/RAM load. Switch Camera Power to ON to start live stream.</p>
-                </div>
+              <!-- On-Screen Telemetry Badges -->
+              <div class="video-overlay-info">
+                <span class="osd-badge" id="osdFps">CAM 1</span>
+                <span class="osd-badge" id="osdLatency">AI: OFF</span>
               </div>
             </div>
 
-            <p class="muted-note mt-2 mb-0" id="statusText">Camera controls and drive controls are ready.</p>
-            <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
-              <span class="badge text-bg-danger" id="aiObstacleBadge">Obstacle: --</span>
-              <span class="badge text-bg-dark" id="aiActionBadge">Action: IDLE</span>
+            <!-- Quick Action Bar -->
+            <div class="quick-actions-bar">
+              <button class="action-pill-btn active" id="camToggleBtn" onclick="toggleCameraPower()">
+                <span id="camIcon">📷</span> <span id="camText">CAM ON</span>
+              </button>
+              <button class="action-pill-btn" id="flashToggleBtn" onclick="toggleHeadlight()">
+                <span>💡</span> <span id="flashText">HEADLIGHT</span>
+              </button>
+              <button class="action-pill-btn" id="aiToggleBtn" onclick="toggleAiAssist()">
+                <span>🧠</span> <span id="aiText">AI AUTO</span>
+              </button>
+              <button class="action-pill-btn" id="recToggleBtn" onclick="toggleRecording()">
+                <span>🔴</span> <span id="recText">REC</span>
+              </button>
             </div>
-            <div class="ai-telemetry-card">
-              <div class="ai-telemetry-grid">
-                <div class="ai-metric"><span>Brightness</span><strong id="mBrightness">0.0</strong></div>
-                <div class="ai-metric"><span>Edge</span><strong id="mEdge">0.0%</strong></div>
-                <div class="ai-metric"><span>Risk Score</span><strong id="mScore">0.0</strong></div>
-                <div class="ai-metric"><span>Near</span><strong id="mNear">0.0</strong></div>
-                <div class="ai-metric"><span>Near EMA</span><strong id="mNearEma">0.0</strong></div>
-                <div class="ai-metric"><span>Very Close</span><strong id="mVClose">0.0</strong></div>
-                <div class="ai-metric"><span>Pred Near</span><strong id="mPredNear">0.0</strong></div>
-                <div class="ai-metric"><span>Pred Risk</span><strong id="mPredRisk">0.0</strong></div>
-                <div class="ai-metric"><span>Hit Streak</span><strong id="mHit">0</strong></div>
-                <div class="ai-metric"><span>Latency</span><strong id="mLatency">0ms</strong></div>
-                <div class="ai-metric"><span>Last Cmd</span><strong id="mCmd">S</strong></div>
-                <div class="ai-metric"><span>Worker</span><strong id="mWorker">OFF</strong></div>
+
+            <!-- Mini Telemetry Strip -->
+            <div class="telemetry-strip">
+              <div class="tele-item">
+                <span class="tele-label">ACTION</span>
+                <span class="tele-val text-info" id="teleAction">IDLE</span>
               </div>
-              <pre id="aiMetricsText" class="ai-raw-line">brightness=0.0 edge=0.0% score=0.0 near=0.0 nearEma=0.0 vClose=0.0 predNear=0.0 predRisk=0.0 hit=0 latency=0ms cmd=S</pre>
-            </div>
-          </div>
-        </section>
-
-        <section class="col-12 col-lg-5 order-2">
-          <div class="glass-card compact-card p-3 p-md-4 h-100">
-            <h2 class="h4 brand-font compact-control-title mb-2">Drive Controls</h2>
-            <p class="muted-note mb-2" id="modeHint">STEP mode active: one tap gives short movement pulse.</p>
-
-            <div class="control-theme compact-pad active-theme" data-theme="dpad">
-              <div class="control-pad mb-3">
-                <div></div>
-                <button class="pad-btn drive-btn" type="button" data-cmd="F">Forward</button>
-                <div></div>
-
-                <button class="pad-btn drive-btn" type="button" data-cmd="L">Left</button>
-                <button class="pad-btn stop stop-action" type="button">Stop</button>
-                <button class="pad-btn drive-btn" type="button" data-cmd="R">Right</button>
-
-                <div></div>
-                <button class="pad-btn drive-btn" type="button" data-cmd="B">Back</button>
-                <div></div>
+              <div class="tele-item">
+                <span class="tele-label">OBSTACLE</span>
+                <span class="tele-val" id="teleObstacle">CLEAR</span>
+              </div>
+              <div class="tele-item">
+                <span class="tele-label">RISK SCORE</span>
+                <span class="tele-val" id="teleRisk">0.0</span>
+              </div>
+              <div class="tele-item">
+                <span class="tele-label">LAST CMD</span>
+                <span class="tele-val text-warning" id="teleCmd">S</span>
               </div>
             </div>
 
-            <button class="pad-btn stop stop-action mb-3" id="emergencyStop" type="button">Emergency Stop</button>
-
-            <div class="playback-slider mb-3">
-              <label class="form-label muted-note mb-1" for="forwardSpeed">Forward Speed: <span id="forwardSpeedLabel">255</span></label>
-              <input id="forwardSpeed" type="range" min="0" max="255" value="255" step="5" />
-            </div>
-
-            <div class="playback-slider mb-3">
-              <label class="form-label muted-note mb-1" for="backwardSpeed">Backward Speed: <span id="backwardSpeedLabel">255</span></label>
-              <input id="backwardSpeed" type="range" min="0" max="255" value="255" step="5" />
-            </div>
-
-            <div class="control-theme mb-3" data-theme="split">
-              <div class="split-layout">
-                <div class="stick-col">
-                  <div class="stick-title">Steering</div>
-                  <button class="pad-btn drive-btn tall-btn" type="button" data-cmd="L">Left</button>
-                  <button class="pad-btn drive-btn tall-btn" type="button" data-cmd="R">Right</button>
-                </div>
-                <div class="stick-col">
-                  <div class="stick-title">Throttle</div>
-                  <button class="pad-btn drive-btn tall-btn" type="button" data-cmd="F">Forward</button>
-                  <button class="pad-btn drive-btn tall-btn" type="button" data-cmd="B">Backward</button>
-                </div>
+            <!-- Speed Tuning -->
+            <div class="slider-box mt-auto">
+              <div class="slider-header">
+                <span>Motor Throttle PWM</span>
+                <span>FWD: <span class="val" id="speedFwdVal">255</span> | REV: <span class="val" id="speedRevVal">255</span></span>
               </div>
-            </div>
-
-            <div class="drive-footer">
-              <div class="footer-row">
-                <span class="section-label">Drive Mode</span>
-                <span class="section-label">Control Theme</span>
-              </div>
-              <div class="segmented-toggle" id="modeSelector">
-                <button class="seg-btn mode-toggle-btn" type="button" data-mode="0">STEP</button>
-                <button class="seg-btn mode-toggle-btn" type="button" data-mode="1">HOLD</button>
-                <button class="seg-btn mode-toggle-btn" type="button" data-mode="2">LATCH</button>
-              </div>
-              <div class="d-flex justify-content-between align-items-center mt-3 mb-2">
-                <span class="section-label mb-0">AI Assist</span>
-                <span class="badge text-bg-secondary" id="aiStateBadge">AI OFF</span>
-              </div>
-              <div class="segmented-toggle two-option" id="aiSelector">
-                <button class="seg-btn ai-toggle-btn" type="button" data-ai="1">AI ON</button>
-                <button class="seg-btn ai-toggle-btn" type="button" data-ai="0">AI OFF</button>
-              </div>
-              <div id="aiStatus" class="cam-status mt-2">AI Assist OFF.</div>
-              <div class="segmented-toggle two-option" id="themeSelector">
-                <button class="seg-btn theme-toggle-btn" type="button" data-theme="dpad">D-Pad</button>
-                <button class="seg-btn theme-toggle-btn" type="button" data-theme="split">Split</button>
-              </div>
+              <input id="speedSlider" type="range" min="80" max="255" value="255" step="5" oninput="updateSpeed(this.value)" />
             </div>
           </div>
         </section>
 
-        <section class="col-12 order-3 snapshot-section">
-          <div class="glass-card compact-card p-3 p-md-4 h-100">
-            <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
-              <div>
-                <h2 class="h4 brand-font mb-1">Snapshot & Flash Controls</h2>
-                <p class="muted-note mb-0">Camera power, LED Headlight, recording controls, and playback.</p>
-              </div>
-              <span class="recording-badge" id="recordingBadge"><span class="dot"></span>REC</span>
+        <!-- RIGHT: Drive Controller -->
+        <section class="col-12 col-lg-5">
+          <div class="remote-card">
+            <!-- Drive Mode Selector -->
+            <div class="section-heading">
+              <span>Drive Mode</span>
+              <small id="modeDescription" style="color: var(--accent-cyan); text-transform: none; font-size: 0.72rem;">STEP (One tap pulse)</small>
+            </div>
+            <div class="mode-capsule-group">
+              <button class="mode-capsule-btn active" data-mode="0" onclick="setDriveMode(0)">STEP</button>
+              <button class="mode-capsule-btn" data-mode="1" onclick="setDriveMode(1)">HOLD</button>
+              <button class="mode-capsule-btn" data-mode="2" onclick="setDriveMode(2)">LATCH</button>
             </div>
 
-            <div class="collapse d-lg-block" id="snapshotToolsCollapse">
-              <div class="cam-panel">
-                <div class="snapshot-grid mt-1">
-                  <div class="snapshot-controls-col">
-                    <div class="row g-2">
-                      <div class="col-6">
-                        <span class="cam-switch-label">Camera Hardware Power</span>
-                        <div class="segmented-toggle two-option">
-                          <button id="camOnBtn" class="seg-btn" type="button" onclick="camOn()">ON</button>
-                          <button id="camOffBtn" class="seg-btn" type="button" onclick="camOff()">OFF</button>
-                        </div>
-                      </div>
-                      <div class="col-6">
-                        <span class="cam-switch-label">Flash Light (Headlight)</span>
-                        <div class="segmented-toggle two-option">
-                          <button id="flashOnBtn" class="seg-btn" type="button" onclick="flashOn()">🔦 ON</button>
-                          <button id="flashOffBtn" class="seg-btn active-seg" type="button" onclick="flashOff()">OFF</button>
-                        </div>
-                      </div>
-                      <div class="col-12 mt-2">
-                        <div class="d-flex align-items-center justify-content-between mb-1">
-                          <span class="cam-switch-label mb-0">Session Recording</span>
-                          <span class="recording-badge" id="recordingBadgeInline"><span class="dot"></span>REC</span>
-                        </div>
-                        <div class="segmented-toggle two-option">
-                          <button id="recStartBtn" class="seg-btn" type="button" onclick="startRecording()">START</button>
-                          <button id="recStopBtn" class="seg-btn" type="button" onclick="stopRecording()">STOP</button>
-                        </div>
-                        <div id="recordingDuration" class="muted-note mt-2" style="text-align: center; font-size: 0.9rem;">Duration: 00:00</div>
-                      </div>
-                    </div>
+            <!-- D-PAD Navigation Controller -->
+            <div class="dpad-container">
+              <div></div>
+              <button class="dpad-btn drive-btn" data-cmd="F">
+                ▲
+                <span class="label">FWD <span class="key-hint">(W)</span></span>
+              </button>
+              <div></div>
 
-                    <div id="camStatus" class="cam-status mt-2">Camera is OFF. Flash Light OFF.</div>
+              <button class="dpad-btn drive-btn" data-cmd="L">
+                ◀
+                <span class="label">LEFT <span class="key-hint">(A)</span></span>
+              </button>
+              <button class="dpad-btn stop-btn stop-action" onclick="stopCar()">
+                ■
+                <span class="label">STOP</span>
+              </button>
+              <button class="dpad-btn drive-btn" data-cmd="R">
+                ▶
+                <span class="label">RIGHT <span class="key-hint">(D)</span></span>
+              </button>
 
-                    <div class="d-flex flex-wrap gap-2 mt-2 align-items-center">
-                      <button class="btn btn-success btn-sm" id="convertMp4Btn" onclick="convertToMp4()" style="display:none;">🎬 Convert MP4</button>
-                      <button class="btn btn-warning btn-sm" id="downloadZipBtn" onclick="downloadRecording('zip')" style="display:none;">📦 ZIP</button>
-                      <button class="btn btn-primary btn-sm" id="downloadMp4Btn" onclick="downloadRecording('mp4')" style="display:none;">📥 MP4</button>
-                    </div>
+              <div></div>
+              <button class="dpad-btn drive-btn" data-cmd="B">
+                ▼
+                <span class="label">REV <span class="key-hint">(S)</span></span>
+              </button>
+              <div></div>
+            </div>
 
-                    <div class="d-flex flex-wrap gap-2 mt-2 align-items-center">
-                      <button class="btn btn-info btn-sm" onclick="loadGallery()">Load Gallery</button>
-                      <small class="muted-note">Load or delete recorded sessions.</small>
-                    </div>
+            <!-- Full Width Emergency Stop -->
+            <button class="e-stop-bar stop-action" onclick="stopCar()">
+              🛑 EMERGENCY BRAKE <span class="key-hint">(SPACE)</span>
+            </button>
 
-                    <div id="gallery" class="gallery-box"></div>
-                  </div>
-
-                  <div class="snapshot-screen-col">
-                    <div class="playback-panel">
-                      <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
-                        <h3 class="h6 brand-font mb-0">Recording Playback</h3>
-                        <span class="badge text-bg-dark" id="playbackCount">0 frames</span>
-                      </div>
-
-                      <div class="playback-stage">
-                        <img id="playbackFrame" alt="Recording playback frame" src="" />
-                        <div id="playbackEmpty" class="playback-empty show">Select a folder and load frames to play the recording here.</div>
-                      </div>
-
-                      <div id="playbackMeta" class="playback-meta">No recording loaded.</div>
-
-                      <div class="playback-controls">
-                        <button class="playback-action-btn step btn btn-sm" onclick="prevRecordingFrame()">⏮ Back</button>
-                        <button id="playbackToggleBtn" class="playback-action-btn play btn btn-sm" onclick="toggleRecordingPlayback()">▶ Play</button>
-                        <button class="playback-action-btn pause btn btn-sm" onclick="pauseRecordingPlayback()">⏸ Pause</button>
-                        <button class="playback-action-btn step btn btn-sm" onclick="nextRecordingFrame()">Next ⏭</button>
-                      </div>
-
-                      <div class="playback-slider">
-                        <label class="form-label muted-note mb-1" for="recordingSeek">Seek</label>
-                        <input id="recordingSeek" type="range" min="0" max="0" value="0" step="1" />
-                      </div>
-
-                      <div class="playback-slider">
-                        <label class="form-label muted-note mb-1" for="playbackSpeed">Speed: <span id="playbackSpeedLabel">150ms</span></label>
-                        <input id="playbackSpeed" type="range" min="50" max="500" value="150" step="10" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+            <!-- Bottom Live State Bar -->
+            <div class="status-banner">
+              <div>STATUS: <span class="val" id="activeStatus">READY</span></div>
+              <div>CMD: <span class="val" id="currentCommandLabel">STOP</span></div>
             </div>
           </div>
         </section>
       </main>
     </div>
 
+    <!-- JavaScript Controller Engine -->
     <script>
-      const commandNames = {
-        F: "Forward",
-        L: "Left",
-        S: "Stop",
-        R: "Right",
-        B: "Back",
-      };
-
-      const statusText = document.getElementById("statusText");
-      const liveCam = document.getElementById("liveCam");
-      const livePlaceholder = document.getElementById("livePlaceholder");
-      const camStatus = document.getElementById("camStatus");
-      const galleryEl = document.getElementById("gallery");
-      const playbackFrame = document.getElementById("playbackFrame");
-      const playbackEmpty = document.getElementById("playbackEmpty");
-      const playbackMeta = document.getElementById("playbackMeta");
-      const playbackCount = document.getElementById("playbackCount");
-      const playbackToggleBtn = document.getElementById("playbackToggleBtn");
-      const recordingSeek = document.getElementById("recordingSeek");
-      const forwardSpeed = document.getElementById("forwardSpeed");
-      const backwardSpeed = document.getElementById("backwardSpeed");
-      const forwardSpeedLabel = document.getElementById("forwardSpeedLabel");
-      const backwardSpeedLabel = document.getElementById("backwardSpeedLabel");
-      const playbackSpeed = document.getElementById("playbackSpeed");
-      const playbackSpeedLabel = document.getElementById("playbackSpeedLabel");
-      const recordingBadge = document.getElementById("recordingBadge");
-      const recordingBadgeInline = document.getElementById("recordingBadgeInline");
-      const aiObstacleBadge = document.getElementById("aiObstacleBadge");
-      const aiActionBadge = document.getElementById("aiActionBadge");
-      const aiMetricsText = document.getElementById("aiMetricsText");
-      const mBrightness = document.getElementById("mBrightness");
-      const mEdge = document.getElementById("mEdge");
-      const mScore = document.getElementById("mScore");
-      const mNear = document.getElementById("mNear");
-      const mNearEma = document.getElementById("mNearEma");
-      const mVClose = document.getElementById("mVClose");
-      const mPredNear = document.getElementById("mPredNear");
-      const mPredRisk = document.getElementById("mPredRisk");
-      const mHit = document.getElementById("mHit");
-      const mLatency = document.getElementById("mLatency");
-      const mCmd = document.getElementById("mCmd");
-      const mWorker = document.getElementById("mWorker");
-      const aiStateBadge = document.getElementById("aiStateBadge");
-      const aiStatus = document.getElementById("aiStatus");
-      const camOnBtn = document.getElementById("camOnBtn");
-      const camOffBtn = document.getElementById("camOffBtn");
-      const flashOnBtn = document.getElementById("flashOnBtn");
-      const flashOffBtn = document.getElementById("flashOffBtn");
-      const recStartBtn = document.getElementById("recStartBtn");
-      const recStopBtn = document.getElementById("recStopBtn");
-      const convertMp4Btn = document.getElementById("convertMp4Btn");
-      const downloadZipBtn = document.getElementById("downloadZipBtn");
-      const downloadMp4Btn = document.getElementById("downloadMp4Btn");
-      const recordingDurationEl = document.getElementById("recordingDuration");
-      const stopButtons = document.querySelectorAll(".stop-action");
-      const stopButton = stopButtons[0];
-      const modeHint = document.getElementById("modeHint");
-
-      // Auto-detect Server endpoints
       const SERVER_URL = (window.location.protocol === "http:" || window.location.protocol === "https:")
         ? window.location.origin + (window.location.pathname.includes("/fpv_car") ? "/fpv_car" : "")
         : "http://20.244.113.234/fpv_car";
       const controlBaseUrl = SERVER_URL.endsWith("/fpv_car") ? SERVER_URL : "http://20.244.113.234/fpv_car";
       const camBaseUrl = controlBaseUrl + "/cam";
 
-      let controlMode = 0;
-      let heldCommand = null;
-      let latchedCommand = null;
-      let lastSentCommand = "X";
-      let lastCommandAt = 0;
-      let camActive = false;
-      let flashActive = false;
+      const commandLabels = { F: "FORWARD", B: "REVERSE", L: "LEFT", R: "RIGHT", S: "STOP" };
+
+      // State variables
+      let driveMode = 0; // 0 = STEP, 1 = HOLD, 2 = LATCH
+      let isCamOn = false;
+      let isFlashOn = false;
+      let isAiOn = false;
       let isRecording = false;
-      let recordingStartTime = null;
-      let durationInterval = null;
-      let currentRecordingFolder = null;
+      let heldCommand = null;
+      let lastSentCommand = "X";
       let camTimer = null;
-      let playbackTimer = null;
-      let playbackFrames = [];
-      let playbackIndex = 0;
-      let playbackRunning = false;
-      let stepStopTimer = null;
-      let holdRepeatTimer = null;
-      let speedSyncTimer = null;
-      let statePollTimer = null;
-      let aiEnabled = false;
-      let driveForwardSpeed = 255;
-      let driveBackwardSpeed = 255;
+      let currentPwmSpeed = 255;
 
-      function clampSpeedValue(value) {
-        const n = Number(value);
-        if (Number.isNaN(n)) return 0;
-        return Math.max(0, Math.min(255, Math.round(n)));
-      }
+      const liveCam = document.getElementById("liveCam");
+      const videoPlaceholder = document.getElementById("videoPlaceholder");
+      const activeStatus = document.getElementById("activeStatus");
+      const currentCommandLabel = document.getElementById("currentCommandLabel");
+      const speedFwdVal = document.getElementById("speedFwdVal");
+      const speedRevVal = document.getElementById("speedRevVal");
+      const osdFps = document.getElementById("osdFps");
+      const osdLatency = document.getElementById("osdLatency");
 
-      function fireAndForget(url) {
+      // AI telemetry elements
+      const teleAction = document.getElementById("teleAction");
+      const teleObstacle = document.getElementById("teleObstacle");
+      const teleRisk = document.getElementById("teleRisk");
+      const teleCmd = document.getElementById("teleCmd");
+
+      function fire(url) {
         return fetch(url, { mode: "cors", cache: "no-store", keepalive: true }).catch(() => {});
       }
 
-      function showFramePlaceholder(titleText, noteText) {
-        const titleEl = livePlaceholder.querySelector("h4");
-        const noteEl = livePlaceholder.querySelector("p");
-        titleEl.textContent = titleText;
-        noteEl.textContent = noteText;
-        liveCam.removeAttribute("src");
-        livePlaceholder.classList.add("show");
+      /* Command Sending */
+      function sendCommand(cmd, label = "DRIVE") {
+        if (cmd === lastSentCommand && cmd !== "S") return;
+        lastSentCommand = cmd;
+        currentCommandLabel.textContent = commandLabels[cmd] || cmd;
+        activeStatus.textContent = cmd === "S" ? "READY" : label;
+        fire(`${controlBaseUrl}/set.php?cmd=${cmd}`);
       }
 
-      function setCamStatus(message) {
-        camStatus.textContent = message;
+      function stopCar() {
+        heldCommand = null;
+        lastSentCommand = "S";
+        currentCommandLabel.textContent = "STOP";
+        activeStatus.textContent = "BRAKE APPLIED";
+        fire(`${controlBaseUrl}/set.php?cmd=S`);
       }
 
-      function setCameraPowerState(isOn) {
-        camOnBtn.classList.toggle("active-seg", isOn);
-        camOffBtn.classList.toggle("active-seg", !isOn);
+      /* Mode Switching */
+      function setDriveMode(mode) {
+        stopCar();
+        driveMode = mode;
+        fire(`${controlBaseUrl}/set.php?mode=${mode}`);
+        document.querySelectorAll(".mode-capsule-btn").forEach((b) => {
+          b.classList.toggle("active", Number(b.dataset.mode) === mode);
+        });
+
+        const desc = document.getElementById("modeDescription");
+        if (mode === 0) desc.textContent = "STEP (One tap pulse)";
+        else if (mode === 1) desc.textContent = "HOLD (Press & hold)";
+        else desc.textContent = "LATCH (Continuous run)";
       }
 
-      function setFlashState(isOn) {
-        flashActive = isOn;
-        flashOnBtn.classList.toggle("active-seg", isOn);
-        flashOffBtn.classList.toggle("active-seg", !isOn);
-      }
-
-      function flashOn() {
-        setFlashState(true);
-        setCamStatus("Flash Light ON");
-        fireAndForget(controlBaseUrl + "/set.php?flash=1");
-      }
-
-      function flashOff() {
-        setFlashState(false);
-        setCamStatus("Flash Light OFF");
-        fireAndForget(controlBaseUrl + "/set.php?flash=0");
-      }
-
-      function setAiState(isOn) {
-        aiEnabled = isOn;
-        aiStateBadge.textContent = isOn ? "AI ON" : "AI OFF";
-        aiStatus.textContent = isOn
-          ? "AI Assist ON. Safety worker active."
-          : "AI Assist OFF. Manual control active.";
-        document.querySelectorAll(".ai-toggle-btn").forEach((btn) => btn.classList.remove("active-seg"));
-        document.querySelectorAll(`.ai-toggle-btn[data-ai="${isOn ? 1 : 0}"]`).forEach((btn) => btn.classList.add("active-seg"));
-      }
-
-      function toggleAiMode(isOn) {
-        setAiState(isOn);
-        fireAndForget(controlBaseUrl + "/set.php?ai=" + (isOn ? 1 : 0));
-      }
-
-      function updateRecordingControls() {
-        recStartBtn.disabled = isRecording;
-        recStopBtn.disabled = !isRecording;
-        recordingBadge.classList.toggle("active", isRecording);
-        recordingBadgeInline.classList.toggle("active", isRecording);
-      }
-
-      function setRecordingState(recording) {
-        isRecording = recording;
-        recStartBtn.classList.toggle("active-seg", recording);
-        recStopBtn.classList.toggle("active-seg", !recording);
-
-        if (recording) {
-          recordingStartTime = Date.now();
-          recordingDurationEl.textContent = "Duration: 00:00";
-          if (durationInterval) clearInterval(durationInterval);
-          durationInterval = setInterval(() => {
-            if (isRecording && recordingStartTime) {
-              const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
-              const mins = Math.floor(elapsed / 60);
-              const secs = elapsed % 60;
-              recordingDurationEl.textContent = `Duration: ${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-            }
-          }, 500);
-          convertMp4Btn.style.display = "none";
-          downloadZipBtn.style.display = "none";
-          downloadMp4Btn.style.display = "none";
+      /* Camera Stream */
+      function toggleCameraPower() {
+        if (isCamOn) {
+          isCamOn = false;
+          clearTimeout(camTimer);
+          liveCam.removeAttribute("src");
+          videoPlaceholder.classList.add("active");
+          document.getElementById("camToggleBtn").classList.remove("active");
+          document.getElementById("camText").textContent = "CAM OFF";
+          osdFps.textContent = "CAM OFF";
+          fire(`${controlBaseUrl}/set.php?cam=0`);
         } else {
-          if (durationInterval) clearInterval(durationInterval);
-          if (currentRecordingFolder) {
-            convertMp4Btn.style.display = "inline-block";
-            downloadZipBtn.style.display = "inline-block";
-          }
+          isCamOn = true;
+          videoPlaceholder.classList.remove("active");
+          document.getElementById("camToggleBtn").classList.add("active");
+          document.getElementById("camText").textContent = "CAM ON";
+          osdFps.textContent = "LIVE 640x480";
+          fire(`${controlBaseUrl}/set.php?cam=1`);
+          updateCameraFeed();
         }
-        updateRecordingControls();
       }
 
-      function startRecording() {
-        setCamStatus("Starting session recording...");
-        fetch(camBaseUrl + "/start_record.php", { cache: "no-store" })
-          .then((res) => res.json())
-          .then((data) => {
-            setRecordingState(true);
-            if (data.folder) currentRecordingFolder = data.folder;
-            setCamStatus("Recording started: " + (data.folder || "active"));
-            loadGallery();
-          })
-          .catch(() => {
-            setRecordingState(true);
-            setCamStatus("Recording started.");
-            loadGallery();
-          });
+      function updateCameraFeed() {
+        if (!isCamOn) return;
+        liveCam.src = `${camBaseUrl}/latest.jpg?t=${Date.now()}`;
+        camTimer = setTimeout(updateCameraFeed, 95);
       }
 
-      function stopRecording() {
-        setCamStatus("Stopping recording...");
-        fetch(camBaseUrl + "/stop_record.php", { cache: "no-store" })
-          .then(() => {
-            setRecordingState(false);
-            setCamStatus("Recording stopped.");
-            loadGallery();
-          })
-          .catch(() => {
-            setRecordingState(false);
-            setCamStatus("Recording stopped.");
-            loadGallery();
-          });
+      /* Flashlight / Headlight */
+      function toggleHeadlight() {
+        isFlashOn = !isFlashOn;
+        const btn = document.getElementById("flashToggleBtn");
+        btn.classList.toggle("active", isFlashOn);
+        document.getElementById("flashText").textContent = isFlashOn ? "HEADLIGHT ON" : "HEADLIGHT";
+        fire(`${controlBaseUrl}/set.php?flash=${isFlashOn ? 1 : 0}`);
       }
 
-      function convertToMp4() {
-        if (!currentRecordingFolder) {
-          alert("Pehle gallery se koi folder Load karein!");
-          return;
-        }
-        setCamStatus("Converting frames to MP4 video...");
-        convertMp4Btn.disabled = true;
-        fetch(camBaseUrl + "/convert_to_mp4.php?folder=" + encodeURIComponent(currentRecordingFolder))
-          .then((res) => res.json())
-          .then((data) => {
-            convertMp4Btn.disabled = false;
-            if (data.status === "success") {
-              setCamStatus("✓ MP4 Created: " + data.file);
-              downloadMp4Btn.style.display = "inline-block";
+      /* AI Auto-Drive Assist */
+      function toggleAiAssist() {
+        isAiOn = !isAiOn;
+        const btn = document.getElementById("aiToggleBtn");
+        btn.classList.toggle("active", isAiOn);
+        document.getElementById("aiText").textContent = isAiOn ? "AI ACTIVE" : "AI AUTO";
+        osdLatency.textContent = isAiOn ? "AI: RUNNING" : "AI: OFF";
+        fire(`${controlBaseUrl}/set.php?ai=${isAiOn ? 1 : 0}`);
+      }
+
+      /* Session Recording */
+      function toggleRecording() {
+        isRecording = !isRecording;
+        const btn = document.getElementById("recToggleBtn");
+        btn.classList.toggle("active", isRecording);
+        btn.classList.toggle("danger-action", isRecording);
+        document.getElementById("recText").textContent = isRecording ? "RECORDING..." : "REC";
+        const endpoint = isRecording ? "/start_record.php" : "/stop_record.php";
+        fire(`${camBaseUrl}${endpoint}`);
+      }
+
+      /* Speed Slider */
+      function updateSpeed(val) {
+        currentPwmSpeed = Math.round(Number(val));
+        speedFwdVal.textContent = String(currentPwmSpeed);
+        speedRevVal.textContent = String(currentPwmSpeed);
+        fire(`${controlBaseUrl}/set.php?fs=${currentPwmSpeed}&bs=${currentPwmSpeed}`);
+      }
+
+      /* Touch & Pointer Controls */
+      function initTouchControls() {
+        document.querySelectorAll(".drive-btn").forEach((btn) => {
+          const cmd = btn.dataset.cmd;
+
+          btn.addEventListener("pointerdown", (e) => {
+            e.preventDefault();
+            btn.classList.add("pressed");
+            if (driveMode === 1) { // HOLD Mode
+              heldCommand = cmd;
+              sendCommand(cmd, "HOLDING");
             } else {
-              setCamStatus("MP4 conversion note: " + (data.message || "check server FFmpeg"));
+              sendCommand(cmd, "DRIVE");
             }
-          })
-          .catch(() => {
-            convertMp4Btn.disabled = false;
-            setCamStatus("Conversion error: check server setup");
           });
-      }
 
-      function downloadRecording(type) {
-        if (!currentRecordingFolder) {
-          alert("Pehle gallery se folder Load karein!");
-          return;
-        }
-        const url = camBaseUrl + "/download_recording.php?folder=" + encodeURIComponent(currentRecordingFolder) + "&type=" + encodeURIComponent(type);
-        setCamStatus(`Downloading ${type.toUpperCase()}...`);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${currentRecordingFolder}.${type}`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }
-
-      function renderGallery(folders) {
-        if (!Array.isArray(folders) || folders.length === 0) {
-          galleryEl.innerHTML = '<div class="muted-note">No recorded folders found.</div>';
-          currentRecordingFolder = null;
-          convertMp4Btn.style.display = "none";
-          downloadZipBtn.style.display = "none";
-          downloadMp4Btn.style.display = "none";
-          return;
-        }
-
-        galleryEl.innerHTML = folders
-          .map((folder) => {
-            const folderName = String(folder);
-            const encodedFolder = encodeURIComponent(folderName);
-            return `
-              <div class="gallery-item">
-                <div class="gallery-name" title="${folderName}">${folderName}</div>
-                <div class="gallery-actions">
-                  <button class="gallery-action-btn load load-folder-btn" data-folder="${encodedFolder}">Load</button>
-                  <button class="gallery-action-btn delete delete-folder-btn" data-folder="${encodedFolder}">Delete</button>
-                </div>
-              </div>
-            `;
-          })
-          .join("");
-
-        galleryEl.querySelectorAll(".load-folder-btn").forEach((btn) => {
-          btn.addEventListener("click", () => {
-            const folder = decodeURIComponent(btn.dataset.folder || "");
-            loadRecordingFrames(folder);
+          btn.addEventListener("pointerup", (e) => {
+            e.preventDefault();
+            btn.classList.remove("pressed");
+            if (driveMode === 1) stopCar();
           });
-        });
 
-        galleryEl.querySelectorAll(".delete-folder-btn").forEach((btn) => {
-          btn.addEventListener("click", () => {
-            const folder = decodeURIComponent(btn.dataset.folder || "");
-            deleteFolder(folder);
+          btn.addEventListener("pointercancel", () => {
+            btn.classList.remove("pressed");
+            if (driveMode === 1) stopCar();
           });
         });
       }
 
-      function loadGallery() {
-        setCamStatus("Loading gallery...");
-        fetch(camBaseUrl + "/list.php")
-          .then((res) => res.json())
+      /* Keyboard Driving (W, A, S, D, Space) */
+      window.addEventListener("keydown", (e) => {
+        if (e.repeat) return;
+        const k = e.key.toLowerCase();
+        if (k === "w") sendCommand("F", "KEYBOARD");
+        else if (k === "s") sendCommand("B", "KEYBOARD");
+        else if (k === "a") sendCommand("L", "KEYBOARD");
+        else if (k === "d") sendCommand("R", "KEYBOARD");
+        else if (k === " " || k === "escape") stopCar();
+      });
+
+      window.addEventListener("keyup", (e) => {
+        const k = e.key.toLowerCase();
+        if (["w", "s", "a", "d"].includes(k) && driveMode === 1) {
+          stopCar();
+        }
+      });
+
+      /* Telemetry Polling */
+      function pollTelemetry() {
+        fetch(`${controlBaseUrl}/get.php?t=${Date.now()}`, { cache: "no-store" })
+          .then((r) => r.json())
           .then((data) => {
-            renderGallery(data);
-            if (currentRecordingFolder && data.includes(currentRecordingFolder)) {
-              loadRecordingFrames(currentRecordingFolder);
-            } else if (Array.isArray(data) && data.length > 0) {
-              loadRecordingFrames(data[data.length - 1]);
-            }
-            setCamStatus("Gallery loaded.");
-          })
-          .catch(() => {
-            galleryEl.innerHTML = '<div class="text-danger">Failed to load gallery.</div>';
-          });
-      }
-
-      function deleteFolder(folder) {
-        if (!confirm("Delete folder: " + folder + " ?")) return;
-        fetch(camBaseUrl + "/delete.php?folder=" + encodeURIComponent(folder))
-          .then(() => {
-            alert("Deleted successfully!");
-            loadGallery();
-          })
-          .catch(() => alert("Delete failed!"));
-      }
-
-      function updatePlaybackUI() {
-        playbackCount.textContent = playbackFrames.length + " frames";
-        recordingSeek.max = Math.max(playbackFrames.length - 1, 0);
-        recordingSeek.value = String(playbackIndex);
-
-        if (!playbackFrames.length) {
-          playbackFrame.removeAttribute("src");
-          playbackEmpty.classList.add("show");
-          playbackMeta.textContent = "No recording loaded.";
-          return;
-        }
-
-        playbackEmpty.classList.remove("show");
-        playbackFrame.src = camBaseUrl + "/" + encodeURIComponent(currentRecordingFolder || "") + "/" + encodeURIComponent(playbackFrames[playbackIndex]) + "?t=" + Date.now();
-        playbackMeta.textContent = (currentRecordingFolder || "Session") + " • frame " + (playbackIndex + 1) + " of " + playbackFrames.length;
-      }
-
-      function stopPlaybackTimer() {
-        clearTimeout(playbackTimer);
-        playbackTimer = null;
-        playbackRunning = false;
-        playbackToggleBtn.textContent = "▶ Play";
-      }
-
-      function scheduleNextFrame() {
-        if (!playbackRunning || !playbackFrames.length) return;
-        updatePlaybackUI();
-        playbackIndex = (playbackIndex + 1) % playbackFrames.length;
-        playbackTimer = setTimeout(scheduleNextFrame, Number(playbackSpeed.value || 150));
-        playbackToggleBtn.textContent = "⏸ Pause";
-      }
-
-      function loadRecordingFrames(folderValue = currentRecordingFolder) {
-        const folder = folderValue;
-        if (!folder) {
-          playbackFrames = [];
-          playbackIndex = 0;
-          updatePlaybackUI();
-          return;
-        }
-
-        currentRecordingFolder = folder;
-        convertMp4Btn.style.display = "inline-block";
-        downloadZipBtn.style.display = "inline-block";
-
-        fetch(camBaseUrl + "/list_frames.php?folder=" + encodeURIComponent(folder))
-          .then((res) => res.json())
-          .then((frames) => {
-            playbackFrames = Array.isArray(frames) ? frames : [];
-            playbackIndex = 0;
-            stopPlaybackTimer();
-            updatePlaybackUI();
-          })
-          .catch(() => {
-            playbackFrames = [];
-            playbackIndex = 0;
-            updatePlaybackUI();
-          });
-      }
-
-      function nextRecordingFrame() {
-        if (!playbackFrames.length) return;
-        playbackIndex = (playbackIndex + 1) % playbackFrames.length;
-        updatePlaybackUI();
-      }
-
-      function prevRecordingFrame() {
-        if (!playbackFrames.length) return;
-        playbackIndex = (playbackIndex - 1 + playbackFrames.length) % playbackFrames.length;
-        updatePlaybackUI();
-      }
-
-      function toggleRecordingPlayback() {
-        if (!playbackFrames.length) {
-          loadRecordingFrames();
-          return;
-        }
-        playbackRunning = !playbackRunning;
-        if (playbackRunning) scheduleNextFrame();
-        else stopPlaybackTimer();
-      }
-
-      function pauseRecordingPlayback() {
-        stopPlaybackTimer();
-      }
-
-      function applyRobotState(state) {
-        const aiOn = state.ai === "1";
-        const obstacle = state.ai_obstacle === "1";
-        const action = String(state.ai_action || "IDLE");
-
-        setAiState(aiOn);
-        setFlashState(state.flash === "1");
-
-        aiObstacleBadge.classList.toggle("text-bg-danger", obstacle);
-        aiObstacleBadge.classList.toggle("text-bg-success", !obstacle);
-        aiObstacleBadge.textContent = obstacle ? "Obstacle: YES" : "Obstacle: NO";
-        aiActionBadge.textContent = "Action: " + action;
-
-        mBrightness.textContent = Number(state.ai_brightness || 0).toFixed(1);
-        mEdge.textContent = Number(state.ai_edge || 0).toFixed(1) + "%";
-        mScore.textContent = Number(state.ai_score || 0).toFixed(1);
-        mNear.textContent = Number(state.ai_near || 0).toFixed(1);
-        mNearEma.textContent = Number(state.ai_near_ema || 0).toFixed(1);
-        mVClose.textContent = Number(state.ai_vclose || 0).toFixed(1);
-        mPredNear.textContent = Number(state.ai_pred_near || 0).toFixed(1);
-        mPredRisk.textContent = Number(state.ai_pred_risk || 0).toFixed(1);
-        mHit.textContent = String(Math.round(Number(state.ai_hit || 0)));
-        mLatency.textContent = Math.round(Number(state.ai_latency || 0)) + "ms";
-        mCmd.textContent = String(state.cmd || "S");
-        mWorker.textContent = state.ai_worker === "1" ? "ON" : "OFF";
-      }
-
-      function pollRobotState() {
-        fetch(controlBaseUrl + "/get.php?t=" + Date.now(), { cache: "no-store" })
-          .then((res) => res.json())
-          .then((state) => {
-            if (state && typeof state === "object") applyRobotState(state);
+            if (!data) return;
+            teleAction.textContent = data.ai_action || "IDLE";
+            const obstacle = data.ai_obstacle === "1";
+            teleObstacle.textContent = obstacle ? "DETECTED" : "CLEAR";
+            teleObstacle.style.color = obstacle ? "#f43f5e" : "#10b981";
+            teleRisk.textContent = Number(data.ai_score || 0).toFixed(1);
+            teleCmd.textContent = data.cmd || "S";
           })
           .catch(() => {});
       }
 
-      function camOn() {
-        camActive = true;
-        setCameraPowerState(true);
-        livePlaceholder.classList.remove("show");
-        setCamStatus("Camera Hardware Power ON");
-        fireAndForget(controlBaseUrl + "/set.php?cam=1");
-        updateCam();
-      }
-
-      function camOff() {
-        camActive = false;
-        clearTimeout(camTimer);
-        setCameraPowerState(false);
-        setCamStatus("Camera Hardware Power OFF (Zero CPU/Network load)");
-        fireAndForget(controlBaseUrl + "/set.php?cam=0");
-        showFramePlaceholder("Camera is OFF (Hardware De-initialized)", "Switch Camera Power to ON to power sensor and start live stream.");
-      }
-
-      function updateCam() {
-        if (!camActive) return;
-        livePlaceholder.classList.remove("show");
-        liveCam.src = camBaseUrl + "/latest.jpg?t=" + Date.now();
-        camTimer = setTimeout(updateCam, 90);
-      }
-
-      function sendCommand(cmd, buttonEl, stateLabel = "Command") {
-        if (cmd === "S") {
-          statusText.textContent = "Command: Stop";
-        } else {
-          statusText.textContent = stateLabel + ": " + (commandNames[cmd] || cmd);
-        }
-
-        const now = Date.now();
-        if (cmd === lastSentCommand && now - lastCommandAt < 40) return;
-        lastSentCommand = cmd;
-        lastCommandAt = now;
-
-        fireAndForget(controlBaseUrl + "/set.php?cmd=" + cmd);
-      }
-
-      function startHoldMove(cmd, buttonEl) {
-        clearTimeout(stepStopTimer);
-        heldCommand = cmd;
-        sendCommand(cmd, buttonEl, "Holding");
-      }
-
-      function releaseHoldMove() {
-        if (!heldCommand) return;
-        heldCommand = null;
-        sendCommand("S", stopButton);
-      }
-
-      function stopAllMotion() {
-        clearTimeout(stepStopTimer);
-        heldCommand = null;
-        latchedCommand = null;
-        sendCommand("S", stopButton);
-      }
-
-      function bindPressHoldControls() {
-        document.querySelectorAll(".drive-btn").forEach((buttonEl) => {
-          const cmd = buttonEl.dataset.cmd;
-
-          buttonEl.addEventListener("pointerdown", (event) => {
-            event.preventDefault();
-            if (controlMode === 1) {
-              startHoldMove(cmd, buttonEl);
-              return;
-            }
-            sendCommand(cmd, buttonEl, "Drive");
-          });
-
-          buttonEl.addEventListener("pointerup", (event) => {
-            event.preventDefault();
-            if (controlMode === 1) releaseHoldMove();
-          });
-
-          buttonEl.addEventListener("pointercancel", releaseHoldMove);
-        });
-
-        stopButtons.forEach((buttonEl) => {
-          buttonEl.addEventListener("click", () => stopAllMotion());
-        });
-
-        document.addEventListener("pointerup", releaseHoldMove);
-      }
-
-      function setMode(m) {
-        stopAllMotion();
-        controlMode = m;
-        fireAndForget(controlBaseUrl + "/set.php?mode=" + m);
-        if (m === 0) statusText.textContent = "Mode: STEP";
-        else if (m === 1) statusText.textContent = "Mode: HOLD";
-        else statusText.textContent = "Mode: LATCH";
-      }
-
-      function syncDriveSpeeds() {
-        fireAndForget(controlBaseUrl + "/set.php?fs=" + driveForwardSpeed + "&bs=" + driveBackwardSpeed);
-      }
-
-      // Keyboard Controls
-      document.addEventListener("keydown", (event) => {
-        if (event.repeat) return;
-        const key = event.key.toLowerCase();
-        if (key === "w") sendCommand("F", null, "Key Press");
-        else if (key === "s") sendCommand("B", null, "Key Press");
-        else if (key === "a") sendCommand("L", null, "Key Press");
-        else if (key === "d") sendCommand("R", null, "Key Press");
-        else if (key === " ") stopAllMotion();
+      // Initialize on load
+      window.addEventListener("DOMContentLoaded", () => {
+        initTouchControls();
+        toggleCameraPower(); // Start camera automatically
+        setInterval(pollTelemetry, 500);
       });
-
-      document.addEventListener("keyup", (event) => {
-        const key = event.key.toLowerCase();
-        if (["w", "s", "a", "d"].includes(key) && controlMode === 1) {
-          stopAllMotion();
-        }
-      });
-
-      // Init
-      (function init() {
-        bindPressHoldControls();
-        document.querySelectorAll(".mode-toggle-btn").forEach((btn) => {
-          btn.addEventListener("click", () => setMode(Number(btn.dataset.mode)));
-        });
-        document.querySelectorAll(".ai-toggle-btn").forEach((btn) => {
-          btn.addEventListener("click", () => toggleAiMode(btn.dataset.ai === "1"));
-        });
-
-        forwardSpeed.addEventListener("input", () => {
-          driveForwardSpeed = clampSpeedValue(forwardSpeed.value);
-          forwardSpeedLabel.textContent = String(driveForwardSpeed);
-          syncDriveSpeeds();
-        });
-
-        backwardSpeed.addEventListener("input", () => {
-          driveBackwardSpeed = clampSpeedValue(backwardSpeed.value);
-          backwardSpeedLabel.textContent = String(driveBackwardSpeed);
-          syncDriveSpeeds();
-        });
-
-        recordingSeek.addEventListener("input", () => {
-          if (!playbackFrames.length) return;
-          playbackIndex = Number(recordingSeek.value || 0);
-          stopPlaybackTimer();
-          updatePlaybackUI();
-        });
-
-        playbackSpeed.addEventListener("input", () => {
-          playbackSpeedLabel.textContent = playbackSpeed.value + "ms";
-          if (playbackRunning) {
-            stopPlaybackTimer();
-            playbackRunning = true;
-            scheduleNextFrame();
-          }
-        });
-
-        camOn();
-        loadGallery();
-        setInterval(pollRobotState, 500);
-      })();
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   </body>
 </html>
