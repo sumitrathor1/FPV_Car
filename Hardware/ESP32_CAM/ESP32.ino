@@ -48,9 +48,9 @@ const char* controlUrl   = "http://sumitrathor.rf.gd/FPV_Car/get.php";
 const char* uploadUrl    = "http://sumitrathor.rf.gd/FPV_Car/cam/upload.php";
 const char* heartbeatUrl = "http://sumitrathor.rf.gd/FPV_Car/set.php?esp_hb=1";
 
-const uint32_t CLOUD_CONTROL_INTERVAL_MS   = 60;   // 60ms cloud command polling
-const uint32_t CLOUD_UPLOAD_INTERVAL_MS    = 150;  // Cloud frame upload interval
-const uint32_t CLOUD_HEARTBEAT_INTERVAL_MS = 2500; // 2.5s heartbeat sync
+const uint32_t CLOUD_CONTROL_INTERVAL_MS   = 250;  // 250ms cloud command polling
+const uint32_t CLOUD_UPLOAD_INTERVAL_MS    = 350;  // 350ms frame upload interval
+const uint32_t CLOUD_HEARTBEAT_INTERVAL_MS = 3000; // 3s heartbeat sync
 
 uint32_t lastControlAt   = 0;
 uint32_t lastUploadAt    = 0;
@@ -88,7 +88,14 @@ int lastBackwardSpeed = 255;
 // ======================================================
 // Camera Hardware Power Management
 // ======================================================
-void startCamera() {
+bool startCamera() {
+  if (cameraReady) return true;
+
+  // Explicitly power ON Camera Sensor via Pin 32 (PWDN pulled LOW)
+  pinMode(PWDN_GPIO_NUM, OUTPUT);
+  digitalWrite(PWDN_GPIO_NUM, LOW);
+  delay(100); // 100ms hardware stabilization delay
+
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
   config.ledc_timer   = LEDC_TIMER_0;
@@ -111,37 +118,61 @@ void startCamera() {
   config.xclk_freq_hz = 20000000;
   config.pixel_format = PIXFORMAT_JPEG;
 
-  // Frame size: QVGA (320x240) gives 20+ FPS high frame rate & low latency
-  config.frame_size   = FRAMESIZE_QVGA;
-  config.jpeg_quality = 12; // 10-14 is crisp with fast transmission
-  config.fb_count     = 2;  // Double buffering for smooth frames
+  if (psramFound()) {
+    config.frame_size   = FRAMESIZE_QVGA;
+    config.jpeg_quality = 12;
+    config.fb_count     = 2;
+    config.grab_mode    = CAMERA_GRAB_LATEST;
+  } else {
+    config.frame_size   = FRAMESIZE_QVGA;
+    config.jpeg_quality = 14;
+    config.fb_count     = 1;
+  }
 
-  if (esp_camera_init(&config) == ESP_OK) {
+  esp_err_t err = esp_camera_init(&config);
+  if (err != ESP_OK) {
+    Serial.printf("[CAMERA] 20MHz probe failed (0x%x), retrying at 10MHz...\n", err);
+    digitalWrite(PWDN_GPIO_NUM, HIGH);
+    delay(50);
+    digitalWrite(PWDN_GPIO_NUM, LOW);
+    delay(100);
+
+    config.xclk_freq_hz = 10000000;
+    err = esp_camera_init(&config);
+  }
+
+  if (err == ESP_OK) {
     cameraReady = true;
+    cameraPowerOn = true;
+    Serial.println("[CAMERA] Camera initialized successfully!");
+    return true;
   } else {
     cameraReady = false;
+    cameraPowerOn = false;
+    Serial.printf("[CAMERA] Camera probe failed (0x%x). Please check ribbon cable connection.\n", err);
+    return false;
   }
 }
 
 void setCameraHardwarePower(bool on) {
   if (on) {
-    if (!cameraReady) startCamera();
-    if (cameraReady) {
+    if (!cameraReady) {
+      startCamera();
+    } else {
       pinMode(PWDN_GPIO_NUM, OUTPUT);
-      digitalWrite(PWDN_GPIO_NUM, LOW); // LOW powers ON camera chip
+      digitalWrite(PWDN_GPIO_NUM, LOW);
       cameraPowerOn = true;
     }
     return;
   }
 
-  // De-init and cut power to sensor to eliminate heat and battery drain
   cameraPowerOn = false;
   if (cameraReady) {
     esp_camera_deinit();
     cameraReady = false;
   }
   pinMode(PWDN_GPIO_NUM, OUTPUT);
-  digitalWrite(PWDN_GPIO_NUM, HIGH); // HIGH powers down camera sensor chip
+  digitalWrite(PWDN_GPIO_NUM, HIGH);
 }
 
 // ======================================================
@@ -419,7 +450,6 @@ void setup() {
 
   // Initialize camera
   startCamera();
-  setCameraHardwarePower(true);
 }
 
 // ======================================================
@@ -441,23 +471,25 @@ void loop() {
 
   uint32_t now = millis();
 
-  // 1. Cloud Heartbeat Sync (Every 2.5 seconds)
+  // 1. Cloud Heartbeat Sync (Every 3 seconds) with car_ip reporting
   if (now - lastHeartbeatAt >= CLOUD_HEARTBEAT_INTERVAL_MS) {
     lastHeartbeatAt = now;
     HTTPClient http;
-    http.begin(heartbeatUrl);
-    http.setTimeout(180);
+    String myIp = isApMode ? WiFi.softAPIP().toString() : WiFi.localIP().toString();
+    String hbUrl = String(heartbeatUrl) + "&car_ip=" + myIp;
+    http.begin(hbUrl);
+    http.setTimeout(2500); // 2.5s timeout for internet request
     http.GET();
     http.end();
   }
 
-  // 2. Cloud Command Polling (Every 60ms)
+  // 2. Cloud Command Polling (Every 250ms)
   if (now - lastControlAt >= CLOUD_CONTROL_INTERVAL_MS) {
     lastControlAt = now;
 
     HTTPClient http;
     http.begin(controlUrl);
-    http.setTimeout(120);
+    http.setTimeout(2500); // 2.5s timeout for internet request
 
     int code = http.GET();
     if (code == 200) {
@@ -508,7 +540,7 @@ void loop() {
     http.end();
   }
 
-  // 3. Cloud Frame Upload (Every 150ms if Camera is ON)
+  // 3. Cloud Frame Upload (Every 350ms if Camera is ON)
   if (cameraPowerOn && cameraReady && (now - lastUploadAt >= CLOUD_UPLOAD_INTERVAL_MS)) {
     lastUploadAt = now;
 
@@ -516,7 +548,7 @@ void loop() {
     if (fb != nullptr) {
       HTTPClient http;
       http.begin(uploadUrl);
-      http.setTimeout(160);
+      http.setTimeout(2500);
       http.addHeader("Content-Type", "application/octet-stream");
       http.POST(fb->buf, fb->len);
       http.end();

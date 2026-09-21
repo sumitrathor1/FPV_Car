@@ -20,7 +20,8 @@ $default = [
     "flash" => "0",
     "fs" => "255",
     "bs" => "255",
-    "esp_hb" => "0"
+    "esp_hb" => "0",
+    "car_ip" => ""
 ];
 
 if (file_exists($file)) {

@@ -64,5 +64,9 @@ if (isset($_GET['esp_hb'])) {
     $data["esp_hb"] = (string)time();
 }
 
+if (isset($_GET['car_ip'])) {
+    $data["car_ip"] = preg_replace('/[^0-9.]/', '', $_GET['car_ip']);
+}
+
 file_put_contents($file, json_encode($data), LOCK_EX);
 echo "OK";

@@ -691,6 +691,7 @@
             <span class="text-secondary" id="ipLabel">Car IP:</span>
             <div class="d-flex align-items-center gap-1 flex-wrap">
               <button class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="setPresetIp('192.168.4.1')" style="font-size:0.7rem;" title="Car Hotspot AP">Hotspot (192.168.4.1)</button>
+              <button class="btn btn-outline-success btn-sm py-0 px-2" id="btnAutoCarIp" style="display:none; font-size:0.7rem;" title="Auto-detected Car IP on your Wi-Fi"></button>
               <input type="text" class="ip-input-field" id="espIpAddress" value="192.168.4.1" placeholder="192.168.4.1" onchange="saveLocalIp(this.value)" style="width:110px;" />
               <button class="btn btn-outline-info btn-sm py-0 px-2" onclick="reconnectLocal()" style="font-size:0.72rem;">Connect</button>
             </div>
@@ -1229,8 +1230,18 @@
               hudPingLabel.textContent = `PING: ${ping}ms`;
               const currentEpoch = Math.floor(Date.now() / 1000);
               const espHb = Number(data.esp_hb || 0);
-              const isOnline = (currentEpoch - espHb) <= 6 && espHb > 0;
+              const isOnline = (currentEpoch - espHb) <= 8 && espHb > 0;
               setEspOnlineStatus(isOnline);
+
+              // Auto-detect car IP on home Wi-Fi and show quick button
+              if (data.car_ip && data.car_ip !== "") {
+                const autoIpBtn = document.getElementById("btnAutoCarIp");
+                if (autoIpBtn) {
+                  autoIpBtn.textContent = `Wi-Fi IP (${data.car_ip})`;
+                  autoIpBtn.style.display = "inline-block";
+                  autoIpBtn.onclick = () => setPresetIp(data.car_ip);
+                }
+              }
             })
             .catch(() => {
               hudPingLabel.textContent = `PING: -- ms`;
