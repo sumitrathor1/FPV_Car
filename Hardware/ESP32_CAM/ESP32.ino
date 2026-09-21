@@ -26,12 +26,15 @@
 #include <HTTPClient.h>
 #include <WebServer.h>
 #include <Preferences.h>
+#include <DNSServer.h>
 
 // ======================================================
 // WebServer & Preferences Storage
 // ======================================================
 Preferences prefs;
 WebServer server(80);
+DNSServer dnsServer;
+const byte DNS_PORT = 53;
 
 String saved_ssid     = "";
 String saved_password = "";
@@ -305,6 +308,14 @@ void setupLocalServer() {
   server.on("/status", HTTP_GET, handleStatus);
   server.on("/scan", HTTP_GET, handleScanWifi);
   server.on("/save-wifi", HTTP_GET, handleSaveWifi);
+  server.on("/FPV_Car", HTTP_GET, []() {
+    handleCORS();
+    server.send(200, "text/plain", "FPV Car Local Gateway Ready");
+  });
+  server.on("/FPV_Car/", HTTP_GET, []() {
+    handleCORS();
+    server.send(200, "text/plain", "FPV Car Local Gateway Ready");
+  });
   server.onNotFound([]() {
     handleCORS();
     server.send(200, "text/plain", "FPV Car Ready");
@@ -316,6 +327,7 @@ void startApMode() {
   isApMode = true;
   WiFi.mode(WIFI_AP);
   WiFi.softAP("FPV-Car-Setup", ""); // Open setup & direct drive hotspot
+  dnsServer.start(DNS_PORT, "*", WiFi.softAPIP()); // Captive portal DNS redirects any host (e.g. sumitrathor.rf.gd) to car
   setupLocalServer();
   Serial.println("[WIFI] AP Hotspot Started: FPV-Car-Setup (IP: 192.168.4.1)");
 }
@@ -414,6 +426,10 @@ void setup() {
 // Main Loop
 // ======================================================
 void loop() {
+  if (isApMode) {
+    dnsServer.processNextRequest();
+  }
+
   // Handle local HTTP and streaming requests
   server.handleClient();
 

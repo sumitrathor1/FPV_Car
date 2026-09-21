@@ -688,11 +688,15 @@
 
           <!-- Connection IP Settings Bar -->
           <div class="ip-settings-box">
-            <span class="text-secondary" id="ipLabel">Local ESP32 IP:</span>
-            <div class="d-flex align-items-center gap-2">
-              <input type="text" class="ip-input-field" id="espIpAddress" value="192.168.4.1" placeholder="192.168.4.1" onchange="saveLocalIp(this.value)" />
-              <button class="btn btn-outline-info btn-sm py-0 px-2" onclick="reconnectLocal()" style="font-size:0.75rem;">Connect</button>
+            <span class="text-secondary" id="ipLabel">Car IP:</span>
+            <div class="d-flex align-items-center gap-1 flex-wrap">
+              <button class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="setPresetIp('192.168.4.1')" style="font-size:0.7rem;" title="Car Hotspot AP">Hotspot (192.168.4.1)</button>
+              <input type="text" class="ip-input-field" id="espIpAddress" value="192.168.4.1" placeholder="192.168.4.1" onchange="saveLocalIp(this.value)" style="width:110px;" />
+              <button class="btn btn-outline-info btn-sm py-0 px-2" onclick="reconnectLocal()" style="font-size:0.72rem;">Connect</button>
             </div>
+          </div>
+          <div id="httpsLanAlert" class="alert alert-warning py-1 px-2 mt-2 mb-0 text-center" style="display:none; font-size:0.72rem; background:rgba(245, 158, 11, 0.15); border:1px solid rgba(245, 158, 11, 0.4); color:#fde68a;">
+            💡 <strong>Fast Local Video:</strong> If browser blocks local video on HTTPS, <a href="http://sumitrathor.rf.gd/FPV_Car/" style="color:#00e5ff; font-weight:700; text-decoration:underline;">Click to Open HTTP Mode</a>.
           </div>
         </section>
 
@@ -930,6 +934,12 @@
         if (isCamOn) updateStreamSource();
       }
 
+      function setPresetIp(ip) {
+        espIpAddressInput.value = ip;
+        saveLocalIp(ip);
+        reconnectLocal();
+      }
+
       function setConnectionMode(mode) {
         connectionMode = mode;
         localStorage.setItem("fpv_conn_mode", mode);
@@ -943,7 +953,12 @@
         hudModeLabel.textContent = `MODE: ${mode === "LAN" ? "LAN (DIRECT 15-25 FPS)" : "CLOUD (INFINITYFREE)"}`;
 
         const ipBox = document.querySelector(".ip-settings-box");
-        ipBox.style.display = mode === "LAN" ? "flex" : "none";
+        if (ipBox) ipBox.style.display = mode === "LAN" ? "flex" : "none";
+
+        const httpsAlert = document.getElementById("httpsLanAlert");
+        if (httpsAlert) {
+          httpsAlert.style.display = (mode === "LAN" && window.location.protocol === "https:") ? "block" : "none";
+        }
 
         if (isCamOn) {
           updateStreamSource();
@@ -1048,7 +1063,9 @@
         hapticPulse();
 
         if (connectionMode === "LAN") {
-          // Direct sub-50ms HTTP request to ESP32
+          // Send via Image Beacon (passive mixed-content, immune to CORS/HTTPS blocks) + fetch
+          const beacon = new Image();
+          beacon.src = `http://${localIp}/cmd?dir=${cmd}&t=${Date.now()}`;
           fetch(`http://${localIp}/cmd?dir=${cmd}`, { mode: 'no-cors' }).catch(() => {});
         } else {
           // Cloud InfinityFree request
@@ -1069,6 +1086,8 @@
         setTimeout(() => setButtonVisual("S", false), 150);
 
         if (connectionMode === "LAN") {
+          const beacon = new Image();
+          beacon.src = `http://${localIp}/cmd?dir=S&t=${Date.now()}`;
           fetch(`http://${localIp}/cmd?dir=S`, { mode: 'no-cors' }).catch(() => {});
         } else {
           fetch(`${CLOUD_BASE_URL}/set.php?cmd=S`, { cache: 'no-store' }).catch(() => {});
@@ -1129,6 +1148,8 @@
         hudSpeedLabel.textContent = `PWM: ${currentSpeed}`;
 
         if (connectionMode === "LAN") {
+          const beacon = new Image();
+          beacon.src = `http://${localIp}/speed?fs=${currentSpeed}&bs=${currentSpeed}&t=${Date.now()}`;
           fetch(`http://${localIp}/speed?fs=${currentSpeed}&bs=${currentSpeed}`, { mode: 'no-cors' }).catch(() => {});
         } else {
           fetch(`${CLOUD_BASE_URL}/set.php?fs=${currentSpeed}&bs=${currentSpeed}`).catch(() => {});
@@ -1143,6 +1164,8 @@
         document.getElementById("flashText").textContent = isFlashOn ? "HEADLIGHT ON" : "HEADLIGHT";
 
         if (connectionMode === "LAN") {
+          const beacon = new Image();
+          beacon.src = `http://${localIp}/flash?val=${isFlashOn ? 1 : 0}&t=${Date.now()}`;
           fetch(`http://${localIp}/flash?val=${isFlashOn ? 1 : 0}`, { mode: 'no-cors' }).catch(() => {});
         } else {
           fetch(`${CLOUD_BASE_URL}/set.php?flash=${isFlashOn ? 1 : 0}`).catch(() => {});

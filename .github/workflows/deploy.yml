@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   ftp-deploy:
@@ -11,16 +12,22 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: Fix DNS resolution for ftpupload.net
+        run: |
+          echo "185.27.134.11 ftpupload.net" | sudo tee -a /etc/hosts
 
       - name: FTP Deploy
-        uses: SamKirkland/FTP-Deploy-Action@4.3.0
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ftpupload.net
           username: ${{ secrets.FTP_USER }}
           password: ${{ secrets.FTP_PASSWORD }}
           server-dir: /htdocs/FPV_Car/
           local-dir: ./FPV_Car/web/
+          protocol: ftp
+          port: 21
           dangerous-clean-slate: false
           exclude: |
             **/.git*
