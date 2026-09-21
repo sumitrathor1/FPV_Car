@@ -1,0 +1,24 @@
+{
+  "name": "FPV Car Cockpit Remote",
+  "short_name": "FPV Car",
+  "description": "High-Speed Dual-Mode FPV RC Car Remote Cockpit Controller",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#090d16",
+  "theme_color": "#00e5ff",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='38' fill='%23090d16'/%3E%3Ccircle cx='96' cy='96' r='60' fill='none' stroke='%2300e5ff' stroke-width='8'/%3E%3Cpath d='M66 96h60M96 66v60' stroke='%2310b981' stroke-width='6' stroke-linecap='round'/%3E%3Ccircle cx='96' cy='96' r='12' fill='%23f43f5e'/%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%23090d16'/%3E%3Ccircle cx='256' cy='256' r='160' fill='none' stroke='%2300e5ff' stroke-width='16'/%3E%3Cpath d='M176 256h160M256 176v160' stroke='%2310b981' stroke-width='16' stroke-linecap='round'/%3E%3Ccircle cx='256' cy='256' r='32' fill='%23f43f5e'/%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

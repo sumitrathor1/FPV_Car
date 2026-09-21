@@ -20,7 +20,7 @@ jobs:
           username: ${{ secrets.FTP_USER }}
           password: ${{ secrets.FTP_PASSWORD }}
           server-dir: /htdocs/FPV_Car/
-          local-dir: ./Frontend/
+          local-dir: ./FPV_Car/web/
           dangerous-clean-slate: false
           exclude: |
             **/.git*
