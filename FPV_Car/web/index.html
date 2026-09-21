@@ -3,15 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#00e5ff" />
-    <meta name="description" content="Dual-Mode FPV RC Car Remote Cockpit Controller with offline PWA support and high-speed live video stream." />
-    <title>FPV Car Remote Cockpit</title>
+    <title>FPV Car Remote Controller</title>
     
-    <!-- PWA Manifest & App Icons -->
+    <!-- PWA Manifest & App Shell -->
     <link rel="manifest" href="manifest.json" />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%23090d16' stroke='%2300e5ff' stroke-width='6'/%3E%3Cpolygon points='35,25 75,50 35,75' fill='%2310b981'/%3E%3C/svg%3E" />
-    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%23090d16' stroke='%2300e5ff' stroke-width='6'/%3E%3Cpolygon points='35,25 75,50 35,75' fill='%2310b981'/%3E%3C/svg%3E" />
-
+    
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
@@ -19,9 +16,9 @@
 
     <style>
       :root {
-        --bg-dark: #080c14;
-        --card-bg: rgba(15, 22, 36, 0.88);
-        --card-border: rgba(255, 255, 255, 0.09);
+        --bg-dark: #090d16;
+        --card-bg: rgba(18, 24, 38, 0.85);
+        --card-border: rgba(255, 255, 255, 0.08);
         --accent-cyan: #00e5ff;
         --accent-emerald: #10b981;
         --accent-amber: #f59e0b;
@@ -64,14 +61,14 @@
       }
 
       .app-shell {
-        max-width: 1240px;
+        max-width: 1200px;
         margin: 0 auto;
-        padding: 0.6rem;
+        padding: 0.75rem;
       }
 
       @media (min-width: 768px) {
         .app-shell {
-          padding: 1.2rem;
+          padding: 1.25rem;
         }
       }
 
@@ -83,20 +80,20 @@
         background: var(--card-bg);
         border: 1px solid var(--card-border);
         border-radius: 14px;
-        padding: 0.6rem 0.9rem;
+        padding: 0.6rem 1rem;
         backdrop-filter: blur(12px);
-        margin-bottom: 0.75rem;
+        margin-bottom: 0.85rem;
         flex-wrap: wrap;
         gap: 0.5rem;
       }
 
       .brand-title {
         font-weight: 800;
-        font-size: 1.05rem;
+        font-size: 1.1rem;
         letter-spacing: -0.02em;
         display: flex;
         align-items: center;
-        gap: 0.4rem;
+        gap: 0.5rem;
         margin: 0;
       }
 
@@ -104,180 +101,89 @@
         color: var(--accent-cyan);
       }
 
-      .badge-mode {
-        font-size: 0.65rem;
-        padding: 0.2rem 0.45rem;
-        border-radius: 6px;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        font-weight: 700;
-      }
-
-      .mode-toggle-group {
-        display: inline-flex;
-        background: rgba(0, 0, 0, 0.4);
-        padding: 3px;
-        border-radius: 10px;
-        border: 1px solid var(--card-border);
-      }
-
-      .mode-toggle-btn {
-        background: transparent;
-        border: none;
-        color: var(--text-secondary);
-        font-size: 0.72rem;
-        font-weight: 700;
-        padding: 0.35rem 0.65rem;
-        border-radius: 7px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        display: flex;
-        align-items: center;
-        gap: 0.3rem;
-      }
-
-      .mode-toggle-btn.active {
-        background: var(--accent-cyan);
-        color: #041019;
-        box-shadow: 0 0 12px rgba(0, 229, 255, 0.4);
-      }
-
-      .status-pill {
+      .live-pill {
         display: inline-flex;
         align-items: center;
         gap: 0.4rem;
-        background: rgba(239, 68, 68, 0.15);
-        border: 1px solid rgba(239, 68, 68, 0.4);
-        padding: 0.3rem 0.65rem;
+        background: rgba(16, 185, 129, 0.12);
+        color: #34d399;
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        padding: 0.25rem 0.65rem;
         border-radius: 999px;
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         font-weight: 700;
-        color: #f87171;
-        transition: all 0.3s ease;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
       }
 
-      .status-dot {
+      .pulse-dot {
         width: 7px;
         height: 7px;
         border-radius: 50%;
-        background-color: #ef4444;
-        box-shadow: 0 0 6px #ef4444;
+        background-color: var(--accent-emerald);
+        box-shadow: 0 0 8px var(--accent-emerald);
+        animation: pulse 1.6s infinite;
       }
 
-      /* Main Layout Grid */
-      .cockpit-grid {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 0.75rem;
+      @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.4; transform: scale(0.85); }
       }
 
-      @media (min-width: 992px) {
-        .cockpit-grid {
-          grid-template-columns: 1.35fr 1fr;
-          gap: 1rem;
-        }
+      .car-ip-capsule {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        background: rgba(0, 0, 0, 0.45);
+        border: 1px solid var(--card-border);
+        padding: 0.25rem 0.6rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
       }
 
-      /* Glass Panels */
-      .glass-card {
+      .car-ip-input {
+        background: transparent;
+        border: none;
+        color: var(--accent-cyan);
+        font-family: 'JetBrains Mono', monospace;
+        font-weight: 700;
+        font-size: 0.75rem;
+        width: 110px;
+        outline: none;
+      }
+
+      /* Remote Cards */
+      .remote-card {
         background: var(--card-bg);
         border: 1px solid var(--card-border);
         border-radius: 16px;
-        padding: 0.85rem;
-        backdrop-filter: blur(12px);
-        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+        backdrop-filter: blur(16px);
+        padding: 1rem;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
       }
 
-      /* Video Stage & Cockpit HUD */
-      .video-stage-container {
+      /* Video Stage */
+      .video-viewport {
         position: relative;
         width: 100%;
-        aspect-ratio: 4 / 3;
-        background: #020408;
+        background: #000;
         border-radius: 12px;
         overflow: hidden;
-        border: 1px solid rgba(0, 229, 255, 0.2);
-        box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.8);
+        aspect-ratio: 16 / 9;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
       }
 
-      .video-feed-element {
+      .video-viewport img {
         width: 100%;
         height: 100%;
         object-fit: cover;
         display: block;
       }
 
-      .video-placeholder {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        background: rgba(8, 12, 20, 0.95);
-        color: var(--text-secondary);
-        z-index: 5;
-        gap: 0.5rem;
-        transition: opacity 0.3s ease;
-      }
-
-      .video-placeholder.hidden {
-        opacity: 0;
-        pointer-events: none;
-      }
-
-      /* Tactical HUD Overlays */
-      .hud-overlay {
-        position: absolute;
-        inset: 0;
-        pointer-events: none;
-        z-index: 10;
-      }
-
-      /* Crosshair Reticle */
-      .hud-crosshair {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 60px;
-        height: 60px;
-      }
-
-      .hud-crosshair::before,
-      .hud-crosshair::after {
-        content: '';
-        position: absolute;
-        background: rgba(0, 229, 255, 0.45);
-      }
-
-      .hud-crosshair::before {
-        top: 50%;
-        left: 0;
-        right: 0;
-        height: 1px;
-      }
-
-      .hud-crosshair::after {
-        left: 50%;
-        top: 0;
-        bottom: 0;
-        width: 1px;
-      }
-
-      .hud-circle {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 24px;
-        height: 24px;
-        border: 1px dashed rgba(0, 229, 255, 0.5);
-        border-radius: 50%;
-      }
-
-      /* Top HUD OSD Telemetry Bar */
-      .hud-top-bar {
+      .video-overlay-info {
         position: absolute;
         top: 8px;
         left: 8px;
@@ -285,56 +191,65 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.7rem;
-        color: var(--accent-cyan);
-        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+        pointer-events: none;
+        z-index: 5;
       }
 
-      .hud-pill {
+      .osd-badge {
         background: rgba(0, 0, 0, 0.65);
-        padding: 0.2rem 0.5rem;
+        border: 1px solid rgba(255, 255, 255, 0.15);
         border-radius: 6px;
-        border: 1px solid rgba(0, 229, 255, 0.25);
+        padding: 2px 8px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.72rem;
+        color: #e2e8f0;
         backdrop-filter: blur(4px);
       }
 
-      /* Bottom HUD Horizon / Status */
-      .hud-bottom-bar {
+      .video-placeholder {
         position: absolute;
-        bottom: 8px;
-        left: 8px;
-        right: 8px;
+        inset: 0;
+        background: #0d1322;
         display: flex;
-        justify-content: space-between;
+        flex-direction: column;
         align-items: center;
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.68rem;
-        color: #94a3b8;
+        justify-content: center;
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+        z-index: 2;
+        transition: opacity 0.25s ease;
       }
 
-      /* Action Toolbar Below Video */
-      .video-actions-bar {
+      .video-placeholder.active {
+        display: flex;
+      }
+
+      .video-placeholder:not(.active) {
+        display: none;
+      }
+
+      /* Quick Action Bar */
+      .quick-actions-bar {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
-        gap: 0.4rem;
-        margin-top: 0.6rem;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
       }
 
       .action-pill-btn {
         background: var(--btn-surface);
         border: 1px solid var(--btn-border);
         color: var(--text-primary);
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         font-weight: 700;
-        padding: 0.5rem 0.3rem;
+        padding: 0.55rem 0.3rem;
         border-radius: 10px;
         display: flex;
-        flex-direction: column;
         align-items: center;
-        gap: 0.25rem;
+        justify-content: center;
+        gap: 0.35rem;
         cursor: pointer;
-        transition: all 0.2s ease;
+        transition: all 0.15s ease;
       }
 
       .action-pill-btn:hover {
@@ -342,131 +257,201 @@
       }
 
       .action-pill-btn.active {
-        background: rgba(0, 229, 255, 0.2);
+        background: rgba(0, 229, 255, 0.18);
         border-color: var(--accent-cyan);
         color: var(--accent-cyan);
-        box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
       }
 
       .action-pill-btn.danger-action.active {
-        background: rgba(244, 63, 94, 0.25);
+        background: rgba(244, 63, 94, 0.22);
         border-color: var(--accent-rose);
         color: var(--accent-rose);
-        box-shadow: 0 0 10px rgba(244, 63, 94, 0.3);
       }
 
-      /* IP / Mode Settings Box */
-      .ip-settings-box {
-        background: rgba(0, 0, 0, 0.3);
+      /* Mini Telemetry Strip */
+      .telemetry-strip {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0.4rem;
+        margin-top: 0.75rem;
+        background: rgba(15, 23, 42, 0.6);
         border: 1px solid var(--card-border);
         border-radius: 10px;
-        padding: 0.5rem 0.75rem;
-        margin-top: 0.6rem;
+        padding: 0.5rem;
+      }
+
+      .tele-item {
         display: flex;
+        flex-direction: column;
         align-items: center;
-        justify-content: space-between;
-        gap: 0.5rem;
-        font-size: 0.75rem;
+        text-align: center;
       }
 
-      .ip-input-field {
-        background: #0f172a;
-        border: 1px solid #334155;
-        border-radius: 6px;
-        color: #f8fafc;
-        padding: 0.25rem 0.5rem;
-        font-size: 0.75rem;
-        font-family: 'JetBrains Mono', monospace;
-        width: 140px;
-      }
-
-      /* Right Column: Controls */
-      .section-title {
-        font-size: 0.78rem;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
+      .tele-label {
+        font-size: 0.62rem;
+        font-weight: 700;
         color: var(--text-secondary);
-        margin-bottom: 0.5rem;
+        letter-spacing: 0.04em;
+      }
+
+      .tele-val {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.78rem;
+        font-weight: 700;
+        margin-top: 1px;
+      }
+
+      /* Speed Slider */
+      .slider-box {
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        padding: 0.75rem 0.85rem;
+        margin-top: 0.75rem;
+      }
+
+      .slider-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        margin-bottom: 0.4rem;
       }
 
-      /* D-Pad Controller */
-      .dpad-grid {
+      .slider-header span.val {
+        font-family: 'JetBrains Mono', monospace;
+        color: var(--accent-cyan);
+        font-weight: 700;
+      }
+
+      input[type="range"] {
+        width: 100%;
+        height: 6px;
+        border-radius: 3px;
+        background: #334155;
+        outline: none;
+        appearance: none;
+        -webkit-appearance: none;
+      }
+
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: var(--accent-cyan);
+        cursor: pointer;
+        box-shadow: 0 0 10px var(--accent-cyan);
+      }
+
+      /* D-PAD Driving Controller */
+      .dpad-container {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
         grid-template-rows: repeat(3, 1fr);
-        gap: 0.5rem;
-        max-width: 290px;
-        margin: 0.6rem auto;
+        gap: 0.6rem;
+        max-width: 320px;
+        margin: 0.5rem auto;
         aspect-ratio: 1;
       }
 
       .dpad-btn {
         background: linear-gradient(145deg, #1e293b, #0f172a);
         border: 1px solid #334155;
-        border-radius: 14px;
+        border-radius: 16px;
         color: var(--text-primary);
-        font-size: 1.4rem;
+        font-size: 1.5rem;
         font-weight: 800;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-        transition: transform 0.08s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
         user-select: none;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+        transition: transform 0.08s ease, background 0.15s ease, border-color 0.15s ease;
       }
 
       .dpad-btn .label {
-        font-size: 0.58rem;
+        font-size: 0.62rem;
         font-weight: 700;
         letter-spacing: 0.04em;
-        margin-top: 2px;
+        margin-top: 3px;
         color: var(--text-secondary);
       }
 
-      .dpad-btn:active, .dpad-btn.pressed {
-        transform: scale(0.94);
-        background: rgba(0, 229, 255, 0.25);
-        border-color: var(--accent-cyan);
-        box-shadow: 0 0 16px rgba(0, 229, 255, 0.5);
+      /* Mode 0 (STEP) Cyan Pulse */
+      body.mode-step .dpad-btn:active,
+      body.mode-step .dpad-btn.pressed {
+        background: var(--accent-cyan) !important;
+        border-color: var(--accent-cyan) !important;
+        color: #04121d !important;
+        transform: scale(0.92);
+        box-shadow: 0 0 25px rgba(0, 229, 255, 0.7) !important;
       }
 
-      .dpad-btn.latched {
-        background: rgba(168, 85, 247, 0.3);
-        border-color: var(--accent-purple);
-        box-shadow: 0 0 16px rgba(168, 85, 247, 0.6);
+      /* Mode 1 (HOLD) Amber Glow */
+      body.mode-hold .dpad-btn:active,
+      body.mode-hold .dpad-btn.pressed {
+        background: #f59e0b !important;
+        border-color: #f59e0b !important;
+        color: #04121d !important;
+        transform: scale(0.92);
+        box-shadow: 0 0 25px rgba(245, 158, 11, 0.7) !important;
+      }
+
+      /* Mode 2 (LATCH) Purple Lock */
+      body.mode-latch .dpad-btn:active,
+      body.mode-latch .dpad-btn.pressed,
+      body.mode-latch .dpad-btn.latched {
+        background: #a855f7 !important;
+        border-color: #a855f7 !important;
+        color: #ffffff !important;
+        transform: scale(0.94);
+        box-shadow: 0 0 25px rgba(168, 85, 247, 0.8) !important;
       }
 
       .dpad-btn.stop-btn {
-        background: linear-gradient(145deg, #450a0a, #1f0404);
-        border-color: #7f1d1d;
-        color: #fca5a5;
+        background: rgba(244, 63, 94, 0.15);
+        border-color: rgba(244, 63, 94, 0.4);
+        color: var(--accent-rose);
       }
 
       .dpad-btn.stop-btn:active, .dpad-btn.stop-btn.pressed {
-        background: rgba(244, 63, 94, 0.4);
-        border-color: var(--accent-rose);
-        box-shadow: 0 0 18px rgba(244, 63, 94, 0.7);
+        background: var(--accent-rose) !important;
+        color: white !important;
+        border-color: var(--accent-rose) !important;
+        transform: scale(0.92);
+        box-shadow: 0 0 25px rgba(244, 63, 94, 0.8) !important;
       }
 
-      /* Drive Mode Selector */
+      /* Drive Mode Capsules */
+      .section-heading {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        margin-top: 0.5rem;
+      }
+
       .mode-capsule-group {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
         gap: 0.4rem;
-        margin-top: 0.5rem;
+        margin-top: 0.35rem;
       }
 
       .mode-capsule-btn {
         background: var(--btn-surface);
         border: 1px solid var(--btn-border);
         color: var(--text-secondary);
-        font-size: 0.72rem;
+        font-size: 0.75rem;
         font-weight: 700;
         padding: 0.45rem 0.2rem;
         border-radius: 8px;
@@ -483,42 +468,13 @@
         background: var(--accent-cyan);
         box-shadow: 0 0 12px rgba(0, 229, 255, 0.4);
       }
-
       .mode-capsule-btn[data-mode="1"].active {
         background: var(--accent-amber);
         box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
       }
-
       .mode-capsule-btn[data-mode="2"].active {
         background: var(--accent-purple);
         box-shadow: 0 0 12px rgba(168, 85, 247, 0.4);
-      }
-
-      /* Speed Slider */
-      .speed-slider-card {
-        background: rgba(0, 0, 0, 0.25);
-        border: 1px solid var(--card-border);
-        border-radius: 12px;
-        padding: 0.6rem 0.8rem;
-        margin-top: 0.6rem;
-      }
-
-      .slider-label-row {
-        display: flex;
-        justify-content: space-between;
-        font-size: 0.72rem;
-        font-weight: 700;
-        color: var(--text-secondary);
-        margin-bottom: 0.35rem;
-      }
-
-      .slider-label-row .val {
-        color: var(--accent-cyan);
-        font-family: 'JetBrains Mono', monospace;
-      }
-
-      .form-range {
-        accent-color: var(--accent-cyan);
       }
 
       /* Bottom Status Banner */
@@ -526,13 +482,13 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        background: rgba(0, 0, 0, 0.4);
+        background: rgba(15, 23, 42, 0.6);
         border: 1px solid var(--card-border);
         border-radius: 10px;
         padding: 0.5rem 0.8rem;
-        margin-top: 0.6rem;
+        margin-top: 0.75rem;
         font-family: 'JetBrains Mono', monospace;
-        font-size: 0.72rem;
+        font-size: 0.75rem;
       }
 
       .status-banner .val {
@@ -540,29 +496,53 @@
         font-weight: 700;
       }
 
-      /* Offline Disabled States */
-      .offline-disabled {
-        opacity: 0.45 !important;
-        pointer-events: none !important;
-      }
-
       /* Footer */
       .app-footer {
         margin-top: 1.2rem;
-        padding: 0.8rem;
+        padding: 0.8rem 0;
         border-top: 1px solid var(--card-border);
         display: flex;
         justify-content: space-between;
         align-items: center;
         flex-wrap: wrap;
         gap: 0.5rem;
-        font-size: 0.75rem;
+      }
+
+      .footer-author {
+        font-size: 0.82rem;
         color: var(--text-secondary);
       }
 
-      .app-footer a {
-        color: var(--accent-cyan);
+      .footer-author a.author-name {
+        color: #ffffff;
+        font-weight: 700;
         text-decoration: none;
+      }
+
+      .footer-links {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      .footer-link-item {
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+      }
+
+      .footer-link-item:hover {
+        color: var(--accent-cyan);
+      }
+
+      .footer-link-item svg {
+        width: 14px;
+        height: 14px;
+        fill: currentColor;
       }
 
       .dark-modal {
@@ -574,147 +554,136 @@
         border-bottom: 1px solid #1e293b;
       }
 
-      /* Video Canvas / Fullscreen */
-      :fullscreen .video-stage-container {
-        width: 100vw;
-        height: 100vh;
-        border-radius: 0;
+      .playback-stage {
+        aspect-ratio: 4/3;
+        background: #000;
+        border-radius: 8px;
+        overflow: hidden;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .playback-stage img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
       }
     </style>
   </head>
-  <body>
+
+  <body class="mode-step">
     <div class="app-shell">
-      <!-- Top Navigation Bar -->
+      <!-- HTTPS notice (Only shown if opened via HTTPS) -->
+      <div id="httpsWarning" class="alert py-1 px-3 mb-2 d-none justify-content-between align-items-center" style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); color: #fde68a; border-radius: 10px; font-size: 0.76rem;">
+        <span>💡 <strong>Tip:</strong> If camera stream appears blank, open via <a href="http://sumitrathor.rf.gd/FPV_Car/" style="color:#38bdf8; font-weight:700; text-decoration:underline;">HTTP Mode</a> for seamless direct streaming.</span>
+        <button type="button" class="btn-close btn-close-white ms-2" style="font-size:0.6rem;" onclick="this.parentElement.remove()"></button>
+      </div>
+
+      <!-- Header -->
       <header class="top-navbar">
-        <div class="d-flex align-items-center gap-2">
-          <h1 class="brand-title">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent-cyan)">
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-            </svg>
-            FPV<span>Cockpit</span>
-          </h1>
-          <span class="badge-mode bg-dark text-info border border-secondary" id="activeModeBadge">LAN DIRECT</span>
-        </div>
-
-        <!-- Connection Mode Toggle: Local vs Cloud -->
-        <div class="mode-toggle-group">
-          <button class="mode-toggle-btn active" id="btnModeLan" onclick="setConnectionMode('LAN')">
-            <span>📡 Local Direct</span>
-          </button>
-          <button class="mode-toggle-btn" id="btnModeCloud" onclick="setConnectionMode('CLOUD')">
-            <span>☁️ Cloud (InfinityFree)</span>
-          </button>
-        </div>
-
-        <!-- Status & Tools -->
-        <div class="d-flex align-items-center gap-2">
-          <div class="status-pill" id="espStatusPill">
-            <span class="status-dot" id="espStatusDot"></span>
-            <span id="espStatusText">DISCONNECTED</span>
+        <h1 class="brand-title">
+          <span>🏎️ FPV</span> REMOTE
+        </h1>
+        
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <!-- Status Pill -->
+          <div class="live-pill" id="espStatusPill" style="background: rgba(239, 68, 68, 0.12); color: #f87171; border-color: rgba(239, 68, 68, 0.3);">
+            <div class="pulse-dot" id="espStatusDot" style="background-color: #ef4444; box-shadow: 0 0 8px #ef4444;"></div>
+            <span id="espStatusText">ESP32 OFFLINE</span>
           </div>
-          <button class="btn btn-outline-info btn-sm py-1 px-2" onclick="openWifiModal()" title="WiFi Setup" style="font-size:0.75rem;">
-            📶 WiFi
-          </button>
-          <button class="btn btn-outline-secondary btn-sm py-1 px-2" onclick="openGalleryModal()" title="Recordings" style="font-size:0.75rem;">
-            📼 Gallery
-          </button>
-          <button class="btn btn-outline-light btn-sm py-1 px-2" id="btnFullscreen" onclick="toggleFullscreen()" title="Fullscreen" style="font-size:0.75rem;">
-            ⛶
+
+          <!-- Car IP Capsule -->
+          <div class="car-ip-capsule" title="Current Car IP Address">
+            <span class="text-secondary" style="font-weight:700;">IP:</span>
+            <input type="text" class="car-ip-input" id="carIpInput" value="172.26.192.222" onchange="setCarIp(this.value)" />
+            <button class="btn btn-outline-secondary btn-sm py-0 px-1" onclick="setCarIp('192.168.4.1')" style="font-size:0.65rem;" title="Set to Car Hotspot IP">AP</button>
+            <button class="btn btn-outline-info btn-sm py-0 px-1" onclick="checkConnection()" style="font-size:0.65rem;">Connect</button>
+          </div>
+
+          <!-- WiFi Provisioning Config Button -->
+          <button class="btn btn-outline-info btn-sm d-flex align-items-center gap-1 py-1 px-2" onclick="openWifiModal()" style="border-radius: 999px; font-size: 0.75rem; font-weight: 700;">
+            <span>📶</span> <span>WIFI SETUP</span>
           </button>
         </div>
       </header>
 
-      <!-- Main Cockpit Layout -->
-      <main class="cockpit-grid">
-        <!-- Left Column: Video Cockpit Stage -->
-        <section class="glass-card d-flex flex-column">
-          <div class="section-title">
-            <span>Live Camera Feed</span>
-            <span id="osdFps" style="color:var(--accent-cyan); font-family:'JetBrains Mono', monospace; font-size:0.72rem;">STREAM OFF</span>
-          </div>
-
-          <!-- Video Stage Container with Tactical HUD -->
-          <div class="video-stage-container" id="videoStage">
-            <!-- Dynamic Video Feed Image / Stream -->
-            <img id="liveCam" class="video-feed-element" alt="FPV Live Stream" src="" style="display:none;" />
-            
-            <!-- Video Placeholder when Off -->
-            <div id="videoPlaceholder" class="video-placeholder">
-              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-secondary)">
-                <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path>
-                <circle cx="12" cy="13" r="3"></circle>
-              </svg>
-              <span style="font-size:0.85rem; font-weight:600;">Camera Feed Inactive</span>
-              <button class="btn btn-info btn-sm px-3 py-1 fw-bold text-dark mt-1" onclick="toggleCameraPower()">TURN ON CAMERA</button>
-            </div>
-
-            <!-- Tactical HUD Overlay -->
-            <div class="hud-overlay" id="hudOverlay">
-              <div class="hud-top-bar">
-                <div class="hud-pill" id="hudModeLabel">MODE: LAN (DIRECT)</div>
-                <div class="hud-pill" id="hudPingLabel">PING: -- ms</div>
-              </div>
-              
-              <div class="hud-crosshair">
-                <div class="hud-circle"></div>
+      <!-- Main Grid -->
+      <main class="row g-3">
+        <!-- LEFT: Video Stage -->
+        <section class="col-12 col-lg-7">
+          <div class="remote-card">
+            <div class="video-viewport">
+              <img id="liveCam" alt="FPV Live Video Feed" src="" />
+              <div id="videoPlaceholder" class="video-placeholder active">
+                <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">📷</div>
+                <div class="fw-bold text-white mb-1">Camera Feed Inactive</div>
+                <small>Tap "CAM ON" below to start live stream</small>
               </div>
 
-              <div class="hud-bottom-bar">
-                <div class="hud-pill" id="hudResLabel">QVGA 320x240</div>
-                <div class="hud-pill" id="hudSpeedLabel">PWM: 255</div>
+              <!-- Telemetry Badges -->
+              <div class="video-overlay-info">
+                <span class="osd-badge" id="osdFps">CAM 1</span>
+                <span class="osd-badge" id="osdLatency">READY</span>
               </div>
             </div>
-          </div>
 
-          <!-- Video Action Bar -->
-          <div class="video-actions-bar">
-            <button class="action-pill-btn" id="camToggleBtn" onclick="toggleCameraPower()">
-              <span>📷</span>
-              <span id="camText">CAM OFF</span>
-            </button>
-            <button class="action-pill-btn" id="flashToggleBtn" onclick="toggleHeadlight()">
-              <span>💡</span>
-              <span id="flashText">HEADLIGHT</span>
-            </button>
-            <button class="action-pill-btn" id="recToggleBtn" onclick="toggleRecording()">
-              <span>🔴</span>
-              <span id="recText">REC</span>
-            </button>
-            <button class="action-pill-btn" id="streamQualityBtn" onclick="toggleStreamFps()">
-              <span>⚡</span>
-              <span id="streamQualityText">HIGH FPS</span>
-            </button>
-          </div>
-
-          <!-- Connection IP Settings Bar -->
-          <div class="ip-settings-box">
-            <span class="text-secondary" id="ipLabel">Car IP:</span>
-            <div class="d-flex align-items-center gap-1 flex-wrap">
-              <button class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="setPresetIp('192.168.4.1')" style="font-size:0.7rem;" title="Car Hotspot AP">Hotspot (192.168.4.1)</button>
-              <button class="btn btn-outline-success btn-sm py-0 px-2" id="btnAutoCarIp" style="display:none; font-size:0.7rem;" title="Auto-detected Car IP on your Wi-Fi"></button>
-              <input type="text" class="ip-input-field" id="espIpAddress" value="192.168.4.1" placeholder="192.168.4.1" onchange="saveLocalIp(this.value)" style="width:110px;" />
-              <button class="btn btn-outline-info btn-sm py-0 px-2" onclick="reconnectLocal()" style="font-size:0.72rem;">Connect</button>
+            <!-- Quick Action Bar -->
+            <div class="quick-actions-bar">
+              <button class="action-pill-btn active" id="camToggleBtn" onclick="toggleCameraPower()">
+                <span id="camIcon">📷</span> <span id="camText">CAM ON</span>
+              </button>
+              <button class="action-pill-btn" id="flashToggleBtn" onclick="toggleHeadlight()">
+                <span>💡</span> <span id="flashText">HEADLIGHT</span>
+              </button>
+              <button class="action-pill-btn" id="recToggleBtn" onclick="toggleRecording()">
+                <span>🔴</span> <span id="recText">REC</span>
+              </button>
+              <button class="action-pill-btn" id="galleryOpenBtn" onclick="openGalleryModal()">
+                <span>📼</span> <span>RECORDINGS</span>
+              </button>
             </div>
-          </div>
-          <div id="httpsLanAlert" class="alert alert-warning py-1 px-2 mt-2 mb-0 text-center" style="display:none; font-size:0.72rem; background:rgba(245, 158, 11, 0.15); border:1px solid rgba(245, 158, 11, 0.4); color:#fde68a;">
-            💡 <strong>Fast Local Video:</strong> If browser blocks local video on HTTPS, <a href="http://sumitrathor.rf.gd/FPV_Car/" style="color:#00e5ff; font-weight:700; text-decoration:underline;">Click to Open HTTP Mode</a>.
+
+            <!-- Mini Telemetry Strip -->
+            <div class="telemetry-strip">
+              <div class="tele-item">
+                <span class="tele-label">ACTION</span>
+                <span class="tele-val text-info" id="teleAction">IDLE</span>
+              </div>
+              <div class="tele-item">
+                <span class="tele-label">OBSTACLE</span>
+                <span class="tele-val" id="teleObstacle">CLEAR</span>
+              </div>
+              <div class="tele-item">
+                <span class="tele-label">CAR IP</span>
+                <span class="tele-val text-success" id="teleIpDisplay">172.26.192.222</span>
+              </div>
+              <div class="tele-item">
+                <span class="tele-label">LAST CMD</span>
+                <span class="tele-val text-warning" id="teleCmd">S</span>
+              </div>
+            </div>
+
+            <!-- Speed Tuning -->
+            <div class="slider-box mt-auto">
+              <div class="slider-header">
+                <span>Motor Speed PWM</span>
+                <span>FWD: <span class="val" id="speedFwdVal">255</span> | REV: <span class="val" id="speedRevVal">255</span></span>
+              </div>
+              <input id="speedSlider" type="range" min="80" max="255" value="255" step="5" oninput="updateSpeed(this.value)" />
+            </div>
           </div>
         </section>
 
-        <!-- Right Column: Drive & Cockpit Controls -->
-        <section class="glass-card d-flex flex-column justify-content-between">
-          <div>
-            <div class="section-title">
-              <span>Cockpit Steering D-Pad</span>
-              <span style="font-size:0.7rem; color:var(--text-secondary);">WASD / Arrow Keys</span>
-            </div>
-
-            <!-- D-Pad Directional Controls -->
-            <div class="dpad-grid">
+        <!-- RIGHT: Drive Controller -->
+        <section class="col-12 col-lg-5">
+          <div class="remote-card">
+            <!-- D-PAD Controller -->
+            <div class="dpad-container mt-2">
               <div></div>
               <button class="dpad-btn drive-btn" data-cmd="F" aria-label="Forward">
                 ▲
-                <span class="label">FWD</span>
+                <span class="label">FORWARD</span>
               </button>
               <div></div>
 
@@ -734,32 +703,23 @@
               <div></div>
               <button class="dpad-btn drive-btn" data-cmd="B" aria-label="Backward">
                 ▼
-                <span class="label">REV</span>
+                <span class="label">BACKWARD</span>
               </button>
               <div></div>
             </div>
 
             <!-- Drive Mode Selector -->
-            <div class="section-title mt-2">
+            <div class="section-heading mt-2">
               <span>Drive Mode</span>
               <small id="modeDescription" style="color: var(--accent-cyan); text-transform: none; font-size: 0.72rem;">STEP (One tap pulse)</small>
             </div>
-            <div class="mode-capsule-group">
+            <div class="mode-capsule-group mb-2">
               <button class="mode-capsule-btn active" data-mode="0" onclick="setDriveMode(0)">STEP</button>
               <button class="mode-capsule-btn" data-mode="1" onclick="setDriveMode(1)">HOLD</button>
               <button class="mode-capsule-btn" data-mode="2" onclick="setDriveMode(2)">LATCH</button>
             </div>
 
-            <!-- Speed PWM Slider -->
-            <div class="speed-slider-card">
-              <div class="slider-label-row">
-                <span>MOTOR THROTTLE POWER</span>
-                <span class="val"><span id="speedVal">255</span> / 255</span>
-              </div>
-              <input type="range" class="form-range" id="speedSlider" min="100" max="255" value="255" oninput="onSpeedChange(this.value)" />
-            </div>
-
-            <!-- Status Banner -->
+            <!-- Bottom Live State Bar -->
             <div class="status-banner">
               <div>STATUS: <span class="val" id="activeStatus">READY</span></div>
               <div>CMD: <span class="val" id="currentCommandLabel">STOP</span></div>
@@ -770,69 +730,82 @@
 
       <!-- Footer -->
       <footer class="app-footer">
-        <div>
-          <span>© 2026 </span>
-          <a href="https://sumitrathor.rf.gd/" target="_blank" rel="noopener noreferrer">Sumit Rathor</a>
-          <span class="ms-1">· FPV Car Remote Control</span>
+        <div class="footer-author">
+          <div>
+            <span>© 2026 </span>
+            <a href="https://sumitrathor.rf.gd/" target="_blank" rel="noopener noreferrer" class="author-name">Sumit Rathor</a>
+          </div>
+          <div class="author-role">Full Stack Developer · Software Engineer</div>
         </div>
-        <div class="d-flex gap-3">
-          <a href="https://sumitrathor.rf.gd/" target="_blank" rel="noopener noreferrer">Portfolio</a>
-          <a href="https://www.linkedin.com/in/sumitrathor/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
-          <a href="https://github.com/sumitrathor1/FPV_Car" target="_blank" rel="noopener noreferrer">GitHub</a>
+
+        <div class="footer-links">
+          <a href="https://sumitrathor.rf.gd/" target="_blank" rel="noopener noreferrer" class="footer-link-item" title="Portfolio Website">
+            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+            <span>Portfolio</span>
+          </a>
+          <a href="https://www.linkedin.com/in/sumitrathor/" target="_blank" rel="noopener noreferrer" class="footer-link-item" title="LinkedIn Profile">
+            <svg viewBox="0 0 24 24"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.2V10.9H6.46M7.83 6.45a1.64 1.64 0 1 0 1.64 1.64 1.64 1.64 0 0 0-1.64-1.64"/></svg>
+            <span>LinkedIn</span>
+          </a>
+          <a href="https://github.com/sumitrathor1/FPV_Car" target="_blank" rel="noopener noreferrer" class="footer-link-item" title="GitHub Repository">
+            <svg viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.1-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z"/></svg>
+            <span>GitHub</span>
+          </a>
         </div>
       </footer>
     </div>
 
-    <!-- WiFi Setup & Scanning Modal -->
-    <div class="modal fade" id="wifiModal" tabindex="-1" aria-hidden="true">
+    <!-- WiFi Setup Modal -->
+    <div class="modal fade" id="wifiModal" tabindex="-1" aria-labelledby="wifiModalLabel" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content dark-modal">
           <div class="modal-header dark-modal-header">
-            <h5 class="modal-title fs-6 fw-bold">📶 Connect ESP32 to WiFi</h5>
+            <h5 class="modal-title fs-6 fw-bold" id="wifiModalLabel">📶 Connect ESP32 to WiFi</h5>
             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <div class="modal-body p-3">
             <div class="alert alert-info py-2 px-3 mb-3" style="font-size: 0.8rem; background: rgba(0, 229, 255, 0.1); border-color: rgba(0, 229, 255, 0.25); color: #bae6fd;">
-              <strong>WiFi Hotspot Setup:</strong><br>
+              <strong>WiFi Setup:</strong><br>
               1. Connect device to car hotspot <strong>"FPV-Car-Setup"</strong> (IP 192.168.4.1).<br>
-              2. Click <strong>"Scan"</strong> to find your home Wi-Fi network.<br>
-              3. Enter your password and save.
+              2. Click <strong>"Scan"</strong>, choose your network, and save.
             </div>
 
             <div class="d-flex justify-content-between align-items-center mb-2">
               <span class="text-secondary small fw-bold text-uppercase">Available Networks</span>
-              <button class="btn btn-outline-info btn-sm py-0 px-2" id="scanWifiBtn" onclick="scanWifiNetworks()" style="font-size:0.75rem;">🔍 Scan</button>
+              <button class="btn btn-outline-info btn-sm py-0 px-2" id="scanWifiBtn" onclick="scanWifiNetworks()" style="font-size: 0.75rem;">🔍 Scan</button>
             </div>
 
-            <select class="form-select form-select-sm bg-dark text-light border-secondary mb-2" id="wifiSelect" onchange="document.getElementById('wifiSsidInput').value = this.value">
-              <option value="">-- Select scanned network or type below --</option>
-            </select>
-            <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary mb-2" id="wifiSsidInput" placeholder="WiFi SSID..." />
-            <input type="password" class="form-control form-control-sm bg-dark text-light border-secondary mb-3" id="wifiPassInput" placeholder="WiFi Password..." />
+            <div class="mb-3">
+              <select class="form-select form-select-sm bg-dark text-light border-secondary mb-2" id="wifiSelect" onchange="if(this.value) document.getElementById('wifiSsidInput').value = this.value">
+                <option value="">-- Select scanned network or type below --</option>
+              </select>
+              <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary mb-2" id="wifiSsidInput" placeholder="Enter WiFi SSID name..." />
+              <input type="password" class="form-control form-control-sm bg-dark text-light border-secondary" id="wifiPassInput" placeholder="Enter WiFi password..." />
+            </div>
 
             <div id="wifiStatusMsg" class="small text-center mb-2" style="display:none;"></div>
-            <button class="btn btn-info w-100 py-2 fw-bold text-dark" id="saveWifiBtn" onclick="saveWifiCredentials()">SAVE & RESTART CAR</button>
+            <button class="btn btn-info w-100 py-2 fw-bold text-dark" id="saveWifiBtn" onclick="saveWifiCredentials()">SAVE & CONNECT</button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Video Recordings Gallery Modal -->
-    <div class="modal fade" id="galleryModal" tabindex="-1" aria-hidden="true">
+    <!-- Recordings Gallery Modal -->
+    <div class="modal fade" id="galleryModal" tabindex="-1" aria-labelledby="galleryModalLabel" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content dark-modal">
           <div class="modal-header dark-modal-header">
-            <h5 class="modal-title fs-6 fw-bold">📼 Recorded Video Sessions</h5>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" onclick="stopPlayback()"></button>
+            <h5 class="modal-title fs-6 fw-bold" id="galleryModalLabel">📼 Recorded Video Sessions</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" onclick="stopPlaybackTimer()"></button>
           </div>
           <div class="modal-body p-3">
             <div class="row g-3">
               <div class="col-12 col-md-5">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                   <span class="text-secondary small fw-bold text-uppercase">Saved Sessions</span>
-                  <button class="btn btn-outline-info btn-sm py-0 px-2" onclick="fetchRecordingList()" style="font-size:0.75rem;">🔄 Refresh</button>
+                  <button class="btn btn-outline-info btn-sm py-0 px-2" onclick="fetchRecordingList()" style="font-size: 0.75rem;">🔄 Refresh</button>
                 </div>
-                <div id="folderList" class="overflow-auto border border-secondary rounded p-2" style="max-height: 300px; background: rgba(0,0,0,0.3);">
+                <div id="folderList" class="overflow-auto border border-secondary rounded p-2" style="max-height: 280px; background: rgba(0,0,0,0.3);">
                   <div class="text-secondary small text-center py-3">Loading sessions...</div>
                 </div>
               </div>
@@ -841,9 +814,9 @@
                   <span class="text-secondary small fw-bold text-uppercase" id="selectedSessionTitle">No Session Selected</span>
                   <span class="badge bg-secondary" id="playbackCounterBadge">0 / 0</span>
                 </div>
-                <div class="playback-stage border border-secondary rounded overflow-hidden" style="aspect-ratio:4/3; background:#000; position:relative;">
-                  <img id="playbackImg" alt="Recording frame" src="" style="width:100%; height:100%; object-fit:cover; display:none;" />
-                  <div id="playbackPlaceholder" class="text-secondary small text-center p-4">Select a recorded session to play.</div>
+                <div class="playback-stage border border-secondary">
+                  <img id="playbackImg" alt="Recording playback frame" src="" style="display:none;" />
+                  <div id="playbackPlaceholder" class="text-secondary small text-center px-3">Select a session to start playback.</div>
                 </div>
                 <div class="mt-2">
                   <input type="range" class="form-range" id="playbackSeek" min="0" max="0" value="0" step="1" oninput="onSeekChange(this.value)" />
@@ -852,7 +825,7 @@
                   <button class="btn btn-outline-light btn-sm px-2" onclick="stepFrame(-1)">⏮</button>
                   <button class="btn btn-info btn-sm px-3 fw-bold text-dark" id="playPauseBtn" onclick="togglePlaybackPlay()">▶ PLAY</button>
                   <button class="btn btn-outline-light btn-sm px-2" onclick="stepFrame(1)">⏭</button>
-                  <button class="btn btn-outline-success btn-sm ms-auto" id="downloadSessionBtn" onclick="downloadCurrentSession()" style="display:none;">📥 Download ZIP</button>
+                  <button class="btn btn-outline-success btn-sm ms-auto" id="downloadSessionBtn" onclick="downloadCurrentSession()" style="display:none;">📥 Download</button>
                   <button class="btn btn-outline-danger btn-sm" id="deleteSessionBtn" onclick="deleteCurrentSession()" style="display:none;">🗑️</button>
                 </div>
               </div>
@@ -865,26 +838,20 @@
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-      // Register Service Worker for PWA Offline Caching
+      // Register Service Worker for offline PWA caching
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('./sw.js')
-            .then(reg => console.log('[PWA] Service Worker registered:', reg.scope))
-            .catch(err => console.warn('[PWA] Service Worker failed:', err));
+            .then(reg => console.log('[PWA] Service Worker registered'))
+            .catch(() => {});
         });
       }
 
       /* ======================================================
-       * Configuration & Connection Mode Engine
+       * Car IP & Connection Management
        * ====================================================== */
       const commandLabels = { F: "FORWARD", B: "REVERSE", L: "LEFT", R: "RIGHT", S: "STOP" };
-      let connectionMode = localStorage.getItem("fpv_conn_mode") || "LAN"; // "LAN" or "CLOUD"
-      let localIp = localStorage.getItem("fpv_local_ip") || "192.168.4.1";
-
-      // Cloud URL calculation (same-origin relative on InfinityFree or absolute fallback)
-      const CLOUD_BASE_URL = window.location.origin.includes("sumitrathor.rf.gd")
-        ? window.location.origin + "/FPV_Car"
-        : (window.location.protocol.startsWith("http") ? window.location.pathname.replace(/\/[^/]*$/, "") : "http://sumitrathor.rf.gd/FPV_Car");
+      let carIp = localStorage.getItem("fpv_car_ip") || "172.26.192.222";
 
       let driveMode = 0; // 0 = STEP, 1 = HOLD, 2 = LATCH
       let isCamOn = false;
@@ -893,185 +860,58 @@
       let heldCommand = null;
       let latchedCommand = null;
       let lastSentCommand = "X";
-      let currentSpeed = 255;
-      let espOnline = false;
-      let pingStartTime = 0;
-
-      // Frame Preloader for Cloud Double-Buffering
-      let cloudPreloadImg = new Image();
-      let isCloudPreloading = false;
-      let cloudFrameTimer = null;
-      let frameCount = 0;
-      let lastFpsTime = performance.now();
+      let currentPwmSpeed = 255;
+      let espOnlineState = false;
 
       const liveCam = document.getElementById("liveCam");
       const videoPlaceholder = document.getElementById("videoPlaceholder");
       const activeStatus = document.getElementById("activeStatus");
       const currentCommandLabel = document.getElementById("currentCommandLabel");
+      const speedFwdVal = document.getElementById("speedFwdVal");
+      const speedRevVal = document.getElementById("speedRevVal");
       const osdFps = document.getElementById("osdFps");
-      const hudPingLabel = document.getElementById("hudPingLabel");
-      const hudSpeedLabel = document.getElementById("hudSpeedLabel");
-      const hudModeLabel = document.getElementById("hudModeLabel");
-      const activeModeBadge = document.getElementById("activeModeBadge");
-      const espIpAddressInput = document.getElementById("espIpAddress");
+      const osdLatency = document.getElementById("osdLatency");
+      const carIpInput = document.getElementById("carIpInput");
+      const teleIpDisplay = document.getElementById("teleIpDisplay");
 
-      espIpAddressInput.value = localIp;
+      carIpInput.value = carIp;
+      teleIpDisplay.textContent = carIp;
 
-      function hapticPulse() {
-        if ('vibrate' in navigator) navigator.vibrate(35);
+      function setCarIp(ip) {
+        carIp = ip.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+        localStorage.setItem("fpv_car_ip", carIp);
+        carIpInput.value = carIp;
+        teleIpDisplay.textContent = carIp;
+        checkConnection();
+        if (isCamOn) startVideoStream();
       }
 
-      function saveLocalIp(val) {
-        localIp = val.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
-        localStorage.setItem("fpv_local_ip", localIp);
-        if (connectionMode === "LAN" && isCamOn) {
-          updateStreamSource();
-        }
-      }
-
-      function reconnectLocal() {
-        saveLocalIp(espIpAddressInput.value);
-        checkEspHeartbeat();
-        if (isCamOn) updateStreamSource();
-      }
-
-      function setPresetIp(ip) {
-        espIpAddressInput.value = ip;
-        saveLocalIp(ip);
-        reconnectLocal();
-      }
-
-      function setConnectionMode(mode) {
-        connectionMode = mode;
-        localStorage.setItem("fpv_conn_mode", mode);
-        stopCar();
-
-        document.getElementById("btnModeLan").classList.toggle("active", mode === "LAN");
-        document.getElementById("btnModeCloud").classList.toggle("active", mode === "CLOUD");
-
-        activeModeBadge.textContent = mode === "LAN" ? "LAN DIRECT" : "CLOUD INFINITY";
-        activeModeBadge.className = mode === "LAN" ? "badge-mode bg-dark text-info border border-secondary" : "badge-mode bg-dark text-warning border border-secondary";
-        hudModeLabel.textContent = `MODE: ${mode === "LAN" ? "LAN (DIRECT 15-25 FPS)" : "CLOUD (INFINITYFREE)"}`;
-
-        const ipBox = document.querySelector(".ip-settings-box");
-        if (ipBox) ipBox.style.display = mode === "LAN" ? "flex" : "none";
-
-        const httpsAlert = document.getElementById("httpsLanAlert");
-        if (httpsAlert) {
-          httpsAlert.style.display = (mode === "LAN" && window.location.protocol === "https:") ? "block" : "none";
-        }
-
-        if (isCamOn) {
-          updateStreamSource();
+      /* Fire command with Image Beacon (works on both HTTP and HTTPS without mixed-content blocking) */
+      function sendCarRequest(path) {
+        const url = `http://${carIp}${path}${path.includes('?') ? '&' : '?'}t=${Date.now()}`;
+        // 1. Passive Image Beacon (immune to HTTPS mixed-content blocks)
+        const beacon = new Image();
+        beacon.src = url;
+        // 2. Direct fetch with no-cors fallback
+        fetch(url, { mode: 'no-cors' }).catch(() => {});
+        // 3. Dual-mode sync: also send to cloud set.php if it's a command
+        if (path.startsWith('/cmd?dir=')) {
+          const dir = path.split('dir=')[1]?.charAt(0) || 'S';
+          fetch(`./set.php?cmd=${dir}&t=${Date.now()}`).catch(() => {});
         }
       }
 
       /* ======================================================
-       * Video Streaming Engine (Smooth & Low-Latency)
-       * ====================================================== */
-      function toggleCameraPower() {
-        if (isCamOn) {
-          isCamOn = false;
-          clearTimeout(cloudFrameTimer);
-          liveCam.removeAttribute("src");
-          liveCam.style.display = "none";
-          videoPlaceholder.classList.remove("hidden");
-          document.getElementById("camToggleBtn").classList.remove("active");
-          document.getElementById("camText").textContent = "CAM OFF";
-          osdFps.textContent = "STREAM OFF";
-
-          if (connectionMode === "LAN") {
-            fetch(`http://${localIp}/cam?power=0`, { mode: 'no-cors' }).catch(() => {});
-          } else {
-            fetch(`${CLOUD_BASE_URL}/set.php?cam=0`, { cache: 'no-store' }).catch(() => {});
-          }
-        } else {
-          isCamOn = true;
-          videoPlaceholder.classList.add("hidden");
-          liveCam.style.display = "block";
-          document.getElementById("camToggleBtn").classList.add("active");
-          document.getElementById("camText").textContent = "CAM ON";
-          osdFps.textContent = "CONNECTING...";
-
-          if (connectionMode === "LAN") {
-            fetch(`http://${localIp}/cam?power=1`, { mode: 'no-cors' }).catch(() => {});
-          } else {
-            fetch(`${CLOUD_BASE_URL}/set.php?cam=1`, { cache: 'no-store' }).catch(() => {});
-          }
-          updateStreamSource();
-        }
-      }
-
-      function updateStreamSource() {
-        if (!isCamOn) return;
-
-        if (connectionMode === "LAN") {
-          // Direct MJPEG Stream from ESP32: Real 15-25 FPS video stream!
-          clearTimeout(cloudFrameTimer);
-          liveCam.src = `http://${localIp}/stream?t=${Date.now()}`;
-          osdFps.textContent = "LIVE MJPEG 20FPS";
-        } else {
-          // Cloud Mode Double-Buffered Image Preloading to eliminate flickering
-          loadNextCloudFrame();
-        }
-      }
-
-      function loadNextCloudFrame() {
-        if (!isCamOn || connectionMode !== "CLOUD") return;
-        if (isCloudPreloading) return;
-
-        isCloudPreloading = true;
-        cloudPreloadImg = new Image();
-        const start = performance.now();
-
-        cloudPreloadImg.onload = () => {
-          liveCam.src = cloudPreloadImg.src;
-          isCloudPreloading = false;
-          frameCount++;
-          const now = performance.now();
-          if (now - lastFpsTime >= 1000) {
-            osdFps.textContent = `CLOUD ${frameCount} FPS`;
-            frameCount = 0;
-            lastFpsTime = now;
-          }
-          cloudFrameTimer = setTimeout(loadNextCloudFrame, 80);
-        };
-
-        cloudPreloadImg.onerror = () => {
-          isCloudPreloading = false;
-          cloudFrameTimer = setTimeout(loadNextCloudFrame, 200);
-        };
-
-        cloudPreloadImg.src = `${CLOUD_BASE_URL}/cam/latest.jpg?t=${Date.now()}`;
-      }
-
-      /* ======================================================
-       * Car Command Execution (Low Latency Direct or Cloud)
+       * Car Command Execution
        * ====================================================== */
       function sendCommand(cmd, label = "DRIVE") {
-        if (!espOnline && cmd !== "S") {
-          activeStatus.textContent = "DISCONNECTED";
-          currentCommandLabel.textContent = "STOP";
-          return;
-        }
-
         if (cmd === lastSentCommand && cmd !== "S" && driveMode !== 0) return;
         lastSentCommand = cmd;
         currentCommandLabel.textContent = commandLabels[cmd] || cmd;
         activeStatus.textContent = cmd === "S" ? "READY" : label;
 
         setButtonVisual(cmd, true);
-        hapticPulse();
-
-        if (connectionMode === "LAN") {
-          // Send via Image Beacon (passive mixed-content, immune to CORS/HTTPS blocks) + fetch
-          const beacon = new Image();
-          beacon.src = `http://${localIp}/cmd?dir=${cmd}&t=${Date.now()}`;
-          fetch(`http://${localIp}/cmd?dir=${cmd}`, { mode: 'no-cors' }).catch(() => {});
-        } else {
-          // Cloud InfinityFree request
-          fetch(`${CLOUD_BASE_URL}/set.php?cmd=${cmd}`, { cache: 'no-store' }).catch(() => {});
-        }
+        sendCarRequest(`/cmd?dir=${cmd}`);
 
         if (driveMode === 2) latchedCommand = (cmd === "S") ? null : cmd;
       }
@@ -1085,14 +925,7 @@
         document.querySelectorAll(".dpad-btn").forEach(b => b.classList.remove("pressed", "latched"));
         setButtonVisual("S", true);
         setTimeout(() => setButtonVisual("S", false), 150);
-
-        if (connectionMode === "LAN") {
-          const beacon = new Image();
-          beacon.src = `http://${localIp}/cmd?dir=S&t=${Date.now()}`;
-          fetch(`http://${localIp}/cmd?dir=S`, { mode: 'no-cors' }).catch(() => {});
-        } else {
-          fetch(`${CLOUD_BASE_URL}/set.php?cmd=S`, { cache: 'no-store' }).catch(() => {});
-        }
+        sendCarRequest('/cmd?dir=S');
       }
 
       function setButtonVisual(cmd, isPressed) {
@@ -1121,141 +954,122 @@
       function setDriveMode(mode) {
         stopCar();
         driveMode = mode;
-        document.querySelectorAll(".mode-capsule-btn").forEach((b) => {
+        document.querySelectorAll(".mode-capsule-btn").forEach(b => {
           b.classList.toggle("active", Number(b.dataset.mode) === mode);
         });
 
+        document.body.classList.remove("mode-step", "mode-hold", "mode-latch");
         const desc = document.getElementById("modeDescription");
+
         if (mode === 0) {
+          document.body.classList.add("mode-step");
           desc.textContent = "STEP (One tap pulse)";
           desc.style.color = "var(--accent-cyan)";
         } else if (mode === 1) {
+          document.body.classList.add("mode-hold");
           desc.textContent = "HOLD (Continuous press)";
           desc.style.color = "var(--accent-amber)";
         } else {
+          document.body.classList.add("mode-latch");
           desc.textContent = "LATCH (Cruise lock)";
           desc.style.color = "var(--accent-purple)";
         }
-
-        if (connectionMode === "CLOUD") {
-          fetch(`${CLOUD_BASE_URL}/set.php?mode=${mode}`).catch(() => {});
-        }
       }
 
-      /* Speed Slider Control */
-      function onSpeedChange(val) {
-        currentSpeed = Math.round(Number(val));
-        document.getElementById("speedVal").textContent = currentSpeed;
-        hudSpeedLabel.textContent = `PWM: ${currentSpeed}`;
+      /* Speed Slider */
+      function updateSpeed(val) {
+        currentPwmSpeed = Math.round(Number(val));
+        speedFwdVal.textContent = String(currentPwmSpeed);
+        speedRevVal.textContent = String(currentPwmSpeed);
+        sendCarRequest(`/speed?fs=${currentPwmSpeed}&bs=${currentPwmSpeed}`);
+      }
 
-        if (connectionMode === "LAN") {
-          const beacon = new Image();
-          beacon.src = `http://${localIp}/speed?fs=${currentSpeed}&bs=${currentSpeed}&t=${Date.now()}`;
-          fetch(`http://${localIp}/speed?fs=${currentSpeed}&bs=${currentSpeed}`, { mode: 'no-cors' }).catch(() => {});
+      /* Camera Stream */
+      function toggleCameraPower() {
+        if (isCamOn) {
+          isCamOn = false;
+          liveCam.removeAttribute("src");
+          liveCam.style.display = "none";
+          videoPlaceholder.classList.add("active");
+          document.getElementById("camToggleBtn").classList.remove("active");
+          document.getElementById("camText").textContent = "CAM OFF";
+          osdFps.textContent = "CAM OFF";
+          sendCarRequest('/cam?power=0');
         } else {
-          fetch(`${CLOUD_BASE_URL}/set.php?fs=${currentSpeed}&bs=${currentSpeed}`).catch(() => {});
+          isCamOn = true;
+          videoPlaceholder.classList.remove("active");
+          liveCam.style.display = "block";
+          document.getElementById("camToggleBtn").classList.add("active");
+          document.getElementById("camText").textContent = "CAM ON";
+          osdFps.textContent = "LIVE 20FPS";
+          sendCarRequest('/cam?power=1');
+          startVideoStream();
         }
       }
 
-      /* Flashlight Headlight Toggle */
+      function startVideoStream() {
+        if (!isCamOn) return;
+        liveCam.src = `http://${carIp}/stream?t=${Date.now()}`;
+      }
+
+      /* Flashlight / Headlight */
       function toggleHeadlight() {
         isFlashOn = !isFlashOn;
         const btn = document.getElementById("flashToggleBtn");
         btn.classList.toggle("active", isFlashOn);
         document.getElementById("flashText").textContent = isFlashOn ? "HEADLIGHT ON" : "HEADLIGHT";
-
-        if (connectionMode === "LAN") {
-          const beacon = new Image();
-          beacon.src = `http://${localIp}/flash?val=${isFlashOn ? 1 : 0}&t=${Date.now()}`;
-          fetch(`http://${localIp}/flash?val=${isFlashOn ? 1 : 0}`, { mode: 'no-cors' }).catch(() => {});
-        } else {
-          fetch(`${CLOUD_BASE_URL}/set.php?flash=${isFlashOn ? 1 : 0}`).catch(() => {});
-        }
+        sendCarRequest(`/flash?val=${isFlashOn ? 1 : 0}`);
       }
 
-      /* Recording Control */
+      /* Session Recording */
       function toggleRecording() {
         isRecording = !isRecording;
         const btn = document.getElementById("recToggleBtn");
         btn.classList.toggle("active", isRecording);
         btn.classList.toggle("danger-action", isRecording);
         document.getElementById("recText").textContent = isRecording ? "RECORDING..." : "REC";
-
-        const endpoint = isRecording ? "/cam/start_record.php" : "/cam/stop_record.php";
-        fetch(`${CLOUD_BASE_URL}${endpoint}`).catch(() => {});
-      }
-
-      /* Fullscreen Toggle */
-      function toggleFullscreen() {
-        if (!document.fullscreenElement) {
-          document.documentElement.requestFullscreen().catch(() => {});
-        } else {
-          document.exitFullscreen().catch(() => {});
-        }
+        fetch(`./cam/${isRecording ? 'start_record.php' : 'stop_record.php'}`).catch(() => {});
       }
 
       /* ======================================================
-       * Heartbeat & Telemetry Poller
+       * Connection Verification & Status Check
        * ====================================================== */
-      function checkEspHeartbeat() {
-        pingStartTime = performance.now();
-
-        if (connectionMode === "LAN") {
-          fetch(`http://${localIp}/status?t=${Date.now()}`, { mode: 'cors' })
+      function checkConnection() {
+        const start = performance.now();
+        // Probe car with lightweight 1x1 GIF probe (supported directly across HTTP & HTTPS without CORS/Mixed-Content blocks)
+        const probe = new Image();
+        probe.onload = () => {
+          const latency = Math.max(1, Math.round(performance.now() - start));
+          osdLatency.textContent = `${latency}ms`;
+          setOnlineState(true);
+        };
+        probe.onerror = () => {
+          // Also try direct fetch
+          fetch(`http://${carIp}/status?t=${Date.now()}`, { mode: 'cors' })
             .then(r => r.json())
-            .then(data => {
-              const ping = Math.round(performance.now() - pingStartTime);
-              hudPingLabel.textContent = `PING: ${ping}ms`;
-              setEspOnlineStatus(true);
-            })
+            .then(() => setOnlineState(true))
             .catch(() => {
-              // Direct ping probe fallback
-              const imgProbe = new Image();
-              imgProbe.onload = () => {
-                const ping = Math.round(performance.now() - pingStartTime);
-                hudPingLabel.textContent = `PING: ${ping}ms`;
-                setEspOnlineStatus(true);
-              };
-              imgProbe.onerror = () => {
-                hudPingLabel.textContent = `PING: -- ms`;
-                setEspOnlineStatus(false);
-              };
-              imgProbe.src = `http://${localIp}/status?t=${Date.now()}`;
+              // Try cloud heartbeat as fallback
+              fetch(`./get.php?t=${Date.now()}`)
+                .then(r => r.json())
+                .then(data => {
+                  if (data && data.esp_online === "1") {
+                    setOnlineState(true);
+                  } else {
+                    setOnlineState(false);
+                  }
+                })
+                .catch(() => setOnlineState(false));
             });
-        } else {
-          fetch(`${CLOUD_BASE_URL}/get.php?t=${Date.now()}`, { cache: 'no-store' })
-            .then(r => r.json())
-            .then(data => {
-              const ping = Math.round(performance.now() - pingStartTime);
-              hudPingLabel.textContent = `PING: ${ping}ms`;
-              const currentEpoch = Math.floor(Date.now() / 1000);
-              const espHb = Number(data.esp_hb || 0);
-              const isOnline = (currentEpoch - espHb) <= 8 && espHb > 0;
-              setEspOnlineStatus(isOnline);
-
-              // Auto-detect car IP on home Wi-Fi and show quick button
-              if (data.car_ip && data.car_ip !== "") {
-                const autoIpBtn = document.getElementById("btnAutoCarIp");
-                if (autoIpBtn) {
-                  autoIpBtn.textContent = `Wi-Fi IP (${data.car_ip})`;
-                  autoIpBtn.style.display = "inline-block";
-                  autoIpBtn.onclick = () => setPresetIp(data.car_ip);
-                }
-              }
-            })
-            .catch(() => {
-              hudPingLabel.textContent = `PING: -- ms`;
-              setEspOnlineStatus(false);
-            });
-        }
+        };
+        probe.src = `http://${carIp}/ping.gif?t=${Date.now()}`;
       }
 
-      function setEspOnlineStatus(online) {
-        espOnline = online;
+      function setOnlineState(online) {
+        espOnlineState = online;
         const pill = document.getElementById("espStatusPill");
         const dot = document.getElementById("espStatusDot");
         const text = document.getElementById("espStatusText");
-        const dpadBtns = document.querySelectorAll(".dpad-btn:not(.stop-btn)");
 
         if (online) {
           pill.style.background = "rgba(16, 185, 129, 0.15)";
@@ -1263,21 +1077,37 @@
           pill.style.borderColor = "rgba(16, 185, 129, 0.4)";
           dot.style.backgroundColor = "#10b981";
           dot.style.boxShadow = "0 0 8px #10b981";
-          text.textContent = connectionMode === "LAN" ? "CAR READY (LAN)" : "CAR ONLINE (CLOUD)";
-          dpadBtns.forEach(b => b.classList.remove("offline-disabled"));
+          text.textContent = "ESP32 ONLINE";
         } else {
           pill.style.background = "rgba(239, 68, 68, 0.15)";
           pill.style.color = "#f87171";
           pill.style.borderColor = "rgba(239, 68, 68, 0.4)";
           dot.style.backgroundColor = "#ef4444";
           dot.style.boxShadow = "0 0 8px #ef4444";
-          text.textContent = "CAR DISCONNECTED";
-          dpadBtns.forEach(b => b.classList.add("offline-disabled"));
+          text.textContent = "ESP32 OFFLINE";
         }
       }
 
+      /* Auto-Detect Car on local network */
+      function autoDetectCar() {
+        const testIps = [carIp, "172.26.192.222", "192.168.4.1"];
+        const uniqueIps = [...new Set(testIps.filter(Boolean))];
+        let found = false;
+
+        uniqueIps.forEach(ip => {
+          const testImg = new Image();
+          testImg.onload = () => {
+            if (!found) {
+              found = true;
+              setCarIp(ip);
+            }
+          };
+          testImg.src = `http://${ip}/ping.gif?t=${Date.now()}`;
+        });
+      }
+
       /* ======================================================
-       * Touch & Keyboard Controllers
+       * Touch & Keyboard Controls
        * ====================================================== */
       function initControls() {
         document.querySelectorAll(".drive-btn").forEach((btn) => {
@@ -1311,10 +1141,10 @@
 
         // Keyboard Driving (WASD, Arrows, Space)
         const keyMap = {
-          w: "F", arrowup: "F",
-          s: "B", arrowdown: "B",
-          a: "L", arrowleft: "L",
-          d: "R", arrowright: "R",
+          w: "F", arrowup: "F", "8": "F",
+          s: "B", arrowdown: "B", "2": "B",
+          a: "L", arrowleft: "L", "4": "L",
+          d: "R", arrowright: "R", "6": "R",
           " ": "S", escape: "S"
         };
 
@@ -1341,7 +1171,7 @@
       }
 
       /* ======================================================
-       * WiFi Provisioning Modal Client
+       * WiFi Setup Modal Client
        * ====================================================== */
       let wifiModalInstance = null;
       function openWifiModal() {
@@ -1361,9 +1191,9 @@
         btn.textContent = "Scanning...";
         msg.style.display = "block";
         msg.className = "small text-info text-center mb-2";
-        msg.textContent = `Scanning Wi-Fi networks near car (${localIp})...`;
+        msg.textContent = `Scanning Wi-Fi networks near car (${carIp})...`;
 
-        fetch(`http://${localIp}/scan?t=${Date.now()}`, { mode: "cors" })
+        fetch(`http://${carIp}/scan?t=${Date.now()}`, { mode: "cors" })
           .then(r => r.json())
           .then(networks => {
             btn.disabled = false;
@@ -1380,13 +1210,13 @@
               select.appendChild(opt);
             });
             msg.className = "small text-success text-center mb-2";
-            msg.textContent = `Found ${networks.length} networks. Select yours and enter password.`;
+            msg.textContent = `Found ${networks.length} networks.`;
           })
           .catch(() => {
             btn.disabled = false;
             btn.textContent = "🔍 Scan";
             msg.className = "small text-warning text-center mb-2";
-            msg.innerHTML = `Make sure your device is connected to <strong>"FPV-Car-Setup"</strong> hotspot.`;
+            msg.innerHTML = `Make sure your device is connected to car Wi-Fi (IP: ${carIp}).`;
           });
       }
 
@@ -1407,20 +1237,20 @@
         msg.style.display = "block";
         msg.textContent = "Saving to car flash memory...";
 
-        fetch(`http://${localIp}/save-wifi?ssid=${encodeURIComponent(ssid)}&password=${encodeURIComponent(pass)}`, { mode: "cors" })
+        fetch(`http://${carIp}/save-wifi?ssid=${encodeURIComponent(ssid)}&password=${encodeURIComponent(pass)}`, { mode: "cors" })
           .then(() => {
             msg.className = "small text-success text-center mb-2";
-            msg.innerHTML = "✅ <strong>WiFi Saved!</strong> ESP32 is restarting and connecting to your home WiFi.";
+            msg.innerHTML = "✅ <strong>WiFi Saved!</strong> Car is restarting and connecting to your network.";
             setTimeout(() => {
               if (wifiModalInstance) wifiModalInstance.hide();
               btn.disabled = false;
-              btn.textContent = "SAVE & RESTART CAR";
+              btn.textContent = "SAVE & CONNECT";
             }, 4000);
           })
           .catch(() => {
             btn.disabled = false;
-            btn.textContent = "SAVE & RESTART CAR";
-            msg.textContent = "Credentials sent! ESP32 is connecting to your network.";
+            btn.textContent = "SAVE & CONNECT";
+            msg.textContent = "Credentials sent! Reconnecting to car...";
           });
       }
 
@@ -1446,7 +1276,7 @@
         const folderListEl = document.getElementById("folderList");
         folderListEl.innerHTML = `<div class="text-secondary small text-center py-3">Fetching sessions...</div>`;
 
-        fetch(`${CLOUD_BASE_URL}/cam/list.php?t=${Date.now()}`)
+        fetch(`./cam/list.php?t=${Date.now()}`)
           .then(r => r.json())
           .then(folders => {
             if (!Array.isArray(folders) || folders.length === 0) {
@@ -1466,19 +1296,19 @@
             });
           })
           .catch(() => {
-            folderListEl.innerHTML = `<div class="text-secondary small text-center py-3">Failed to load recordings list.</div>`;
+            folderListEl.innerHTML = `<div class="text-secondary small text-center py-3">Failed to load recordings.</div>`;
           });
       }
 
       function loadFolderFrames(folder) {
         selectedFolder = folder;
-        stopPlayback();
+        stopPlaybackTimer();
         document.getElementById("selectedSessionTitle").textContent = folder;
         document.getElementById("playbackPlaceholder").textContent = "Loading frames...";
         document.getElementById("playbackPlaceholder").style.display = "block";
         document.getElementById("playbackImg").style.display = "none";
 
-        fetch(`${CLOUD_BASE_URL}/cam/list_frames.php?folder=${encodeURIComponent(folder)}&t=${Date.now()}`)
+        fetch(`./cam/list_frames.php?folder=${encodeURIComponent(folder)}&t=${Date.now()}`)
           .then(r => r.json())
           .then(frames => {
             if (!Array.isArray(frames) || frames.length === 0) {
@@ -1500,7 +1330,7 @@
         if (!playbackFrames.length) return;
         const frameName = playbackFrames[playbackIndex];
         const img = document.getElementById("playbackImg");
-        img.src = `${CLOUD_BASE_URL}/cam/${selectedFolder}/${frameName}`;
+        img.src = `./cam/${selectedFolder}/${frameName}`;
         img.style.display = "block";
         document.getElementById("playbackPlaceholder").style.display = "none";
         document.getElementById("playbackSeek").value = String(playbackIndex);
@@ -1508,14 +1338,14 @@
       }
 
       function onSeekChange(val) {
-        stopPlayback();
+        stopPlaybackTimer();
         playbackIndex = Math.min(playbackFrames.length - 1, Math.max(0, Number(val)));
         renderCurrentFrame();
       }
 
       function stepFrame(step) {
         if (!playbackFrames.length) return;
-        stopPlayback();
+        stopPlaybackTimer();
         playbackIndex = (playbackIndex + step + playbackFrames.length) % playbackFrames.length;
         renderCurrentFrame();
       }
@@ -1523,7 +1353,7 @@
       function togglePlaybackPlay() {
         if (!playbackFrames.length) return;
         if (isPlaying) {
-          stopPlayback();
+          stopPlaybackTimer();
         } else {
           isPlaying = true;
           document.getElementById("playPauseBtn").textContent = "⏸ PAUSE";
@@ -1534,7 +1364,7 @@
         }
       }
 
-      function stopPlayback() {
+      function stopPlaybackTimer() {
         isPlaying = false;
         clearInterval(playbackTimer);
         const btn = document.getElementById("playPauseBtn");
@@ -1543,17 +1373,12 @@
 
       function downloadCurrentSession() {
         if (!selectedFolder) return;
-        window.open(`${CLOUD_BASE_URL}/cam/download_recording.php?folder=${encodeURIComponent(selectedFolder)}&type=zip`, '_blank');
-      }
-
-      function deleteCurrentSession() {
-        if (!selectedFolder) return;
-        deleteRecording(selectedFolder);
+        window.open(`./cam/download_recording.php?folder=${encodeURIComponent(selectedFolder)}&type=zip`, '_blank');
       }
 
       function deleteRecording(folder) {
         if (!confirm(`Delete recorded session "${folder}"?`)) return;
-        fetch(`${CLOUD_BASE_URL}/cam/delete.php?folder=${encodeURIComponent(folder)}`)
+        fetch(`./cam/delete.php?folder=${encodeURIComponent(folder)}`)
           .then(() => {
             if (selectedFolder === folder) {
               selectedFolder = "";
@@ -1572,10 +1397,18 @@
 
       // Initialize App
       window.addEventListener("DOMContentLoaded", () => {
+        if (window.location.protocol === 'https:') {
+          const warn = document.getElementById('httpsWarning');
+          if (warn) {
+            warn.classList.remove('d-none');
+            warn.classList.add('d-flex');
+          }
+        }
         initControls();
-        setConnectionMode(connectionMode);
-        toggleCameraPower(); // Automatically spin up video feed
-        setInterval(checkEspHeartbeat, 1500); // Periodic heartbeat check
+        toggleCameraPower(); // Start camera feed automatically
+        autoDetectCar();
+        checkConnection();
+        setInterval(checkConnection, 1500); // Periodic connection monitor
       });
     </script>
   </body>

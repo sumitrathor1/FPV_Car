@@ -91,10 +91,12 @@ int lastBackwardSpeed = 255;
 bool startCamera() {
   if (cameraReady) return true;
 
-  // Explicitly power ON Camera Sensor via Pin 32 (PWDN pulled LOW)
+  // Clean hardware power cycle of Camera Sensor via Pin 32 (PWDN)
   pinMode(PWDN_GPIO_NUM, OUTPUT);
-  digitalWrite(PWDN_GPIO_NUM, LOW);
-  delay(100); // 100ms hardware stabilization delay
+  digitalWrite(PWDN_GPIO_NUM, HIGH); // Standby / Power down
+  delay(50);
+  digitalWrite(PWDN_GPIO_NUM, LOW);  // Active Power ON
+  delay(150); // 150ms hardware power stabilization delay
 
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
@@ -182,6 +184,20 @@ void handleCORS() {
   server.sendHeader("Access-Control-Allow-Origin", "*");
   server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+}
+
+// 1x1 Transparent GIF for zero-latency browser connectivity probe & heartbeat
+const uint8_t PROBE_GIF[] PROGMEM = {
+  0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x80, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0x21, 0xf9, 0x04, 0x01, 0x00,
+  0x00, 0x00, 0x00, 0x2c, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00,
+  0x00, 0x02, 0x02, 0x44, 0x01, 0x00, 0x3b
+};
+
+void handleProbeGif() {
+  handleCORS();
+  server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  server.send_P(200, "image/gif", (const char*)PROBE_GIF, sizeof(PROBE_GIF));
 }
 
 // ======================================================
@@ -331,12 +347,21 @@ void handleSaveWifi() {
 }
 
 void setupLocalServer() {
+  server.on("/ping.gif", HTTP_GET, handleProbeGif);
+  server.on("/probe.gif", HTTP_GET, handleProbeGif);
+  server.on("/status.gif", HTTP_GET, handleProbeGif);
+  server.on("/ping", HTTP_GET, []() {
+    handleCORS();
+    server.send(200, "text/plain", "pong");
+  });
   server.on("/stream", HTTP_GET, handleStream);
   server.on("/cmd", HTTP_GET, handleCmd);
+  server.on("/set.php", HTTP_GET, handleCmd);
   server.on("/speed", HTTP_GET, handleSpeed);
   server.on("/flash", HTTP_GET, handleFlash);
   server.on("/cam", HTTP_GET, handleCamPower);
   server.on("/status", HTTP_GET, handleStatus);
+  server.on("/get.php", HTTP_GET, handleStatus);
   server.on("/scan", HTTP_GET, handleScanWifi);
   server.on("/save-wifi", HTTP_GET, handleSaveWifi);
   server.on("/FPV_Car", HTTP_GET, []() {
@@ -414,7 +439,10 @@ void setup() {
   pinMode(FLASH_LED_PIN, OUTPUT);
   digitalWrite(FLASH_LED_PIN, LOW);
 
-  // Load Saved WiFi from Flash (NVS)
+  // 1. Initialize Camera FIRST on clean, stable power (before Wi-Fi power draw)
+  startCamera();
+
+  // 2. Load Saved WiFi from Flash (NVS)
   prefs.begin("fpv_wifi", true);
   saved_ssid     = prefs.getString("ssid", "");
   saved_password = prefs.getString("pass", "");
@@ -448,8 +476,10 @@ void setup() {
     setupLocalServer();
   }
 
-  // Initialize camera
-  startCamera();
+  Serial.println("==================================================");
+  Serial.print("[READY] FPV Car Ready at: http://");
+  Serial.println(connected ? WiFi.localIP().toString() : "192.168.4.1");
+  Serial.println("==================================================");
 }
 
 // ======================================================
