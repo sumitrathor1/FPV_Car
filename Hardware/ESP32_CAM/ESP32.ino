@@ -27,6 +27,7 @@
 #include <WebServer.h>
 #include <Preferences.h>
 #include <DNSServer.h>
+#include <ESPmDNS.h>
 
 // ======================================================
 // WebServer & Preferences Storage
@@ -364,6 +365,10 @@ void setupLocalServer() {
   server.on("/get.php", HTTP_GET, handleStatus);
   server.on("/scan", HTTP_GET, handleScanWifi);
   server.on("/save-wifi", HTTP_GET, handleSaveWifi);
+  server.on("/", HTTP_GET, []() {
+    handleCORS();
+    server.send(200, "text/html", "<html><head><meta http-equiv='refresh' content='0;url=http://sumitrathor.rf.gd/FPV_Car/'></head><body style='background:#090d16;color:#00e5ff;font-family:sans-serif;text-align:center;padding-top:20vh;'><h2>🏎️ FPV Car Ready!</h2><p>Redirecting to remote controller...</p><p><a href='http://sumitrathor.rf.gd/FPV_Car/' style='color:#10b981;font-weight:bold;'>Click here if not redirected</a></p></body></html>");
+  });
   server.on("/FPV_Car", HTTP_GET, []() {
     handleCORS();
     server.send(200, "text/plain", "FPV Car Local Gateway Ready");
@@ -385,6 +390,10 @@ void startApMode() {
   WiFi.softAP("FPV-Car-Setup", ""); // Open setup & direct drive hotspot
   dnsServer.start(DNS_PORT, "*", WiFi.softAPIP()); // Captive portal DNS redirects any host (e.g. sumitrathor.rf.gd) to car
   setupLocalServer();
+  if (MDNS.begin("fpvcar")) {
+    MDNS.addService("http", "tcp", 80);
+    Serial.println("[MDNS] Started: http://fpvcar.local");
+  }
   Serial.println("[WIFI] AP Hotspot Started: FPV-Car-Setup (IP: 192.168.4.1)");
 }
 
@@ -474,6 +483,10 @@ void setup() {
     startApMode();
   } else {
     setupLocalServer();
+    if (MDNS.begin("fpvcar")) {
+      MDNS.addService("http", "tcp", 80);
+      Serial.println("[MDNS] Started: http://fpvcar.local");
+    }
   }
 
   Serial.println("==================================================");

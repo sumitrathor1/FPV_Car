@@ -130,27 +130,7 @@
         50% { opacity: 0.4; transform: scale(0.85); }
       }
 
-      .car-ip-capsule {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.35rem;
-        background: rgba(0, 0, 0, 0.45);
-        border: 1px solid var(--card-border);
-        padding: 0.25rem 0.6rem;
-        border-radius: 999px;
-        font-size: 0.75rem;
-      }
 
-      .car-ip-input {
-        background: transparent;
-        border: none;
-        color: var(--accent-cyan);
-        font-family: 'JetBrains Mono', monospace;
-        font-weight: 700;
-        font-size: 0.75rem;
-        width: 110px;
-        outline: none;
-      }
 
       /* Remote Cards */
       .remote-card {
@@ -588,17 +568,9 @@
         
         <div class="d-flex align-items-center gap-2 flex-wrap">
           <!-- Status Pill -->
-          <div class="live-pill" id="espStatusPill" style="background: rgba(239, 68, 68, 0.12); color: #f87171; border-color: rgba(239, 68, 68, 0.3);">
-            <div class="pulse-dot" id="espStatusDot" style="background-color: #ef4444; box-shadow: 0 0 8px #ef4444;"></div>
-            <span id="espStatusText">ESP32 OFFLINE</span>
-          </div>
-
-          <!-- Car IP Capsule -->
-          <div class="car-ip-capsule" title="Current Car IP Address">
-            <span class="text-secondary" style="font-weight:700;">IP:</span>
-            <input type="text" class="car-ip-input" id="carIpInput" value="172.26.192.222" onchange="setCarIp(this.value)" />
-            <button class="btn btn-outline-secondary btn-sm py-0 px-1" onclick="setCarIp('192.168.4.1')" style="font-size:0.65rem;" title="Set to Car Hotspot IP">AP</button>
-            <button class="btn btn-outline-info btn-sm py-0 px-1" onclick="checkConnection()" style="font-size:0.65rem;">Connect</button>
+          <div class="live-pill" id="espStatusPill" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border-color: rgba(245, 158, 11, 0.35);">
+            <div class="pulse-dot" id="espStatusDot" style="background-color: #f59e0b; box-shadow: 0 0 8px #f59e0b;"></div>
+            <span id="espStatusText">SEARCHING FOR CAR...</span>
           </div>
 
           <!-- WiFi Provisioning Config Button -->
@@ -655,8 +627,8 @@
                 <span class="tele-val" id="teleObstacle">CLEAR</span>
               </div>
               <div class="tele-item">
-                <span class="tele-label">CAR IP</span>
-                <span class="tele-val text-success" id="teleIpDisplay">172.26.192.222</span>
+                <span class="tele-label">LINK</span>
+                <span class="tele-val text-warning" id="teleLinkDisplay">SEARCHING</span>
               </div>
               <div class="tele-item">
                 <span class="tele-label">LAST CMD</span>
@@ -785,6 +757,19 @@
 
             <div id="wifiStatusMsg" class="small text-center mb-2" style="display:none;"></div>
             <button class="btn btn-info w-100 py-2 fw-bold text-dark" id="saveWifiBtn" onclick="saveWifiCredentials()">SAVE & CONNECT</button>
+
+            <div class="mt-3 pt-2 border-top border-secondary text-center">
+              <a class="text-secondary small text-decoration-none" data-bs-toggle="collapse" href="#advancedHostBox" role="button" style="font-size:0.75rem;">
+                ⚙️ Advanced: Manual Host Override
+              </a>
+              <div class="collapse mt-2 text-start" id="advancedHostBox">
+                <div class="input-group input-group-sm">
+                  <input type="text" class="form-control bg-dark text-light border-secondary" id="manualHostInput" placeholder="fpvcar.local or 192.168.4.1" />
+                  <button class="btn btn-outline-info" onclick="setCarHost(document.getElementById('manualHostInput').value)">Save</button>
+                </div>
+                <small class="text-secondary" style="font-size:0.7rem;">Default is 100% automatic auto-discovery.</small>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -848,10 +833,10 @@
       }
 
       /* ======================================================
-       * Car IP & Connection Management
+       * Zero-Config Auto-Discovery & Connection Management
        * ====================================================== */
       const commandLabels = { F: "FORWARD", B: "REVERSE", L: "LEFT", R: "RIGHT", S: "STOP" };
-      let carIp = localStorage.getItem("fpv_car_ip") || "172.26.192.222";
+      let carHost = localStorage.getItem("fpv_car_host") || "fpvcar.local";
 
       let driveMode = 0; // 0 = STEP, 1 = HOLD, 2 = LATCH
       let isCamOn = false;
@@ -862,6 +847,8 @@
       let lastSentCommand = "X";
       let currentPwmSpeed = 255;
       let espOnlineState = false;
+      let isScanning = false;
+      let failedPings = 0;
 
       const liveCam = document.getElementById("liveCam");
       const videoPlaceholder = document.getElementById("videoPlaceholder");
@@ -871,24 +858,114 @@
       const speedRevVal = document.getElementById("speedRevVal");
       const osdFps = document.getElementById("osdFps");
       const osdLatency = document.getElementById("osdLatency");
-      const carIpInput = document.getElementById("carIpInput");
-      const teleIpDisplay = document.getElementById("teleIpDisplay");
 
-      carIpInput.value = carIp;
-      teleIpDisplay.textContent = carIp;
+      // Probe a single host via 1x1 transparent GIF (instant, zero CORS, HTTPS safe)
+      function probeHost(host, timeoutMs = 600) {
+        return new Promise((resolve) => {
+          if (!host) return resolve(false);
+          const cleanHost = host.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+          const img = new Image();
+          let settled = false;
 
-      function setCarIp(ip) {
-        carIp = ip.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
-        localStorage.setItem("fpv_car_ip", carIp);
-        carIpInput.value = carIp;
-        teleIpDisplay.textContent = carIp;
-        checkConnection();
+          const timer = setTimeout(() => {
+            if (!settled) {
+              settled = true;
+              img.src = "";
+              resolve(false);
+            }
+          }, timeoutMs);
+
+          img.onload = () => {
+            if (!settled) {
+              settled = true;
+              clearTimeout(timer);
+              resolve(cleanHost);
+            }
+          };
+
+          img.onerror = () => {
+            if (!settled) {
+              settled = true;
+              clearTimeout(timer);
+              resolve(false);
+            }
+          };
+
+          img.src = `http://${cleanHost}/ping.gif?t=${Date.now()}`;
+        });
+      }
+
+      // Zero-Config Auto-Discovery Engine
+      async function startAutoDiscovery() {
+        if (isScanning) return;
+        isScanning = true;
+        setSearchingState();
+
+        // 1. Fast probe of primary candidates (mDNS, Hotspot AP, cached host, router default)
+        const primaryCandidates = [
+          "fpvcar.local",
+          "192.168.4.1",
+          localStorage.getItem("fpv_car_host"),
+          "172.26.192.222"
+        ].filter(Boolean);
+
+        const uniquePrimaries = [...new Set(primaryCandidates)];
+        for (const host of uniquePrimaries) {
+          const found = await probeHost(host, 600);
+          if (found) {
+            connectToHost(found);
+            isScanning = false;
+            return;
+          }
+        }
+
+        // 2. Parallel sweep across local subnets (finds car if router gave new dynamic DHCP IP)
+        const cached = localStorage.getItem("fpv_car_host") || "172.26.192.222";
+        const subnetMatch = cached.match(/^(\d+\.\d+\.\d+)\.\d+$/);
+        const subnets = [];
+        if (subnetMatch) subnets.push(subnetMatch[1]);
+        subnets.push("192.168.1", "192.168.0", "192.168.43", "172.20.10");
+
+        const sweepList = [];
+        const commonLastOctets = [222, 100, 101, 102, 103, 104, 105, 2, 3, 4, 5, 10, 20, 50, 200];
+        for (const sub of [...new Set(subnets)]) {
+          for (const oct of commonLastOctets) {
+            sweepList.push(`${sub}.${oct}`);
+          }
+        }
+
+        const batchSize = 10;
+        for (let i = 0; i < sweepList.length; i += batchSize) {
+          const batch = sweepList.slice(i, i + batchSize);
+          const results = await Promise.all(batch.map(ip => probeHost(ip, 400)));
+          const found = results.find(Boolean);
+          if (found) {
+            connectToHost(found);
+            isScanning = false;
+            return;
+          }
+        }
+
+        isScanning = false;
+        setOfflineState();
+      }
+
+      function connectToHost(host) {
+        carHost = host;
+        localStorage.setItem("fpv_car_host", carHost);
+        failedPings = 0;
+        setOnlineState(true);
         if (isCamOn) startVideoStream();
+      }
+
+      function setCarHost(host) {
+        if (!host) return;
+        connectToHost(host.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, ''));
       }
 
       /* Fire command with Image Beacon (works on both HTTP and HTTPS without mixed-content blocking) */
       function sendCarRequest(path) {
-        const url = `http://${carIp}${path}${path.includes('?') ? '&' : '?'}t=${Date.now()}`;
+        const url = `http://${carHost}${path}${path.includes('?') ? '&' : '?'}t=${Date.now()}`;
         // 1. Passive Image Beacon (immune to HTTPS mixed-content blocks)
         const beacon = new Image();
         beacon.src = url;
@@ -1009,7 +1086,7 @@
 
       function startVideoStream() {
         if (!isCamOn) return;
-        liveCam.src = `http://${carIp}/stream?t=${Date.now()}`;
+        liveCam.src = `http://${carHost}/stream?t=${Date.now()}`;
       }
 
       /* Flashlight / Headlight */
@@ -1032,37 +1109,76 @@
       }
 
       /* ======================================================
-       * Connection Verification & Status Check
+       * Connection Monitor & Status Handlers
        * ====================================================== */
       function checkConnection() {
+        if (!espOnlineState) {
+          startAutoDiscovery();
+          return;
+        }
+
         const start = performance.now();
-        // Probe car with lightweight 1x1 GIF probe (supported directly across HTTP & HTTPS without CORS/Mixed-Content blocks)
         const probe = new Image();
+        let handled = false;
+
+        const timer = setTimeout(() => {
+          if (!handled) {
+            handled = true;
+            probe.src = "";
+            handlePingFailure();
+          }
+        }, 1200);
+
         probe.onload = () => {
-          const latency = Math.max(1, Math.round(performance.now() - start));
-          osdLatency.textContent = `${latency}ms`;
-          setOnlineState(true);
+          if (!handled) {
+            handled = true;
+            clearTimeout(timer);
+            failedPings = 0;
+            const latency = Math.max(1, Math.round(performance.now() - start));
+            osdLatency.textContent = `${latency}ms`;
+            setOnlineState(true);
+          }
         };
+
         probe.onerror = () => {
-          // Also try direct fetch
-          fetch(`http://${carIp}/status?t=${Date.now()}`, { mode: 'cors' })
-            .then(r => r.json())
-            .then(() => setOnlineState(true))
-            .catch(() => {
-              // Try cloud heartbeat as fallback
-              fetch(`./get.php?t=${Date.now()}`)
-                .then(r => r.json())
-                .then(data => {
-                  if (data && data.esp_online === "1") {
-                    setOnlineState(true);
-                  } else {
-                    setOnlineState(false);
-                  }
-                })
-                .catch(() => setOnlineState(false));
-            });
+          if (!handled) {
+            handled = true;
+            clearTimeout(timer);
+            handlePingFailure();
+          }
         };
-        probe.src = `http://${carIp}/ping.gif?t=${Date.now()}`;
+
+        probe.src = `http://${carHost}/ping.gif?t=${Date.now()}`;
+      }
+
+      function handlePingFailure() {
+        failedPings++;
+        if (failedPings >= 2) {
+          setOfflineState();
+          startAutoDiscovery();
+        }
+      }
+
+      function setSearchingState() {
+        const pill = document.getElementById("espStatusPill");
+        const dot = document.getElementById("espStatusDot");
+        const text = document.getElementById("espStatusText");
+        const link = document.getElementById("teleLinkDisplay");
+
+        if (pill) {
+          pill.style.background = "rgba(245, 158, 11, 0.15)";
+          pill.style.color = "#fbbf24";
+          pill.style.borderColor = "rgba(245, 158, 11, 0.35)";
+        }
+        if (dot) {
+          dot.style.backgroundColor = "#f59e0b";
+          dot.style.boxShadow = "0 0 8px #f59e0b";
+        }
+        if (text) text.textContent = "SEARCHING CAR...";
+        if (link) {
+          link.textContent = "SEARCHING";
+          link.className = "tele-val text-warning";
+        }
       }
 
       function setOnlineState(online) {
@@ -1070,40 +1186,49 @@
         const pill = document.getElementById("espStatusPill");
         const dot = document.getElementById("espStatusDot");
         const text = document.getElementById("espStatusText");
+        const link = document.getElementById("teleLinkDisplay");
 
         if (online) {
-          pill.style.background = "rgba(16, 185, 129, 0.15)";
-          pill.style.color = "#34d399";
-          pill.style.borderColor = "rgba(16, 185, 129, 0.4)";
-          dot.style.backgroundColor = "#10b981";
-          dot.style.boxShadow = "0 0 8px #10b981";
-          text.textContent = "ESP32 ONLINE";
+          if (pill) {
+            pill.style.background = "rgba(16, 185, 129, 0.15)";
+            pill.style.color = "#34d399";
+            pill.style.borderColor = "rgba(16, 185, 129, 0.4)";
+          }
+          if (dot) {
+            dot.style.backgroundColor = "#10b981";
+            dot.style.boxShadow = "0 0 8px #10b981";
+          }
+          if (text) text.textContent = "CAR CONNECTED";
+          if (link) {
+            link.textContent = "ONLINE";
+            link.className = "tele-val text-success";
+          }
         } else {
-          pill.style.background = "rgba(239, 68, 68, 0.15)";
-          pill.style.color = "#f87171";
-          pill.style.borderColor = "rgba(239, 68, 68, 0.4)";
-          dot.style.backgroundColor = "#ef4444";
-          dot.style.boxShadow = "0 0 8px #ef4444";
-          text.textContent = "ESP32 OFFLINE";
+          setOfflineState();
         }
       }
 
-      /* Auto-Detect Car on local network */
-      function autoDetectCar() {
-        const testIps = [carIp, "172.26.192.222", "192.168.4.1"];
-        const uniqueIps = [...new Set(testIps.filter(Boolean))];
-        let found = false;
+      function setOfflineState() {
+        espOnlineState = false;
+        const pill = document.getElementById("espStatusPill");
+        const dot = document.getElementById("espStatusDot");
+        const text = document.getElementById("espStatusText");
+        const link = document.getElementById("teleLinkDisplay");
 
-        uniqueIps.forEach(ip => {
-          const testImg = new Image();
-          testImg.onload = () => {
-            if (!found) {
-              found = true;
-              setCarIp(ip);
-            }
-          };
-          testImg.src = `http://${ip}/ping.gif?t=${Date.now()}`;
-        });
+        if (pill) {
+          pill.style.background = "rgba(239, 68, 68, 0.15)";
+          pill.style.color = "#f87171";
+          pill.style.borderColor = "rgba(239, 68, 68, 0.4)";
+        }
+        if (dot) {
+          dot.style.backgroundColor = "#ef4444";
+          dot.style.boxShadow = "0 0 8px #ef4444";
+        }
+        if (text) text.textContent = "CAR DISCONNECTED";
+        if (link) {
+          link.textContent = "OFFLINE";
+          link.className = "tele-val text-danger";
+        }
       }
 
       /* ======================================================
@@ -1191,9 +1316,9 @@
         btn.textContent = "Scanning...";
         msg.style.display = "block";
         msg.className = "small text-info text-center mb-2";
-        msg.textContent = `Scanning Wi-Fi networks near car (${carIp})...`;
+        msg.textContent = `Scanning Wi-Fi networks near car...`;
 
-        fetch(`http://${carIp}/scan?t=${Date.now()}`, { mode: "cors" })
+        fetch(`http://${carHost}/scan?t=${Date.now()}`, { mode: "cors" })
           .then(r => r.json())
           .then(networks => {
             btn.disabled = false;
@@ -1216,7 +1341,7 @@
             btn.disabled = false;
             btn.textContent = "🔍 Scan";
             msg.className = "small text-warning text-center mb-2";
-            msg.innerHTML = `Make sure your device is connected to car Wi-Fi (IP: ${carIp}).`;
+            msg.innerHTML = `Make sure device is connected to car hotspot <strong>"FPV-Car-Setup"</strong>.`;
           });
       }
 
@@ -1237,7 +1362,7 @@
         msg.style.display = "block";
         msg.textContent = "Saving to car flash memory...";
 
-        fetch(`http://${carIp}/save-wifi?ssid=${encodeURIComponent(ssid)}&password=${encodeURIComponent(pass)}`, { mode: "cors" })
+        fetch(`http://${carHost}/save-wifi?ssid=${encodeURIComponent(ssid)}&password=${encodeURIComponent(pass)}`, { mode: "cors" })
           .then(() => {
             msg.className = "small text-success text-center mb-2";
             msg.innerHTML = "✅ <strong>WiFi Saved!</strong> Car is restarting and connecting to your network.";
@@ -1406,8 +1531,7 @@
         }
         initControls();
         toggleCameraPower(); // Start camera feed automatically
-        autoDetectCar();
-        checkConnection();
+        startAutoDiscovery(); // Automatic zero-config car discovery
         setInterval(checkConnection, 1500); // Periodic connection monitor
       });
     </script>
