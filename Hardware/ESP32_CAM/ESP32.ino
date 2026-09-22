@@ -34,6 +34,7 @@
 // ======================================================
 Preferences prefs;
 WebServer server(80);
+WiFiServer streamServer(81);
 DNSServer dnsServer;
 const byte DNS_PORT = 53;
 
@@ -122,13 +123,13 @@ bool startCamera() {
   config.pixel_format = PIXFORMAT_JPEG;
 
   if (psramFound()) {
-    config.frame_size   = FRAMESIZE_QVGA;
-    config.jpeg_quality = 12;
+    config.frame_size   = FRAMESIZE_VGA;  // 640x480 (Crisp HD local streaming)
+    config.jpeg_quality = 10;             // High detail quality
     config.fb_count     = 2;
     config.grab_mode    = CAMERA_GRAB_LATEST;
   } else {
-    config.frame_size   = FRAMESIZE_QVGA;
-    config.jpeg_quality = 14;
+    config.frame_size   = FRAMESIZE_HVGA; // 480x320
+    config.jpeg_quality = 12;
     config.fb_count     = 1;
   }
 
@@ -147,7 +148,16 @@ bool startCamera() {
   if (err == ESP_OK) {
     cameraReady = true;
     cameraPowerOn = true;
-    Serial.println("[CAMERA] Camera initialized successfully!");
+    sensor_t* s = esp_camera_sensor_get();
+    if (s) {
+      s->set_brightness(s, 1);     // -2 to 2 (Clean brightness)
+      s->set_contrast(s, 1);       // -2 to 2 (Punchy contrast)
+      s->set_saturation(s, 0);     // Natural saturation
+      s->set_whitebal(s, 1);       // Auto white balance
+      s->set_awb_gain(s, 1);       // Auto white balance gain
+      s->set_wb_mode(s, 0);        // Auto mode
+    }
+    Serial.println("[CAMERA] Camera initialized in HD VGA (640x480) mode!");
     return true;
   } else {
     cameraReady = false;
@@ -205,47 +215,77 @@ void handleProbeGif() {
 // Native MJPEG High-Speed Stream Server (/stream)
 // Delivers 15-25 FPS live video feed to browser
 // ======================================================
+// ======================================================
+// Dedicated MJPEG High-Speed Stream Server (Port 81)
+// Runs concurrently on FreeRTOS Core 0 without blocking Port 80
+// ======================================================
 #define PART_BOUNDARY "123456789000000000000987654321"
 static const char* _STREAM_CONTENT_TYPE = "multipart/x-mixed-replace;boundary=" PART_BOUNDARY;
 static const char* _STREAM_BOUNDARY = "\r\n--" PART_BOUNDARY "\r\n";
 static const char* _STREAM_PART = "Content-Type: image/jpeg\r\nContent-Length: %u\r\n\r\n";
 
+void streamTask(void* pvParameters) {
+  streamServer.begin();
+  Serial.println("[STREAM] Dedicated MJPEG Stream Server running on Port 81");
+
+  while (true) {
+    WiFiClient sClient = streamServer.available();
+    if (sClient) {
+      sClient.print("HTTP/1.1 200 OK\r\n"
+                    "Content-Type: multipart/x-mixed-replace;boundary=" PART_BOUNDARY "\r\n"
+                    "Access-Control-Allow-Origin: *\r\n"
+                    "Connection: close\r\n\r\n");
+
+      localClientStreaming = true;
+
+      while (sClient.connected()) {
+        if (!cameraPowerOn || !cameraReady) {
+          vTaskDelay(100 / portTICK_PERIOD_MS);
+          continue;
+        }
+
+        camera_fb_t* fb = esp_camera_fb_get();
+        if (!fb) {
+          vTaskDelay(10 / portTICK_PERIOD_MS);
+          continue;
+        }
+
+        char part_buf[128];
+        size_t hlen = snprintf(part_buf, sizeof(part_buf), _STREAM_PART, fb->len);
+        sClient.write((const uint8_t*)_STREAM_BOUNDARY, strlen(_STREAM_BOUNDARY));
+        sClient.write((const uint8_t*)part_buf, hlen);
+        sClient.write((const uint8_t*)fb->buf, fb->len);
+        sClient.write((const uint8_t*)"\r\n", 2);
+
+        esp_camera_fb_return(fb);
+        vTaskDelay(15 / portTICK_PERIOD_MS); // ~20-25 FPS smooth streaming
+      }
+
+      sClient.stop();
+      localClientStreaming = false;
+    }
+    vTaskDelay(20 / portTICK_PERIOD_MS);
+  }
+}
+
+// Fast Snapshot on Port 80 (never blocks the server loop!)
 void handleStream() {
   handleCORS();
-
   if (!cameraPowerOn || !cameraReady) {
-    server.send(503, "text/plain", "Camera is Powered OFF");
+    server.send(503, "text/plain", "Camera OFF");
     return;
   }
-
-  WiFiClient client = server.client();
-  String response = "HTTP/1.1 200 OK\r\n";
-  response += "Content-Type: " + String(_STREAM_CONTENT_TYPE) + "\r\n";
-  response += "Access-Control-Allow-Origin: *\r\n";
-  response += "Connection: close\r\n\r\n";
-  server.sendContent(response);
-
-  localClientStreaming = true;
-
-  while (client.connected()) {
-    camera_fb_t* fb = esp_camera_fb_get();
-    if (!fb) {
-      delay(10);
-      continue;
-    }
-
-    char part_buf[128];
-    size_t hlen = snprintf(part_buf, sizeof(part_buf), _STREAM_PART, fb->len);
-    client.write(_STREAM_BOUNDARY, strlen(_STREAM_BOUNDARY));
-    client.write(part_buf, hlen);
-    client.write((const char*)fb->buf, fb->len);
-    client.write("\r\n", 2);
-
-    esp_camera_fb_return(fb);
-    delay(2); // Yield to ESP32 Wi-Fi stack
+  camera_fb_t* fb = esp_camera_fb_get();
+  if (!fb) {
+    server.send(500, "text/plain", "Capture failed");
+    return;
   }
-
-  localClientStreaming = false;
+  server.sendHeader("Content-Type", "image/jpeg");
+  server.sendHeader("Content-Length", String(fb->len));
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  WiFiClient client = server.client();
+  client.write((const uint8_t*)fb->buf, fb->len);
+  esp_camera_fb_return(fb);
 }
 
 // ======================================================
@@ -258,6 +298,7 @@ void handleCmd() {
     char c = dir.charAt(0);
     if (c == 'F' || c == 'B' || c == 'L' || c == 'R' || c == 'S') {
       Serial.println(c);
+      Serial.flush();
       lastCmd = c;
       server.send(200, "application/json", "{\"status\":\"ok\",\"cmd\":\"" + String(c) + "\"}");
       return;
@@ -493,6 +534,17 @@ void setup() {
   Serial.print("[READY] FPV Car Ready at: http://");
   Serial.println(connected ? WiFi.localIP().toString() : "192.168.4.1");
   Serial.println("==================================================");
+
+  // Start dedicated Core 0 streaming task
+  xTaskCreatePinnedToCore(
+    streamTask,
+    "streamTask",
+    4096,
+    NULL,
+    1,
+    NULL,
+    0
+  );
 }
 
 // ======================================================
@@ -571,14 +623,11 @@ void loop() {
       // Motor Direction Command to Arduino UNO
       if (cmd != lastCmd || cmd != 'S') {
         Serial.println(cmd);
+        Serial.flush();
         lastCmd = cmd;
       }
     } else {
-      // Cloud disconnect fail-safe: Auto-stop car
-      if (lastCmd != 'S') {
-        Serial.println('S');
-        lastCmd = 'S';
-      }
+      // Do not kill local driving commands when cloud polling fails
     }
     http.end();
   }

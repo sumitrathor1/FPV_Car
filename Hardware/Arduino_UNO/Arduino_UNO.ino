@@ -15,7 +15,7 @@ int forwardSpeed = 255;
 int backwardSpeed = 255;
 
 unsigned long lastCommandTime = 0;
-const unsigned long SAFETY_TIMEOUT = 1000; // 1 second auto-stop safety
+const unsigned long SAFETY_TIMEOUT = 2000; // 2 second auto-stop safety
 
 void stopMotor() {
   digitalWrite(IN1, LOW);
@@ -55,6 +55,7 @@ void right() {
 void setup() {
   // Serial Baud rate must match ESP32-CAM (115200)
   Serial.begin(115200);
+  Serial.setTimeout(50); // Fast non-blocking serial read
 
   pinMode(IN1, OUTPUT);
   pinMode(IN2, OUTPUT);

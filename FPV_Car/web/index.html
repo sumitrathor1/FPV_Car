@@ -981,6 +981,8 @@
       /* ======================================================
        * Car Command Execution
        * ====================================================== */
+      let drivePulseTimer = null;
+
       function sendCommand(cmd, label = "DRIVE") {
         if (cmd === lastSentCommand && cmd !== "S" && driveMode !== 0) return;
         lastSentCommand = cmd;
@@ -990,10 +992,19 @@
         setButtonVisual(cmd, true);
         sendCarRequest(`/cmd?dir=${cmd}`);
 
+        // Continuous driving pulse every 200ms while active (keeps Arduino safety timer alive)
+        clearInterval(drivePulseTimer);
+        if (cmd !== "S") {
+          drivePulseTimer = setInterval(() => {
+            sendCarRequest(`/cmd?dir=${cmd}`);
+          }, 200);
+        }
+
         if (driveMode === 2) latchedCommand = (cmd === "S") ? null : cmd;
       }
 
       function stopCar() {
+        clearInterval(drivePulseTimer);
         heldCommand = null;
         latchedCommand = null;
         lastSentCommand = "S";
@@ -1086,7 +1097,16 @@
 
       function startVideoStream() {
         if (!isCamOn) return;
-        liveCam.src = `http://${carHost}/stream?t=${Date.now()}`;
+        // Connect to dedicated Port 81 MJPEG server, with port 80 fallback
+        liveCam.src = `http://${carHost}:81/stream?t=${Date.now()}`;
+        liveCam.onerror = () => {
+          if (liveCam.src.includes(':81')) {
+            liveCam.src = `http://${carHost}/stream?t=${Date.now()}`;
+          }
+        };
+        liveCam.onload = () => {
+          setOnlineState(true);
+        };
       }
 
       /* Flashlight / Headlight */
@@ -1112,6 +1132,11 @@
        * Connection Monitor & Status Handlers
        * ====================================================== */
       function checkConnection() {
+        // If live camera is actively displaying frames, car is 100% online
+        if (isCamOn && liveCam && (liveCam.naturalWidth > 0 || liveCam.complete)) {
+          setOnlineState(true);
+        }
+
         if (!espOnlineState) {
           startAutoDiscovery();
           return;
@@ -1127,7 +1152,7 @@
             probe.src = "";
             handlePingFailure();
           }
-        }, 1200);
+        }, 1500);
 
         probe.onload = () => {
           if (!handled) {
@@ -1152,8 +1177,10 @@
       }
 
       function handlePingFailure() {
+        // Only trigger reconnect if camera is not playing and 3 consecutive pings failed
+        if (isCamOn && liveCam && liveCam.naturalWidth > 0) return;
         failedPings++;
-        if (failedPings >= 2) {
+        if (failedPings >= 3) {
           setOfflineState();
           startAutoDiscovery();
         }
