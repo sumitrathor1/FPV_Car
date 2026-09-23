@@ -270,16 +270,22 @@ void handleHorn() {
   }
 }
 
+int clampSpeed(long val) {
+  if (val < 0) return 0;
+  if (val > 255) return 255;
+  return (int)val;
+}
+
 void handleSpeed() {
   handleCORS();
   if (server.hasArg("fs")) {
-    int fs = max(0, min(255, server.arg("fs").toInt()));
+    int fs = clampSpeed(server.arg("fs").toInt());
     Serial.print("FSP:");
     Serial.println(fs);
     lastForwardSpeed = fs;
   }
   if (server.hasArg("bs")) {
-    int bs = max(0, min(255, server.arg("bs").toInt()));
+    int bs = clampSpeed(server.arg("bs").toInt());
     Serial.print("BSP:");
     Serial.println(bs);
     lastBackwardSpeed = bs;
@@ -430,7 +436,7 @@ int parseJsonSpeed(const String& payload, const char* key, int fallback) {
   int valueStart = keyPos + token.length();
   int valueEnd = payload.indexOf('"', valueStart);
   if (valueEnd == -1) return fallback;
-  return max(0, min(255, payload.substring(valueStart, valueEnd).toInt()));
+  return clampSpeed(payload.substring(valueStart, valueEnd).toInt());
 }
 
 void setup() {
