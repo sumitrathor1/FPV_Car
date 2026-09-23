@@ -1,26 +1,3 @@
-/*************************************************
- * FPV Car - Advanced ESP32-CAM Dual-Mode Firmware
- * 
- * MODES:
- * 1. LOCAL DIRECT (LAN / AP Hotspot Mode):
- *    - Works with ZERO internet connection.
- *    - Hotspot: "FPV-Car-Setup" (IP 192.168.4.1) or Local Home Wi-Fi Router.
- *    - Native Real-Time MJPEG Video Stream at http://<IP>/stream (15-25 FPS, <50ms latency).
- *    - Direct instant REST controls: /cmd?dir=F|B|L|R|S, /speed, /flash, /cam.
- * 
- * 2. CLOUD MODE (InfinityFree Hosting):
- *    - Connects to Wi-Fi and synchronizes with InfinityFree PHP backend:
- *      http://sumitrathor.rf.gd/FPV_Car/
- *    - Polls get.php for remote commands and uploads JPEG frames to cam/upload.php.
- * 
- * Hardware:
- * - ESP32-CAM AI-Thinker
- * - Flash LED Light: GPIO 4
- * - Camera PWDN: GPIO 32 (Hardware sensor power down)
- * - Serial to Arduino UNO at 115200 baud
- * - Preferences (NVS) for persistent Wi-Fi credentials
- *************************************************/
-
 #include "esp_camera.h"
 #include <WiFi.h>
 #include <HTTPClient.h>
@@ -29,48 +6,38 @@
 #include <DNSServer.h>
 #include <ESPmDNS.h>
 
-// ======================================================
-// WebServer & Preferences Storage
-// ======================================================
 Preferences prefs;
 WebServer server(80);
 WiFiServer streamServer(81);
 DNSServer dnsServer;
 const byte DNS_PORT = 53;
 
-String saved_ssid     = "";
+String saved_ssid = "";
 String saved_password = "";
-bool isApMode         = false;
+bool isApMode = false;
 bool localClientStreaming = false;
-
 bool clientConnectedNoticeSent = false;
-uint32_t lastClientPingAt      = 0;
+uint32_t lastClientPingAt = 0;
 
-// ======================================================
-// InfinityFree Cloud Server Endpoints
-// ======================================================
-const char* controlUrl   = "http://sumitrathor.rf.gd/FPV_Car/get.php";
-const char* uploadUrl    = "http://sumitrathor.rf.gd/FPV_Car/cam/upload.php";
+const char* controlUrl = "http://sumitrathor.rf.gd/FPV_Car/get.php";
+const char* uploadUrl = "http://sumitrathor.rf.gd/FPV_Car/cam/upload.php";
 const char* heartbeatUrl = "http://sumitrathor.rf.gd/FPV_Car/set.php?esp_hb=1";
 
-const uint32_t CLOUD_CONTROL_INTERVAL_MS   = 250;  // 250ms cloud command polling
-const uint32_t CLOUD_UPLOAD_INTERVAL_MS    = 350;  // 350ms frame upload interval
-const uint32_t CLOUD_HEARTBEAT_INTERVAL_MS = 3000; // 3s heartbeat sync
+const uint32_t CLOUD_CONTROL_INTERVAL_MS = 250;
+const uint32_t CLOUD_UPLOAD_INTERVAL_MS = 350;
+const uint32_t CLOUD_HEARTBEAT_INTERVAL_MS = 3000;
 
-uint32_t lastControlAt   = 0;
-uint32_t lastUploadAt    = 0;
+uint32_t lastControlAt = 0;
+uint32_t lastUploadAt = 0;
 uint32_t lastHeartbeatAt = 0;
 
-char lastCmd          = 'S';
-bool cameraPowerOn    = false;
-bool cameraReady      = false;
-bool flashState       = false;
-int lastForwardSpeed  = 255;
+char lastCmd = 'S';
+bool cameraPowerOn = false;
+bool cameraReady = false;
+bool flashState = false;
+int lastForwardSpeed = 255;
 int lastBackwardSpeed = 255;
 
-// ======================================================
-// ESP32-CAM AI-Thinker Camera Pin Definitions
-// ======================================================
 #define PWDN_GPIO_NUM     32
 #define RESET_GPIO_NUM    -1
 #define XCLK_GPIO_NUM      0
@@ -87,10 +54,8 @@ int lastBackwardSpeed = 255;
 #define VSYNC_GPIO_NUM    25
 #define HREF_GPIO_NUM     23
 #define PCLK_GPIO_NUM     22
-
 #define FLASH_LED_PIN      4
 
-// Flashlight Blink Helper for Visual Feedback
 void flashBlink(int count, int durationMs = 80) {
   for (int i = 0; i < count; i++) {
     digitalWrite(FLASH_LED_PIN, HIGH);
@@ -100,18 +65,13 @@ void flashBlink(int count, int durationMs = 80) {
   }
 }
 
-// ======================================================
-// Camera Hardware Power Management
-// ======================================================
 bool startCamera() {
   if (cameraReady) return true;
-
-  // Clean hardware power cycle of Camera Sensor via Pin 32 (PWDN)
   pinMode(PWDN_GPIO_NUM, OUTPUT);
-  digitalWrite(PWDN_GPIO_NUM, HIGH); // Standby / Power down
+  digitalWrite(PWDN_GPIO_NUM, HIGH);
   delay(50);
-  digitalWrite(PWDN_GPIO_NUM, LOW);  // Active Power ON
-  delay(150); // 150ms hardware power stabilization delay
+  digitalWrite(PWDN_GPIO_NUM, LOW);
+  delay(150);
 
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
@@ -136,24 +96,22 @@ bool startCamera() {
   config.pixel_format = PIXFORMAT_JPEG;
 
   if (psramFound()) {
-    config.frame_size   = FRAMESIZE_VGA;  // 640x480 (Crisp HD local streaming)
-    config.jpeg_quality = 10;             // High detail quality
+    config.frame_size   = FRAMESIZE_VGA;
+    config.jpeg_quality = 10;
     config.fb_count     = 2;
     config.grab_mode    = CAMERA_GRAB_LATEST;
   } else {
-    config.frame_size   = FRAMESIZE_HVGA; // 480x320
+    config.frame_size   = FRAMESIZE_HVGA;
     config.jpeg_quality = 12;
     config.fb_count     = 1;
   }
 
   esp_err_t err = esp_camera_init(&config);
   if (err != ESP_OK) {
-    Serial.printf("[CAMERA] 20MHz probe failed (0x%x), retrying at 10MHz...\n", err);
     digitalWrite(PWDN_GPIO_NUM, HIGH);
     delay(50);
     digitalWrite(PWDN_GPIO_NUM, LOW);
     delay(100);
-
     config.xclk_freq_hz = 10000000;
     err = esp_camera_init(&config);
   }
@@ -163,35 +121,31 @@ bool startCamera() {
     cameraPowerOn = true;
     sensor_t* s = esp_camera_sensor_get();
     if (s) {
-      s->set_brightness(s, 1);     // -2 to 2 (Clean brightness)
-      s->set_contrast(s, 1);       // -2 to 2 (Punchy contrast)
-      s->set_saturation(s, 0);     // Natural saturation
-      s->set_whitebal(s, 1);       // Auto white balance
-      s->set_awb_gain(s, 1);       // Auto white balance gain
-      s->set_wb_mode(s, 0);        // Auto mode
+      s->set_brightness(s, 1);
+      s->set_contrast(s, 1);
+      s->set_saturation(s, 0);
+      s->set_whitebal(s, 1);
+      s->set_awb_gain(s, 1);
+      s->set_wb_mode(s, 0);
     }
-    Serial.println("[CAMERA] Camera initialized in HD VGA (640x480) mode!");
     return true;
   } else {
     cameraReady = false;
     cameraPowerOn = false;
-    Serial.printf("[CAMERA] Camera probe failed (0x%x). Please check ribbon cable connection.\n", err);
     return false;
   }
 }
 
 void setCameraHardwarePower(bool on) {
   if (on) {
-    if (!cameraReady) {
-      startCamera();
-    } else {
+    if (!cameraReady) startCamera();
+    else {
       pinMode(PWDN_GPIO_NUM, OUTPUT);
       digitalWrite(PWDN_GPIO_NUM, LOW);
       cameraPowerOn = true;
     }
     return;
   }
-
   cameraPowerOn = false;
   if (cameraReady) {
     esp_camera_deinit();
@@ -201,16 +155,12 @@ void setCameraHardwarePower(bool on) {
   digitalWrite(PWDN_GPIO_NUM, HIGH);
 }
 
-// ======================================================
-// CORS Helper
-// ======================================================
 void handleCORS() {
   server.sendHeader("Access-Control-Allow-Origin", "*");
   server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
 }
 
-// 1x1 Transparent GIF for zero-latency browser connectivity probe & heartbeat
 const uint8_t PROBE_GIF[] PROGMEM = {
   0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x80, 0x00,
   0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0x21, 0xf9, 0x04, 0x01, 0x00,
@@ -233,56 +183,35 @@ void handleProbeGif() {
   server.send_P(200, "image/gif", (const char*)PROBE_GIF, sizeof(PROBE_GIF));
 }
 
-// ======================================================
-// Native MJPEG High-Speed Stream Server (/stream)
-// Delivers 15-25 FPS live video feed to browser
-// ======================================================
-// ======================================================
-// Dedicated MJPEG High-Speed Stream Server (Port 81)
-// Runs concurrently on FreeRTOS Core 0 without blocking Port 80
-// ======================================================
 #define PART_BOUNDARY "123456789000000000000987654321"
-static const char* _STREAM_CONTENT_TYPE = "multipart/x-mixed-replace;boundary=" PART_BOUNDARY;
-static const char* _STREAM_BOUNDARY = "\r\n--" PART_BOUNDARY "\r\n";
 static const char* _STREAM_PART = "Content-Type: image/jpeg\r\nContent-Length: %u\r\n\r\n";
 
 void streamTask(void* pvParameters) {
   streamServer.begin();
-  Serial.println("[STREAM] Dedicated MJPEG Stream Server running on Port 81");
-
   while (true) {
     WiFiClient sClient = streamServer.available();
     if (sClient) {
-      sClient.print("HTTP/1.1 200 OK\r\n"
-                    "Content-Type: multipart/x-mixed-replace;boundary=" PART_BOUNDARY "\r\n"
-                    "Access-Control-Allow-Origin: *\r\n"
-                    "Connection: close\r\n\r\n");
-
+      sClient.print("HTTP/1.1 200 OK\r\nContent-Type: multipart/x-mixed-replace;boundary=" PART_BOUNDARY "\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n");
       localClientStreaming = true;
-
       while (sClient.connected()) {
         if (!cameraPowerOn || !cameraReady) {
           vTaskDelay(100 / portTICK_PERIOD_MS);
           continue;
         }
-
         camera_fb_t* fb = esp_camera_fb_get();
         if (!fb) {
           vTaskDelay(10 / portTICK_PERIOD_MS);
           continue;
         }
-
         char part_buf[128];
         size_t hlen = snprintf(part_buf, sizeof(part_buf), _STREAM_PART, fb->len);
-        sClient.write((const uint8_t*)_STREAM_BOUNDARY, strlen(_STREAM_BOUNDARY));
+        sClient.write((const uint8_t*)("\r\n--" PART_BOUNDARY "\r\n"), strlen("\r\n--" PART_BOUNDARY "\r\n"));
         sClient.write((const uint8_t*)part_buf, hlen);
         sClient.write((const uint8_t*)fb->buf, fb->len);
         sClient.write((const uint8_t*)"\r\n", 2);
-
         esp_camera_fb_return(fb);
-        vTaskDelay(15 / portTICK_PERIOD_MS); // ~20-25 FPS smooth streaming
+        vTaskDelay(15 / portTICK_PERIOD_MS);
       }
-
       sClient.stop();
       localClientStreaming = false;
     }
@@ -290,7 +219,6 @@ void streamTask(void* pvParameters) {
   }
 }
 
-// Fast Snapshot on Port 80 (never blocks the server loop!)
 void handleStream() {
   handleCORS();
   if (!cameraPowerOn || !cameraReady) {
@@ -310,9 +238,6 @@ void handleStream() {
   esp_camera_fb_return(fb);
 }
 
-// ======================================================
-// Direct Local REST Control Endpoints
-// ======================================================
 void handleCmd() {
   handleCORS();
   lastClientPingAt = millis();
@@ -348,15 +273,13 @@ void handleHorn() {
 void handleSpeed() {
   handleCORS();
   if (server.hasArg("fs")) {
-    int fs = server.arg("fs").toInt();
-    fs = max(0, min(255, fs));
+    int fs = max(0, min(255, server.arg("fs").toInt()));
     Serial.print("FSP:");
     Serial.println(fs);
     lastForwardSpeed = fs;
   }
   if (server.hasArg("bs")) {
-    int bs = server.arg("bs").toInt();
-    bs = max(0, min(255, bs));
+    int bs = max(0, min(255, server.arg("bs").toInt()));
     Serial.print("BSP:");
     Serial.println(bs);
     lastBackwardSpeed = bs;
@@ -374,9 +297,7 @@ void handleFlash() {
 
 void handleCamPower() {
   handleCORS();
-  String val = server.arg("power");
-  bool on = (val == "1");
-  setCameraHardwarePower(on);
+  setCameraHardwarePower(server.arg("power") == "1");
   server.send(200, "application/json", "{\"cam\":" + String(cameraPowerOn ? 1 : 0) + "}");
 }
 
@@ -411,18 +332,16 @@ void handleSaveWifi() {
   handleCORS();
   String newSsid = server.arg("ssid");
   String newPass = server.arg("password");
-
   if (newSsid.length() > 0) {
     prefs.begin("fpv_wifi", false);
     prefs.putString("ssid", newSsid);
     prefs.putString("pass", newPass);
     prefs.end();
-
-    server.send(200, "application/json", "{\"status\":\"saved\",\"message\":\"Restarting and connecting...\"}");
+    server.send(200, "application/json", "{\"status\":\"saved\"}");
     delay(1000);
     ESP.restart();
   } else {
-    server.send(400, "application/json", "{\"error\":\"SSID cannot be empty\"}");
+    server.send(400, "application/json", "{\"error\":\"SSID empty\"}");
   }
 }
 
@@ -447,19 +366,19 @@ void setupLocalServer() {
   server.on("/save-wifi", HTTP_GET, handleSaveWifi);
   server.on("/", HTTP_GET, []() {
     handleCORS();
-    server.send(200, "text/html", "<html><head><meta http-equiv='refresh' content='0;url=http://sumitrathor.rf.gd/FPV_Car/'></head><body style='background:#090d16;color:#00e5ff;font-family:sans-serif;text-align:center;padding-top:20vh;'><h2>🏎️ FPV Car Ready!</h2><p>Redirecting to remote controller...</p><p><a href='http://sumitrathor.rf.gd/FPV_Car/' style='color:#10b981;font-weight:bold;'>Click here if not redirected</a></p></body></html>");
+    server.send(200, "text/html", "<html><head><meta http-equiv='refresh' content='0;url=http://sumitrathor.rf.gd/FPV_Car/'></head><body>Redirecting...</body></html>");
   });
   server.on("/FPV_Car", HTTP_GET, []() {
     handleCORS();
-    server.send(200, "text/plain", "FPV Car Local Gateway Ready");
+    server.send(200, "text/plain", "OK");
   });
   server.on("/FPV_Car/", HTTP_GET, []() {
     handleCORS();
-    server.send(200, "text/plain", "FPV Car Local Gateway Ready");
+    server.send(200, "text/plain", "OK");
   });
   server.onNotFound([]() {
     handleCORS();
-    server.send(200, "text/plain", "FPV Car Ready");
+    server.send(200, "text/plain", "OK");
   });
   server.begin();
 }
@@ -467,23 +386,17 @@ void setupLocalServer() {
 void startApMode() {
   isApMode = true;
   WiFi.mode(WIFI_AP);
-  WiFi.softAP("FPV-Car-Setup", ""); // Open setup & direct drive hotspot
-  dnsServer.start(DNS_PORT, "*", WiFi.softAPIP()); // Captive portal DNS redirects any host (e.g. sumitrathor.rf.gd) to car
+  WiFi.softAP("FPV-Car-Setup", "");
+  dnsServer.start(DNS_PORT, "*", WiFi.softAPIP());
   setupLocalServer();
   if (MDNS.begin("fpvcar")) {
     MDNS.addService("http", "tcp", 80);
-    Serial.println("[MDNS] Started: http://fpvcar.local");
   }
-  // Audio-Visual Feedback: AP Mode Started (3 slow blinks & beeps)
   flashBlink(3, 160);
   Serial.println("Z:AP_MODE");
   Serial.flush();
-  Serial.println("[WIFI] AP Hotspot Started: FPV-Car-Setup (IP: 192.168.4.1)");
 }
 
-// ======================================================
-// JSON Parser Helpers for Cloud Responses
-// ======================================================
 char parseJsonCommand(const String& payload) {
   int keyPos = payload.indexOf("\"cmd\":\"");
   if (keyPos == -1) return 'S';
@@ -517,52 +430,34 @@ int parseJsonSpeed(const String& payload, const char* key, int fallback) {
   int valueStart = keyPos + token.length();
   int valueEnd = payload.indexOf('"', valueStart);
   if (valueEnd == -1) return fallback;
-  int parsed = payload.substring(valueStart, valueEnd).toInt();
-  return max(0, min(255, parsed));
+  return max(0, min(255, payload.substring(valueStart, valueEnd).toInt()));
 }
 
-// ======================================================
-// Setup
-// ======================================================
 void setup() {
-  // Serial Baud rate must match Arduino UNO (115200)
   Serial.begin(115200);
-
-  // Flashlight GPIO 4 Setup
   pinMode(FLASH_LED_PIN, OUTPUT);
   digitalWrite(FLASH_LED_PIN, LOW);
 
-  // 1. Initialize Camera FIRST on clean, stable power (before Wi-Fi power draw)
   startCamera();
-
-  // 2. Flashlight 3-Second Startup Self-Test Pattern (Synchronized with Arduino Boot)
   flashBlink(3, 140);
 
-  // 3. Load Saved WiFi from Flash (NVS)
   prefs.begin("fpv_wifi", true);
-  saved_ssid     = prefs.getString("ssid", "");
+  saved_ssid = prefs.getString("ssid", "");
   saved_password = prefs.getString("pass", "");
   prefs.end();
 
-  WiFi.setSleep(false); // Disables Wi-Fi power save for ultra-low latency
+  WiFi.setSleep(false);
 
   bool connected = false;
   if (saved_ssid.length() > 0) {
-    Serial.print("[WIFI] Connecting to saved WiFi: ");
-    Serial.println(saved_ssid);
     WiFi.begin(saved_ssid.c_str(), saved_password.c_str());
-
     int attempts = 0;
     while (WiFi.status() != WL_CONNECTED && attempts < 25) {
       delay(300);
-      Serial.print(".");
       attempts++;
     }
-
     if (WiFi.status() == WL_CONNECTED) {
       connected = true;
-      Serial.println("\n[WIFI] Connected! IP: " + WiFi.localIP().toString());
-      // Audio-Visual Feedback: Wi-Fi Connected (2 quick bright flashes & beeps)
       flashBlink(2, 90);
       Serial.println("Z:WIFI_OK");
       Serial.flush();
@@ -570,47 +465,25 @@ void setup() {
   }
 
   if (!connected) {
-    Serial.println("\n[WIFI] Starting AP Hotspot (FPV-Car-Setup)...");
     startApMode();
   } else {
     setupLocalServer();
     if (MDNS.begin("fpvcar")) {
       MDNS.addService("http", "tcp", 80);
-      Serial.println("[MDNS] Started: http://fpvcar.local");
     }
   }
 
-  Serial.println("==================================================");
-  Serial.print("[READY] FPV Car Ready at: http://");
-  Serial.println(connected ? WiFi.localIP().toString() : "192.168.4.1");
-  Serial.println("==================================================");
-
-  // Start dedicated Core 0 streaming task
-  xTaskCreatePinnedToCore(
-    streamTask,
-    "streamTask",
-    4096,
-    NULL,
-    1,
-    NULL,
-    0
-  );
+  xTaskCreatePinnedToCore(streamTask, "streamTask", 4096, NULL, 1, NULL, 0);
 }
 
-// ======================================================
-// Main Loop
-// ======================================================
 void loop() {
   if (isApMode) {
     dnsServer.processNextRequest();
   }
-
-  // Handle local HTTP requests
   server.handleClient();
 
   uint32_t now = millis();
 
-  // Client disconnect detection (if client was active and stopped communicating for >6 sec)
   if (clientConnectedNoticeSent && (now - lastClientPingAt > 6000)) {
     clientConnectedNoticeSent = false;
     flashBlink(2, 60);
@@ -618,55 +491,43 @@ void loop() {
     Serial.flush();
   }
 
-  // If in AP Mode or local client is actively streaming, yield priority to local
   if (isApMode || WiFi.status() != WL_CONNECTED || localClientStreaming) {
     delay(2);
     return;
   }
 
-  // 1. Cloud Heartbeat Sync (Every 3 seconds) with car_ip reporting
   if (now - lastHeartbeatAt >= CLOUD_HEARTBEAT_INTERVAL_MS) {
     lastHeartbeatAt = now;
     HTTPClient http;
     String myIp = isApMode ? WiFi.softAPIP().toString() : WiFi.localIP().toString();
-    String hbUrl = String(heartbeatUrl) + "&car_ip=" + myIp;
-    http.begin(hbUrl);
-    http.setTimeout(2500); // 2.5s timeout for internet request
+    http.begin(String(heartbeatUrl) + "&car_ip=" + myIp);
+    http.setTimeout(2500);
     http.GET();
     http.end();
   }
 
-  // 2. Cloud Command Polling (Every 250ms)
   if (now - lastControlAt >= CLOUD_CONTROL_INTERVAL_MS) {
     lastControlAt = now;
-
     HTTPClient http;
     http.begin(controlUrl);
-    http.setTimeout(2500); // 2.5s timeout for internet request
-
+    http.setTimeout(2500);
     int code = http.GET();
     if (code == 200) {
       String res = http.getString();
       res.trim();
+      char cmd = parseJsonCommand(res);
+      bool shouldCam = parseJsonCamPower(res);
+      bool shouldFlash = parseJsonFlashLight(res);
+      int desiredFs = parseJsonSpeed(res, "fs", lastForwardSpeed);
+      int desiredBs = parseJsonSpeed(res, "bs", lastBackwardSpeed);
 
-      char cmd          = parseJsonCommand(res);
-      bool shouldCam    = parseJsonCamPower(res);
-      bool shouldFlash  = parseJsonFlashLight(res);
-      int desiredFs     = parseJsonSpeed(res, "fs", lastForwardSpeed);
-      int desiredBs     = parseJsonSpeed(res, "bs", lastBackwardSpeed);
-
-      // Camera Power Toggle
       if (shouldCam != cameraPowerOn) {
         setCameraHardwarePower(shouldCam);
       }
-
-      // Flashlight Toggle
       if (shouldFlash != flashState) {
         flashState = shouldFlash;
         digitalWrite(FLASH_LED_PIN, flashState ? HIGH : LOW);
       }
-
-      // Motor Speeds Sync
       if (desiredFs != lastForwardSpeed) {
         Serial.print("FSP:");
         Serial.println(desiredFs);
@@ -677,23 +538,17 @@ void loop() {
         Serial.println(desiredBs);
         lastBackwardSpeed = desiredBs;
       }
-
-      // Motor Direction Command to Arduino UNO
       if (cmd != lastCmd || cmd != 'S') {
         Serial.println(cmd);
         Serial.flush();
         lastCmd = cmd;
       }
-    } else {
-      // Do not kill local driving commands when cloud polling fails
     }
     http.end();
   }
 
-  // 3. Cloud Frame Upload (Every 350ms if Camera is ON)
   if (cameraPowerOn && cameraReady && (now - lastUploadAt >= CLOUD_UPLOAD_INTERVAL_MS)) {
     lastUploadAt = now;
-
     camera_fb_t* fb = esp_camera_fb_get();
     if (fb != nullptr) {
       HTTPClient http;
@@ -702,7 +557,6 @@ void loop() {
       http.addHeader("Content-Type", "application/octet-stream");
       http.POST(fb->buf, fb->len);
       http.end();
-
       esp_camera_fb_return(fb);
     }
   }
