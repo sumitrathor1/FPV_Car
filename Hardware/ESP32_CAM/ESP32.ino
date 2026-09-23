@@ -43,6 +43,9 @@ String saved_password = "";
 bool isApMode         = false;
 bool localClientStreaming = false;
 
+bool clientConnectedNoticeSent = false;
+uint32_t lastClientPingAt      = 0;
+
 // ======================================================
 // InfinityFree Cloud Server Endpoints
 // ======================================================
@@ -86,6 +89,16 @@ int lastBackwardSpeed = 255;
 #define PCLK_GPIO_NUM     22
 
 #define FLASH_LED_PIN      4
+
+// Flashlight Blink Helper for Visual Feedback
+void flashBlink(int count, int durationMs = 80) {
+  for (int i = 0; i < count; i++) {
+    digitalWrite(FLASH_LED_PIN, HIGH);
+    delay(durationMs);
+    digitalWrite(FLASH_LED_PIN, LOW);
+    if (i < count - 1) delay(durationMs);
+  }
+}
 
 // ======================================================
 // Camera Hardware Power Management
@@ -207,6 +220,15 @@ const uint8_t PROBE_GIF[] PROGMEM = {
 
 void handleProbeGif() {
   handleCORS();
+  lastClientPingAt = millis();
+  if (!clientConnectedNoticeSent) {
+    clientConnectedNoticeSent = true;
+    digitalWrite(FLASH_LED_PIN, HIGH);
+    delay(70);
+    digitalWrite(FLASH_LED_PIN, LOW);
+    Serial.println("Z:CLIENT_ON");
+    Serial.flush();
+  }
   server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   server.send_P(200, "image/gif", (const char*)PROBE_GIF, sizeof(PROBE_GIF));
 }
@@ -293,10 +315,11 @@ void handleStream() {
 // ======================================================
 void handleCmd() {
   handleCORS();
+  lastClientPingAt = millis();
   String dir = server.arg("dir");
   if (dir.length() > 0) {
     char c = dir.charAt(0);
-    if (c == 'F' || c == 'B' || c == 'L' || c == 'R' || c == 'S') {
+    if (c == 'F' || c == 'B' || c == 'L' || c == 'R' || c == 'S' || c == 'H' || c == 'h') {
       Serial.println(c);
       Serial.flush();
       lastCmd = c;
@@ -305,6 +328,21 @@ void handleCmd() {
     }
   }
   server.send(400, "application/json", "{\"error\":\"invalid command\"}");
+}
+
+void handleHorn() {
+  handleCORS();
+  lastClientPingAt = millis();
+  String val = server.arg("val");
+  if (val == "1" || val == "H" || val == "true") {
+    Serial.println("H");
+    Serial.flush();
+    server.send(200, "application/json", "{\"horn\":1}");
+  } else {
+    Serial.println("h");
+    Serial.flush();
+    server.send(200, "application/json", "{\"horn\":0}");
+  }
 }
 
 void handleSpeed() {
@@ -399,6 +437,7 @@ void setupLocalServer() {
   server.on("/stream", HTTP_GET, handleStream);
   server.on("/cmd", HTTP_GET, handleCmd);
   server.on("/set.php", HTTP_GET, handleCmd);
+  server.on("/horn", HTTP_GET, handleHorn);
   server.on("/speed", HTTP_GET, handleSpeed);
   server.on("/flash", HTTP_GET, handleFlash);
   server.on("/cam", HTTP_GET, handleCamPower);
@@ -435,6 +474,10 @@ void startApMode() {
     MDNS.addService("http", "tcp", 80);
     Serial.println("[MDNS] Started: http://fpvcar.local");
   }
+  // Audio-Visual Feedback: AP Mode Started (3 slow blinks & beeps)
+  flashBlink(3, 160);
+  Serial.println("Z:AP_MODE");
+  Serial.flush();
   Serial.println("[WIFI] AP Hotspot Started: FPV-Car-Setup (IP: 192.168.4.1)");
 }
 
@@ -492,7 +535,10 @@ void setup() {
   // 1. Initialize Camera FIRST on clean, stable power (before Wi-Fi power draw)
   startCamera();
 
-  // 2. Load Saved WiFi from Flash (NVS)
+  // 2. Flashlight 3-Second Startup Self-Test Pattern (Synchronized with Arduino Boot)
+  flashBlink(3, 140);
+
+  // 3. Load Saved WiFi from Flash (NVS)
   prefs.begin("fpv_wifi", true);
   saved_ssid     = prefs.getString("ssid", "");
   saved_password = prefs.getString("pass", "");
@@ -516,6 +562,10 @@ void setup() {
     if (WiFi.status() == WL_CONNECTED) {
       connected = true;
       Serial.println("\n[WIFI] Connected! IP: " + WiFi.localIP().toString());
+      // Audio-Visual Feedback: Wi-Fi Connected (2 quick bright flashes & beeps)
+      flashBlink(2, 90);
+      Serial.println("Z:WIFI_OK");
+      Serial.flush();
     }
   }
 
@@ -555,16 +605,24 @@ void loop() {
     dnsServer.processNextRequest();
   }
 
-  // Handle local HTTP and streaming requests
+  // Handle local HTTP requests
   server.handleClient();
 
-  // If in AP Mode or local client is actively streaming /stream, yield priority to local
+  uint32_t now = millis();
+
+  // Client disconnect detection (if client was active and stopped communicating for >6 sec)
+  if (clientConnectedNoticeSent && (now - lastClientPingAt > 6000)) {
+    clientConnectedNoticeSent = false;
+    flashBlink(2, 60);
+    Serial.println("Z:CLIENT_OFF");
+    Serial.flush();
+  }
+
+  // If in AP Mode or local client is actively streaming, yield priority to local
   if (isApMode || WiFi.status() != WL_CONNECTED || localClientStreaming) {
     delay(2);
     return;
   }
-
-  uint32_t now = millis();
 
   // 1. Cloud Heartbeat Sync (Every 3 seconds) with car_ip reporting
   if (now - lastHeartbeatAt >= CLOUD_HEARTBEAT_INTERVAL_MS) {

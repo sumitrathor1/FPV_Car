@@ -21,7 +21,8 @@ $default = [
     "fs" => "255",
     "bs" => "255",
     "esp_hb" => "0",
-    "car_ip" => ""
+    "car_ip" => "",
+    "horn" => "0"
 ];
 
 if (file_exists($file)) {

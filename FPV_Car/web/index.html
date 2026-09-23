@@ -211,9 +211,17 @@
       /* Quick Action Bar */
       .quick-actions-bar {
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 0.5rem;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 0.4rem;
         margin-top: 0.75rem;
+      }
+
+      .action-pill-btn.horn-action-btn.active {
+        background: rgba(245, 158, 11, 0.28);
+        border-color: var(--accent-amber);
+        color: var(--accent-amber);
+        box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
+        transform: scale(0.96);
       }
 
       .action-pill-btn {
@@ -608,6 +616,9 @@
               <button class="action-pill-btn" id="flashToggleBtn" onclick="toggleHeadlight()">
                 <span>💡</span> <span id="flashText">HEADLIGHT</span>
               </button>
+              <button class="action-pill-btn horn-action-btn" id="hornBtn" title="Press & Hold or Tap for Horn (Key: H)">
+                <span id="hornIcon">📢</span> <span id="hornText">HORN</span>
+              </button>
               <button class="action-pill-btn" id="recToggleBtn" onclick="toggleRecording()">
                 <span>🔴</span> <span id="recText">REC</span>
               </button>
@@ -971,10 +982,38 @@
         beacon.src = url;
         // 2. Direct fetch with no-cors fallback
         fetch(url, { mode: 'no-cors' }).catch(() => {});
-        // 3. Dual-mode sync: also send to cloud set.php if it's a command
+        // 3. Dual-mode sync: also send to cloud set.php if it's a command or horn
         if (path.startsWith('/cmd?dir=')) {
           const dir = path.split('dir=')[1]?.charAt(0) || 'S';
           fetch(`./set.php?cmd=${dir}&t=${Date.now()}`).catch(() => {});
+        } else if (path.startsWith('/horn')) {
+          const val = path.includes('val=1') ? '1' : '0';
+          fetch(`./set.php?horn=${val}&t=${Date.now()}`).catch(() => {});
+        }
+      }
+
+      /* ======================================================
+       * Horn Control
+       * ====================================================== */
+      let isHornActive = false;
+      let hornAutoReleaseTimer = null;
+
+      function setHorn(active) {
+        if (isHornActive === active) return;
+        isHornActive = active;
+        const btn = document.getElementById("hornBtn");
+        if (btn) btn.classList.toggle("active", active);
+
+        if (active) {
+          sendCarRequest("/horn?val=1");
+          // Safety auto-shutoff after 3 seconds if button is held
+          clearTimeout(hornAutoReleaseTimer);
+          hornAutoReleaseTimer = setTimeout(() => {
+            if (isHornActive) setHorn(false);
+          }, 3000);
+        } else {
+          clearTimeout(hornAutoReleaseTimer);
+          sendCarRequest("/horn?val=0");
         }
       }
 
@@ -1291,7 +1330,24 @@
           });
         });
 
-        // Keyboard Driving (WASD, Arrows, Space)
+        // Horn Button Listeners (Press & Hold + Tap)
+        const hornBtn = document.getElementById("hornBtn");
+        if (hornBtn) {
+          hornBtn.addEventListener("pointerdown", (e) => {
+            e.preventDefault();
+            setHorn(true);
+          });
+          hornBtn.addEventListener("pointerup", (e) => {
+            e.preventDefault();
+            setHorn(false);
+          });
+          hornBtn.addEventListener("pointercancel", () => setHorn(false));
+          hornBtn.addEventListener("pointerleave", () => {
+            if (isHornActive) setHorn(false);
+          });
+        }
+
+        // Keyboard Driving (WASD, Arrows, Space, H for Horn)
         const keyMap = {
           w: "F", arrowup: "F", "8": "F",
           s: "B", arrowdown: "B", "2": "B",
@@ -1302,7 +1358,13 @@
 
         window.addEventListener("keydown", (e) => {
           if (e.repeat) return;
-          const cmd = keyMap[e.key.toLowerCase()];
+          const k = e.key.toLowerCase();
+          if (k === "h" || k === "k") {
+            e.preventDefault();
+            setHorn(true);
+            return;
+          }
+          const cmd = keyMap[k];
           if (cmd) {
             e.preventDefault();
             if (cmd === "S") stopCar();
@@ -1314,7 +1376,13 @@
         });
 
         window.addEventListener("keyup", (e) => {
-          const cmd = keyMap[e.key.toLowerCase()];
+          const k = e.key.toLowerCase();
+          if (k === "h" || k === "k") {
+            e.preventDefault();
+            setHorn(false);
+            return;
+          }
+          const cmd = keyMap[k];
           if (cmd && cmd !== "S" && driveMode === 1 && heldCommand === cmd) {
             setButtonVisual(cmd, false);
             stopCar();

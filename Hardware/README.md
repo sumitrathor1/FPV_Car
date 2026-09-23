@@ -55,7 +55,34 @@ This directory contains the embedded C/C++ (Arduino) source code running on the 
 ### ESP32-CAM to Arduino UNO:
 | ESP32-CAM Pin | Arduino UNO Pin | Function |
 | :--- | :--- | :--- |
-| **U0TXD (GPIO 1)** | **Pin 0 (RX)** *(via level shift/divider if needed)* | Serial Data (Commands) |
+| **U0TXD (GPIO 1)** | **Pin 0 (RX)** *(via level shift/divider if needed)* | Serial Data (Commands & Status Feedback) |
 | **U0RXD (GPIO 3)** | **Pin 1 (TX)** | Serial Telemetry |
 | **GND** | **GND** | Common Ground *(Mandatory)* |
 | **5V (External)** | **5V / VIN** | Regulated Power Supply |
+
+### Arduino UNO to Peripherals:
+| Arduino UNO Pin | Peripheral / Target | Function |
+| :--- | :--- | :--- |
+| **Pin 4** | **Buzzer (+)** *(Buzzer (-) to GND)* | Audio Horn & State Beeps / Melodies |
+| **Pin 5** | L298N `ENA` | Left Motors PWM Speed Control |
+| **Pin 6** | L298N `ENB` | Right Motors PWM Speed Control |
+| **Pin 7** | L298N `IN1` | Motor Direction Control |
+| **Pin 8** | L298N `IN2` | Motor Direction Control |
+| **Pin 9** | L298N `IN3` | Motor Direction Control |
+| **Pin 10** | L298N `IN4` | Motor Direction Control |
+
+---
+
+## 🎶 Audio-Visual Feedback & State Matrix
+
+The car combines the **ESP32-CAM Ultra-Bright Flashlight (GPIO 4)** and **Arduino UNO Buzzer (Pin 4)** to give crystal-clear feedback for every car state:
+
+| Event / State | Flashlight (ESP32-CAM) | Buzzer (Arduino UNO Pin 4) | Meaning |
+| :--- | :--- | :--- | :--- |
+| **Power-On (3s Self-Test)** | 3 Synchronized Blinks | 3 Ascending Chimes + 80ms Motor Pulse | Confirms CPU, L298N driver, Flash LED & Buzzer are all operational! |
+| **Wi-Fi Connected** | 2 Quick Flashes | 2 Cheerful Beeps (`Beep-Beep!`) | Successfully joined local Wi-Fi / Router |
+| **AP Fallback Mode** | 3 Slow Warning Blinks | 3 Warning Pips | Router unreachable; Car started Hotspot `FPV-CAR-WIFI` |
+| **Browser Dashboard Connected** | 1 Solid Flash | Ascending Chime (`Di-Doot!`) | Web UI active & communicating directly |
+| **Browser Inactive / Disconnected** | 2 Warning Flashes | Descending Tone (`Boo-Boo`) | Web client left or lost connection (>6s) |
+| **Horn Button Pressed** | Steady (if Flash enabled) | Continuous Horn Sound (1000 Hz) | Interactive Car Horn from UI or 'H' key |
+

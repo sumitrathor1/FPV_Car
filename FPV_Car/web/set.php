@@ -17,7 +17,8 @@ $data = [
     "flash" => "0",
     "fs" => "255",
     "bs" => "255",
-    "esp_hb" => "0"
+    "esp_hb" => "0",
+    "horn" => "0"
 ];
 
 if (file_exists($file)) {
@@ -29,10 +30,14 @@ if (file_exists($file)) {
 }
 
 if (isset($_GET['cmd'])) {
-    $allowed = ['F', 'B', 'L', 'R', 'S'];
+    $allowed = ['F', 'B', 'L', 'R', 'S', 'H', 'h'];
     if (in_array($_GET['cmd'], $allowed, true)) {
         $data["cmd"] = $_GET['cmd'];
     }
+}
+
+if (isset($_GET['horn'])) {
+    $data["horn"] = ($_GET['horn'] === "1") ? "1" : "0";
 }
 
 if (isset($_GET['mode'])) {
