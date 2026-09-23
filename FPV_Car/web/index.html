@@ -581,6 +581,11 @@
             <span id="espStatusText">SEARCHING FOR CAR...</span>
           </div>
 
+          <!-- Car IP Badge / Manual IP Override -->
+          <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1 py-1 px-2" id="carIpBadgeBtn" onclick="promptCarIp()" style="border-radius: 999px; font-size: 0.75rem; font-weight: 600; border-color: rgba(255,255,255,0.2); color: #cbd5e1;" title="Click to view or manually set car IP">
+            <span>📍</span> <span id="carIpBadgeText">IP: Searching</span>
+          </button>
+
           <!-- WiFi Provisioning Config Button -->
           <button class="btn btn-outline-info btn-sm d-flex align-items-center gap-1 py-1 px-2" onclick="openWifiModal()" style="border-radius: 999px; font-size: 0.75rem; font-weight: 700;">
             <span>📶</span> <span>WIFI SETUP</span>
@@ -847,7 +852,12 @@
        * Zero-Config Auto-Discovery & Connection Management
        * ====================================================== */
       const commandLabels = { F: "FORWARD", B: "REVERSE", L: "LEFT", R: "RIGHT", S: "STOP" };
-      let carHost = localStorage.getItem("fpv_car_host") || "fpvcar.local";
+      let carHost = localStorage.getItem("fpv_car_host") || "";
+
+      // If directly running on car's web server (e.g. 192.168.4.1 or car's LAN IP), use that host
+      if (window.location.hostname && !window.location.hostname.includes("rf.gd") && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+        carHost = window.location.hostname;
+      }
 
       let driveMode = 0; // 0 = STEP, 1 = HOLD, 2 = LATCH
       let isCamOn = false;
@@ -870,8 +880,37 @@
       const osdFps = document.getElementById("osdFps");
       const osdLatency = document.getElementById("osdLatency");
 
-      // Probe a single host via 1x1 transparent GIF (instant, zero CORS, HTTPS safe)
-      function probeHost(host, timeoutMs = 600) {
+      function updateHostUI() {
+        const badge = document.getElementById("carIpBadgeText");
+        if (badge) {
+          badge.textContent = carHost ? `IP: ${carHost}` : "IP: Auto";
+        }
+      }
+
+      function promptCarIp() {
+        const current = carHost || "192.168.4.1";
+        const newIp = prompt("Enter Car IP Address (e.g. 192.168.4.1 or router IP):", current);
+        if (newIp && newIp.trim()) {
+          connectToHost(newIp.trim());
+        }
+      }
+
+      // Automatically sync car IP from InfinityFree get.php
+      function syncCarIpFromBackend() {
+        fetch(`./get.php?t=${Date.now()}`)
+          .then(r => r.json())
+          .then(data => {
+            if (data && data.car_ip && data.car_ip.length >= 7) {
+              if (carHost !== data.car_ip) {
+                console.log("[CAR SYNC] Found Car IP from backend:", data.car_ip);
+                connectToHost(data.car_ip);
+              }
+            }
+          })
+          .catch(() => {});
+      }
+
+      function probeHost(host, timeoutMs = 700) {
         return new Promise((resolve) => {
           if (!host) return resolve(false);
           const cleanHost = host.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
@@ -906,18 +945,21 @@
         });
       }
 
-      // Zero-Config Auto-Discovery Engine
       async function startAutoDiscovery() {
         if (isScanning) return;
         isScanning = true;
         setSearchingState();
 
-        // 1. Fast probe of primary candidates (mDNS, Hotspot AP, cached host, router default)
+        // 1. Sync from backend get.php first (gives exact IP reported by car)
+        syncCarIpFromBackend();
+
+        // 2. Primary candidates
         const primaryCandidates = [
-          "fpvcar.local",
-          "192.168.4.1",
+          carHost,
           localStorage.getItem("fpv_car_host"),
-          "172.26.192.222"
+          "192.168.4.1",
+          "172.26.192.222",
+          "fpvcar.local"
         ].filter(Boolean);
 
         const uniquePrimaries = [...new Set(primaryCandidates)];
@@ -930,59 +972,32 @@
           }
         }
 
-        // 2. Parallel sweep across local subnets (finds car if router gave new dynamic DHCP IP)
-        const cached = localStorage.getItem("fpv_car_host") || "172.26.192.222";
-        const subnetMatch = cached.match(/^(\d+\.\d+\.\d+)\.\d+$/);
-        const subnets = [];
-        if (subnetMatch) subnets.push(subnetMatch[1]);
-        subnets.push("192.168.1", "192.168.0", "192.168.43", "172.20.10");
-
-        const sweepList = [];
-        const commonLastOctets = [222, 100, 101, 102, 103, 104, 105, 2, 3, 4, 5, 10, 20, 50, 200];
-        for (const sub of [...new Set(subnets)]) {
-          for (const oct of commonLastOctets) {
-            sweepList.push(`${sub}.${oct}`);
-          }
-        }
-
-        const batchSize = 10;
-        for (let i = 0; i < sweepList.length; i += batchSize) {
-          const batch = sweepList.slice(i, i + batchSize);
-          const results = await Promise.all(batch.map(ip => probeHost(ip, 400)));
-          const found = results.find(Boolean);
-          if (found) {
-            connectToHost(found);
-            isScanning = false;
-            return;
-          }
-        }
-
         isScanning = false;
-        setOfflineState();
+        if (!carHost) {
+          setOfflineState();
+        } else {
+          setOnlineState(true);
+        }
       }
 
       function connectToHost(host) {
-        carHost = host;
+        if (!host) return;
+        carHost = host.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
         localStorage.setItem("fpv_car_host", carHost);
+        updateHostUI();
         failedPings = 0;
         setOnlineState(true);
         if (isCamOn) startVideoStream();
       }
 
-      function setCarHost(host) {
-        if (!host) return;
-        connectToHost(host.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, ''));
-      }
-
-      /* Fire command with Image Beacon (works on both HTTP and HTTPS without mixed-content blocking) */
       function sendCarRequest(path) {
-        const url = `http://${carHost}${path}${path.includes('?') ? '&' : '?'}t=${Date.now()}`;
-        // 1. Passive Image Beacon (immune to HTTPS mixed-content blocks)
-        const beacon = new Image();
-        beacon.src = url;
-        // 2. Direct fetch with no-cors fallback
-        fetch(url, { mode: 'no-cors' }).catch(() => {});
-        // 3. Dual-mode sync: also send to cloud set.php if it's a command or horn
+        if (carHost) {
+          const url = `http://${carHost}${path}${path.includes('?') ? '&' : '?'}t=${Date.now()}`;
+          const beacon = new Image();
+          beacon.src = url;
+          fetch(url, { mode: 'no-cors' }).catch(() => {});
+        }
+        // Cloud sync backup
         if (path.startsWith('/cmd?dir=')) {
           const dir = path.split('dir=')[1]?.charAt(0) || 'S';
           fetch(`./set.php?cmd=${dir}&t=${Date.now()}`).catch(() => {});
@@ -1135,14 +1150,8 @@
       }
 
       function startVideoStream() {
-        if (!isCamOn) return;
-        // Connect to dedicated Port 81 MJPEG server, with port 80 fallback
-        liveCam.src = `http://${carHost}:81/stream?t=${Date.now()}`;
-        liveCam.onerror = () => {
-          if (liveCam.src.includes(':81')) {
-            liveCam.src = `http://${carHost}/stream?t=${Date.now()}`;
-          }
-        };
+        if (!isCamOn || !carHost) return;
+        liveCam.src = `http://${carHost}/stream?t=${Date.now()}`;
         liveCam.onload = () => {
           setOnlineState(true);
         };
@@ -1171,12 +1180,10 @@
        * Connection Monitor & Status Handlers
        * ====================================================== */
       function checkConnection() {
-        // If live camera is actively displaying frames, car is 100% online
-        if (isCamOn && liveCam && (liveCam.naturalWidth > 0 || liveCam.complete)) {
-          setOnlineState(true);
-        }
+        // Sync car IP from backend in case car connected with new DHCP address
+        syncCarIpFromBackend();
 
-        if (!espOnlineState) {
+        if (!carHost) {
           startAutoDiscovery();
           return;
         }

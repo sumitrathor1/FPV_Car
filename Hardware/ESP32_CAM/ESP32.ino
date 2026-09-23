@@ -8,7 +8,6 @@
 
 Preferences prefs;
 WebServer server(80);
-WiFiServer streamServer(81);
 DNSServer dnsServer;
 const byte DNS_PORT = 53;
 
@@ -20,15 +19,12 @@ bool clientConnectedNoticeSent = false;
 uint32_t lastClientPingAt = 0;
 
 const char* controlUrl = "http://sumitrathor.rf.gd/FPV_Car/get.php";
-const char* uploadUrl = "http://sumitrathor.rf.gd/FPV_Car/cam/upload.php";
 const char* heartbeatUrl = "http://sumitrathor.rf.gd/FPV_Car/set.php?esp_hb=1";
 
-const uint32_t CLOUD_CONTROL_INTERVAL_MS = 250;
-const uint32_t CLOUD_UPLOAD_INTERVAL_MS = 350;
+const uint32_t CLOUD_CONTROL_INTERVAL_MS = 1000;
 const uint32_t CLOUD_HEARTBEAT_INTERVAL_MS = 3000;
 
 uint32_t lastControlAt = 0;
-uint32_t lastUploadAt = 0;
 uint32_t lastHeartbeatAt = 0;
 
 char lastCmd = 'S';
@@ -65,8 +61,15 @@ void flashBlink(int count, int durationMs = 80) {
   }
 }
 
+int clampSpeed(long val) {
+  if (val < 0) return 0;
+  if (val > 255) return 255;
+  return (int)val;
+}
+
 bool startCamera() {
   if (cameraReady) return true;
+
   pinMode(PWDN_GPIO_NUM, OUTPUT);
   digitalWrite(PWDN_GPIO_NUM, HIGH);
   delay(50);
@@ -92,18 +95,19 @@ bool startCamera() {
   config.pin_sscb_scl = SIOC_GPIO_NUM;
   config.pin_pwdn     = PWDN_GPIO_NUM;
   config.pin_reset    = RESET_GPIO_NUM;
-  config.xclk_freq_hz = 20000000;
+  config.xclk_freq_hz = 16000000;
   config.pixel_format = PIXFORMAT_JPEG;
 
   if (psramFound()) {
     config.frame_size   = FRAMESIZE_VGA;
-    config.jpeg_quality = 10;
+    config.jpeg_quality = 12;
     config.fb_count     = 2;
     config.grab_mode    = CAMERA_GRAB_LATEST;
   } else {
-    config.frame_size   = FRAMESIZE_HVGA;
-    config.jpeg_quality = 12;
+    config.frame_size   = FRAMESIZE_QVGA;
+    config.jpeg_quality = 14;
     config.fb_count     = 1;
+    config.grab_mode    = CAMERA_GRAB_WHEN_EMPTY;
   }
 
   esp_err_t err = esp_camera_init(&config);
@@ -183,59 +187,38 @@ void handleProbeGif() {
   server.send_P(200, "image/gif", (const char*)PROBE_GIF, sizeof(PROBE_GIF));
 }
 
-#define PART_BOUNDARY "123456789000000000000987654321"
-static const char* _STREAM_PART = "Content-Type: image/jpeg\r\nContent-Length: %u\r\n\r\n";
-
-void streamTask(void* pvParameters) {
-  streamServer.begin();
-  while (true) {
-    WiFiClient sClient = streamServer.available();
-    if (sClient) {
-      sClient.print("HTTP/1.1 200 OK\r\nContent-Type: multipart/x-mixed-replace;boundary=" PART_BOUNDARY "\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n");
-      localClientStreaming = true;
-      while (sClient.connected()) {
-        if (!cameraPowerOn || !cameraReady) {
-          vTaskDelay(100 / portTICK_PERIOD_MS);
-          continue;
-        }
-        camera_fb_t* fb = esp_camera_fb_get();
-        if (!fb) {
-          vTaskDelay(10 / portTICK_PERIOD_MS);
-          continue;
-        }
-        char part_buf[128];
-        size_t hlen = snprintf(part_buf, sizeof(part_buf), _STREAM_PART, fb->len);
-        sClient.write((const uint8_t*)("\r\n--" PART_BOUNDARY "\r\n"), strlen("\r\n--" PART_BOUNDARY "\r\n"));
-        sClient.write((const uint8_t*)part_buf, hlen);
-        sClient.write((const uint8_t*)fb->buf, fb->len);
-        sClient.write((const uint8_t*)"\r\n", 2);
-        esp_camera_fb_return(fb);
-        vTaskDelay(15 / portTICK_PERIOD_MS);
-      }
-      sClient.stop();
-      localClientStreaming = false;
-    }
-    vTaskDelay(20 / portTICK_PERIOD_MS);
-  }
-}
-
 void handleStream() {
-  handleCORS();
   if (!cameraPowerOn || !cameraReady) {
-    server.send(503, "text/plain", "Camera OFF");
-    return;
+    if (!startCamera()) {
+      server.send(503, "text/plain", "Camera Not Ready");
+      return;
+    }
   }
-  camera_fb_t* fb = esp_camera_fb_get();
-  if (!fb) {
-    server.send(500, "text/plain", "Capture failed");
-    return;
-  }
-  server.sendHeader("Content-Type", "image/jpeg");
-  server.sendHeader("Content-Length", String(fb->len));
-  server.sendHeader("Access-Control-Allow-Origin", "*");
+
   WiFiClient client = server.client();
-  client.write((const uint8_t*)fb->buf, fb->len);
-  esp_camera_fb_return(fb);
+  String response = "HTTP/1.1 200 OK\r\n";
+  response += "Content-Type: multipart/x-mixed-replace; boundary=frame\r\n";
+  response += "Access-Control-Allow-Origin: *\r\n\r\n";
+  client.print(response);
+
+  localClientStreaming = true;
+  lastClientPingAt = millis();
+
+  while (client.connected()) {
+    camera_fb_t* fb = esp_camera_fb_get();
+    if (!fb) {
+      delay(15);
+      continue;
+    }
+    client.print("--frame\r\nContent-Type: image/jpeg\r\n\r\n");
+    client.write(fb->buf, fb->len);
+    client.print("\r\n");
+    esp_camera_fb_return(fb);
+
+    server.handleClient();
+    delay(25);
+  }
+  localClientStreaming = false;
 }
 
 void handleCmd() {
@@ -268,12 +251,6 @@ void handleHorn() {
     Serial.flush();
     server.send(200, "application/json", "{\"horn\":0}");
   }
-}
-
-int clampSpeed(long val) {
-  if (val < 0) return 0;
-  if (val > 255) return 255;
-  return (int)val;
 }
 
 void handleSpeed() {
@@ -413,32 +390,6 @@ char parseJsonCommand(const String& payload) {
   return 'S';
 }
 
-bool parseJsonCamPower(const String& payload) {
-  int keyPos = payload.indexOf("\"cam\":\"");
-  if (keyPos == -1) return true;
-  int valuePos = keyPos + 7;
-  if (valuePos >= payload.length()) return true;
-  return payload.charAt(valuePos) == '1';
-}
-
-bool parseJsonFlashLight(const String& payload) {
-  int keyPos = payload.indexOf("\"flash\":\"");
-  if (keyPos == -1) return false;
-  int valuePos = keyPos + 9;
-  if (valuePos >= payload.length()) return false;
-  return payload.charAt(valuePos) == '1';
-}
-
-int parseJsonSpeed(const String& payload, const char* key, int fallback) {
-  String token = String("\"") + key + "\":\"";
-  int keyPos = payload.indexOf(token);
-  if (keyPos == -1) return fallback;
-  int valueStart = keyPos + token.length();
-  int valueEnd = payload.indexOf('"', valueStart);
-  if (valueEnd == -1) return fallback;
-  return clampSpeed(payload.substring(valueStart, valueEnd).toInt());
-}
-
 void setup() {
   Serial.begin(115200);
   pinMode(FLASH_LED_PIN, OUTPUT);
@@ -478,8 +429,6 @@ void setup() {
       MDNS.addService("http", "tcp", 80);
     }
   }
-
-  xTaskCreatePinnedToCore(streamTask, "streamTask", 4096, NULL, 1, NULL, 0);
 }
 
 void loop() {
@@ -507,7 +456,7 @@ void loop() {
     HTTPClient http;
     String myIp = isApMode ? WiFi.softAPIP().toString() : WiFi.localIP().toString();
     http.begin(String(heartbeatUrl) + "&car_ip=" + myIp);
-    http.setTimeout(2500);
+    http.setTimeout(1200);
     http.GET();
     http.end();
   }
@@ -516,34 +465,12 @@ void loop() {
     lastControlAt = now;
     HTTPClient http;
     http.begin(controlUrl);
-    http.setTimeout(2500);
+    http.setTimeout(1200);
     int code = http.GET();
     if (code == 200) {
       String res = http.getString();
       res.trim();
       char cmd = parseJsonCommand(res);
-      bool shouldCam = parseJsonCamPower(res);
-      bool shouldFlash = parseJsonFlashLight(res);
-      int desiredFs = parseJsonSpeed(res, "fs", lastForwardSpeed);
-      int desiredBs = parseJsonSpeed(res, "bs", lastBackwardSpeed);
-
-      if (shouldCam != cameraPowerOn) {
-        setCameraHardwarePower(shouldCam);
-      }
-      if (shouldFlash != flashState) {
-        flashState = shouldFlash;
-        digitalWrite(FLASH_LED_PIN, flashState ? HIGH : LOW);
-      }
-      if (desiredFs != lastForwardSpeed) {
-        Serial.print("FSP:");
-        Serial.println(desiredFs);
-        lastForwardSpeed = desiredFs;
-      }
-      if (desiredBs != lastBackwardSpeed) {
-        Serial.print("BSP:");
-        Serial.println(desiredBs);
-        lastBackwardSpeed = desiredBs;
-      }
       if (cmd != lastCmd || cmd != 'S') {
         Serial.println(cmd);
         Serial.flush();
@@ -551,20 +478,6 @@ void loop() {
       }
     }
     http.end();
-  }
-
-  if (cameraPowerOn && cameraReady && (now - lastUploadAt >= CLOUD_UPLOAD_INTERVAL_MS)) {
-    lastUploadAt = now;
-    camera_fb_t* fb = esp_camera_fb_get();
-    if (fb != nullptr) {
-      HTTPClient http;
-      http.begin(uploadUrl);
-      http.setTimeout(2500);
-      http.addHeader("Content-Type", "application/octet-stream");
-      http.POST(fb->buf, fb->len);
-      http.end();
-      esp_camera_fb_return(fb);
-    }
   }
 
   delay(2);

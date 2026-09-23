@@ -42,33 +42,39 @@ void buzzerBeep(int durationMs, int freq = 2000) {
   buzzerOff();
 }
 
-// 3-Second Power-On Self-Test (Buzzer + Motor Vibration)
+// 3-Second Power-On Self-Test (Buzzer + Strong Motor Kick)
 void runBootSelfTest() {
   // Phase 1: Ascending Chimes
-  buzzerBeep(120, 1000);
-  delay(80);
-  buzzerBeep(120, 1500);
-  delay(80);
-  buzzerBeep(180, 2200);
-  delay(200);
-
-  // Phase 2: Gentle Motor Micro-Pulse (Tests L298N and Battery Power)
-  analogWrite(IN1, 130);
-  analogWrite(IN3, 130);
+  buzzerBeep(100, 1000);
   delay(70);
+  buzzerBeep(100, 1500);
+  delay(70);
+  buzzerBeep(150, 2200);
+  delay(180);
+
+  // Phase 2: STRONG Physical Motor Feedback (Full 255 Power Kick)
+  // Left and Right forward kick
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  delay(180);
   stopMotor();
   delay(120);
 
-  analogWrite(IN2, 130);
-  analogWrite(IN4, 130);
-  delay(70);
+  // Left and Right reverse kick
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+  delay(180);
   stopMotor();
-  delay(200);
+  delay(180);
 
   // Phase 3: Final Cheerful Double-Pip
-  buzzerBeep(90, 2400);
-  delay(60);
-  buzzerBeep(140, 2800);
+  buzzerBeep(80, 2400);
+  delay(50);
+  buzzerBeep(120, 2800);
 }
 
 // Status Chimes
@@ -98,7 +104,7 @@ void playClientDisconnectChime() {
 }
 
 // ======================================================
-// Motor Movement Functions
+// Motor Movement Functions (Clean Full-Voltage Drives)
 // ======================================================
 void stopMotor() {
   digitalWrite(IN1, LOW);
@@ -108,31 +114,59 @@ void stopMotor() {
 }
 
 void forward() {
-  analogWrite(IN1, forwardSpeed);
-  digitalWrite(IN2, LOW);
-  analogWrite(IN3, forwardSpeed);
-  digitalWrite(IN4, LOW);
+  if (forwardSpeed >= 250) {
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, HIGH);
+    digitalWrite(IN4, LOW);
+  } else {
+    analogWrite(IN1, forwardSpeed);
+    digitalWrite(IN2, LOW);
+    analogWrite(IN3, forwardSpeed);
+    digitalWrite(IN4, LOW);
+  }
 }
 
 void backward() {
-  digitalWrite(IN1, LOW);
-  analogWrite(IN2, backwardSpeed);
-  digitalWrite(IN3, LOW);
-  analogWrite(IN4, backwardSpeed);
+  if (backwardSpeed >= 250) {
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, HIGH);
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, HIGH);
+  } else {
+    digitalWrite(IN1, LOW);
+    analogWrite(IN2, backwardSpeed);
+    digitalWrite(IN3, LOW);
+    analogWrite(IN4, backwardSpeed);
+  }
 }
 
 void left() {
-  digitalWrite(IN1, LOW);
-  analogWrite(IN2, backwardSpeed);
-  analogWrite(IN3, forwardSpeed);
-  digitalWrite(IN4, LOW);
+  if (backwardSpeed >= 250 && forwardSpeed >= 250) {
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, HIGH);
+    digitalWrite(IN3, HIGH);
+    digitalWrite(IN4, LOW);
+  } else {
+    digitalWrite(IN1, LOW);
+    analogWrite(IN2, backwardSpeed);
+    analogWrite(IN3, forwardSpeed);
+    digitalWrite(IN4, LOW);
+  }
 }
 
 void right() {
-  analogWrite(IN1, forwardSpeed);
-  digitalWrite(IN2, LOW);
-  digitalWrite(IN3, LOW);
-  analogWrite(IN4, backwardSpeed);
+  if (backwardSpeed >= 250 && forwardSpeed >= 250) {
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, LOW);
+    digitalWrite(IN4, HIGH);
+  } else {
+    analogWrite(IN1, forwardSpeed);
+    digitalWrite(IN2, LOW);
+    digitalWrite(IN3, LOW);
+    analogWrite(IN4, backwardSpeed);
+  }
 }
 
 // ======================================================
