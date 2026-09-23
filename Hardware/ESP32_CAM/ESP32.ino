@@ -1,6 +1,5 @@
 #include "esp_camera.h"
 #include <WiFi.h>
-#include <HTTPClient.h>
 #include <WebServer.h>
 #include <Preferences.h>
 #include <DNSServer.h>
@@ -8,31 +7,18 @@
 
 Preferences prefs;
 WebServer server(80);
+WiFiServer streamServer(81);
 DNSServer dnsServer;
 const byte DNS_PORT = 53;
 
 String saved_ssid = "";
 String saved_password = "";
 bool isApMode = false;
-bool localClientStreaming = false;
-bool clientConnectedNoticeSent = false;
-uint32_t lastClientPingAt = 0;
-
-const char* controlUrl = "http://sumitrathor.rf.gd/FPV_Car/get.php";
-const char* heartbeatUrl = "http://sumitrathor.rf.gd/FPV_Car/set.php?esp_hb=1";
-
-const uint32_t CLOUD_CONTROL_INTERVAL_MS = 1000;
-const uint32_t CLOUD_HEARTBEAT_INTERVAL_MS = 3000;
-
-uint32_t lastControlAt = 0;
-uint32_t lastHeartbeatAt = 0;
-
-char lastCmd = 'S';
-bool cameraPowerOn = false;
 bool cameraReady = false;
 bool flashState = false;
 int lastForwardSpeed = 255;
 int lastBackwardSpeed = 255;
+char lastCmd = 'S';
 
 #define PWDN_GPIO_NUM     32
 #define RESET_GPIO_NUM    -1
@@ -91,11 +77,11 @@ bool startCamera() {
   config.pin_pclk     = PCLK_GPIO_NUM;
   config.pin_vsync    = VSYNC_GPIO_NUM;
   config.pin_href     = HREF_GPIO_NUM;
-  config.pin_sscb_sda = SIOD_GPIO_NUM;
-  config.pin_sscb_scl = SIOC_GPIO_NUM;
+  config.pin_sccb_sda = SIOD_GPIO_NUM;
+  config.pin_sccb_scl = SIOC_GPIO_NUM;
   config.pin_pwdn     = PWDN_GPIO_NUM;
   config.pin_reset    = RESET_GPIO_NUM;
-  config.xclk_freq_hz = 16000000;
+  config.xclk_freq_hz = 20000000;
   config.pixel_format = PIXFORMAT_JPEG;
 
   if (psramFound()) {
@@ -122,7 +108,6 @@ bool startCamera() {
 
   if (err == ESP_OK) {
     cameraReady = true;
-    cameraPowerOn = true;
     sensor_t* s = esp_camera_sensor_get();
     if (s) {
       s->set_brightness(s, 1);
@@ -132,31 +117,13 @@ bool startCamera() {
       s->set_awb_gain(s, 1);
       s->set_wb_mode(s, 0);
     }
+    Serial.println("[CAMERA] OK");
     return true;
   } else {
     cameraReady = false;
-    cameraPowerOn = false;
+    Serial.printf("[CAMERA] Probe failed (0x%x)\n", err);
     return false;
   }
-}
-
-void setCameraHardwarePower(bool on) {
-  if (on) {
-    if (!cameraReady) startCamera();
-    else {
-      pinMode(PWDN_GPIO_NUM, OUTPUT);
-      digitalWrite(PWDN_GPIO_NUM, LOW);
-      cameraPowerOn = true;
-    }
-    return;
-  }
-  cameraPowerOn = false;
-  if (cameraReady) {
-    esp_camera_deinit();
-    cameraReady = false;
-  }
-  pinMode(PWDN_GPIO_NUM, OUTPUT);
-  digitalWrite(PWDN_GPIO_NUM, HIGH);
 }
 
 void handleCORS() {
@@ -174,56 +141,70 @@ const uint8_t PROBE_GIF[] PROGMEM = {
 
 void handleProbeGif() {
   handleCORS();
-  lastClientPingAt = millis();
-  if (!clientConnectedNoticeSent) {
-    clientConnectedNoticeSent = true;
-    digitalWrite(FLASH_LED_PIN, HIGH);
-    delay(70);
-    digitalWrite(FLASH_LED_PIN, LOW);
-    Serial.println("Z:CLIENT_ON");
-    Serial.flush();
-  }
   server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   server.send_P(200, "image/gif", (const char*)PROBE_GIF, sizeof(PROBE_GIF));
 }
 
-void handleStream() {
-  if (!cameraPowerOn || !cameraReady) {
-    if (!startCamera()) {
-      server.send(503, "text/plain", "Camera Not Ready");
-      return;
-    }
-  }
+#define PART_BOUNDARY "123456789000000000000987654321"
+static const char* _STREAM_PART = "Content-Type: image/jpeg\r\nContent-Length: %u\r\n\r\n";
 
+void streamTask(void* pvParameters) {
+  streamServer.begin();
+  Serial.println("[STREAM] Port 81 Ready");
+
+  while (true) {
+    WiFiClient sClient = streamServer.available();
+    if (sClient) {
+      sClient.print("HTTP/1.1 200 OK\r\nContent-Type: multipart/x-mixed-replace;boundary=" PART_BOUNDARY "\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n");
+
+      while (sClient.connected()) {
+        if (!cameraReady) {
+          vTaskDelay(100 / portTICK_PERIOD_MS);
+          continue;
+        }
+
+        camera_fb_t* fb = esp_camera_fb_get();
+        if (!fb) {
+          vTaskDelay(10 / portTICK_PERIOD_MS);
+          continue;
+        }
+
+        char part_buf[128];
+        size_t hlen = snprintf(part_buf, sizeof(part_buf), _STREAM_PART, fb->len);
+        sClient.write((const uint8_t*)("\r\n--" PART_BOUNDARY "\r\n"), strlen("\r\n--" PART_BOUNDARY "\r\n"));
+        sClient.write((const uint8_t*)part_buf, hlen);
+        sClient.write((const uint8_t*)fb->buf, fb->len);
+        sClient.write((const uint8_t*)"\r\n", 2);
+
+        esp_camera_fb_return(fb);
+        vTaskDelay(20 / portTICK_PERIOD_MS);
+      }
+      sClient.stop();
+    }
+    vTaskDelay(25 / portTICK_PERIOD_MS);
+  }
+}
+
+void handleCapture() {
+  handleCORS();
+  if (!cameraReady) {
+    server.send(503, "text/plain", "Camera Not Ready");
+    return;
+  }
+  camera_fb_t* fb = esp_camera_fb_get();
+  if (!fb) {
+    server.send(500, "text/plain", "Capture Failed");
+    return;
+  }
+  server.sendHeader("Content-Type", "image/jpeg");
+  server.sendHeader("Content-Length", String(fb->len));
   WiFiClient client = server.client();
-  String response = "HTTP/1.1 200 OK\r\n";
-  response += "Content-Type: multipart/x-mixed-replace; boundary=frame\r\n";
-  response += "Access-Control-Allow-Origin: *\r\n\r\n";
-  client.print(response);
-
-  localClientStreaming = true;
-  lastClientPingAt = millis();
-
-  while (client.connected()) {
-    camera_fb_t* fb = esp_camera_fb_get();
-    if (!fb) {
-      delay(15);
-      continue;
-    }
-    client.print("--frame\r\nContent-Type: image/jpeg\r\n\r\n");
-    client.write(fb->buf, fb->len);
-    client.print("\r\n");
-    esp_camera_fb_return(fb);
-
-    server.handleClient();
-    delay(25);
-  }
-  localClientStreaming = false;
+  client.write((const uint8_t*)fb->buf, fb->len);
+  esp_camera_fb_return(fb);
 }
 
 void handleCmd() {
   handleCORS();
-  lastClientPingAt = millis();
   String dir = server.arg("dir");
   if (dir.length() > 0) {
     char c = dir.charAt(0);
@@ -240,7 +221,6 @@ void handleCmd() {
 
 void handleHorn() {
   handleCORS();
-  lastClientPingAt = millis();
   String val = server.arg("val");
   if (val == "1" || val == "H" || val == "true") {
     Serial.println("H");
@@ -278,18 +258,12 @@ void handleFlash() {
   server.send(200, "application/json", "{\"flash\":" + String(flashState ? 1 : 0) + "}");
 }
 
-void handleCamPower() {
-  handleCORS();
-  setCameraHardwarePower(server.arg("power") == "1");
-  server.send(200, "application/json", "{\"cam\":" + String(cameraPowerOn ? 1 : 0) + "}");
-}
-
 void handleStatus() {
   handleCORS();
   String json = "{";
   json += "\"mode\":\"" + String(isApMode ? "AP" : "STA") + "\",";
   json += "\"ip\":\"" + (isApMode ? WiFi.softAPIP().toString() : WiFi.localIP().toString()) + "\",";
-  json += "\"cam\":" + String(cameraPowerOn ? 1 : 0) + ",";
+  json += "\"cam\":" + String(cameraReady ? 1 : 0) + ",";
   json += "\"flash\":" + String(flashState ? 1 : 0) + ",";
   json += "\"lastCmd\":\"" + String(lastCmd) + "\",";
   json += "\"fs\":" + String(lastForwardSpeed) + ",";
@@ -321,74 +295,152 @@ void handleSaveWifi() {
     prefs.putString("pass", newPass);
     prefs.end();
     server.send(200, "application/json", "{\"status\":\"saved\"}");
-    delay(1000);
+    delay(500);
     ESP.restart();
   } else {
     server.send(400, "application/json", "{\"error\":\"SSID empty\"}");
   }
 }
 
-void setupLocalServer() {
-  server.on("/ping.gif", HTTP_GET, handleProbeGif);
-  server.on("/probe.gif", HTTP_GET, handleProbeGif);
-  server.on("/status.gif", HTTP_GET, handleProbeGif);
-  server.on("/ping", HTTP_GET, []() {
-    handleCORS();
-    server.send(200, "text/plain", "pong");
-  });
-  server.on("/stream", HTTP_GET, handleStream);
-  server.on("/cmd", HTTP_GET, handleCmd);
-  server.on("/set.php", HTTP_GET, handleCmd);
-  server.on("/horn", HTTP_GET, handleHorn);
-  server.on("/speed", HTTP_GET, handleSpeed);
-  server.on("/flash", HTTP_GET, handleFlash);
-  server.on("/cam", HTTP_GET, handleCamPower);
-  server.on("/status", HTTP_GET, handleStatus);
-  server.on("/get.php", HTTP_GET, handleStatus);
-  server.on("/scan", HTTP_GET, handleScanWifi);
-  server.on("/save-wifi", HTTP_GET, handleSaveWifi);
-  server.on("/", HTTP_GET, []() {
-    handleCORS();
-    server.send(200, "text/html", "<html><head><meta http-equiv='refresh' content='0;url=http://sumitrathor.rf.gd/FPV_Car/'></head><body>Redirecting...</body></html>");
-  });
-  server.on("/FPV_Car", HTTP_GET, []() {
-    handleCORS();
-    server.send(200, "text/plain", "OK");
-  });
-  server.on("/FPV_Car/", HTTP_GET, []() {
-    handleCORS();
-    server.send(200, "text/plain", "OK");
-  });
-  server.onNotFound([]() {
-    handleCORS();
-    server.send(200, "text/plain", "OK");
-  });
-  server.begin();
+// Built-in Embedded Controller HTML (Runs 100% offline directly from ESP32!)
+const char INDEX_HTML[] PROGMEM = R"rawliteral(
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🏎️ FPV Car Local Controller</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+body { background: #090d16; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 0.5rem; }
+header { width: 100%; max-width: 600px; display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 0.5rem; }
+h1 { font-size: 1.1rem; color: #00e5ff; }
+.status-pill { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.4); padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 700; }
+.video-box { width: 100%; max-width: 600px; aspect-ratio: 4/3; background: #000; border-radius: 12px; overflow: hidden; position: relative; border: 1px solid rgba(0,229,255,0.3); box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+.video-box img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.actions-bar { width: 100%; max-width: 600px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin: 0.5rem 0; }
+.act-btn { background: #1a2234; border: 1px solid rgba(255,255,255,0.15); color: #fff; padding: 0.6rem; border-radius: 8px; font-size: 0.85rem; font-weight: 700; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 0.3rem; }
+.act-btn.active { background: #f59e0b; color: #000; border-color: #f59e0b; box-shadow: 0 0 10px rgba(245,158,11,0.5); }
+.controls-box { width: 100%; max-width: 600px; display: flex; flex-direction: column; align-items: center; margin-top: 0.5rem; }
+.dpad { display: grid; grid-template-columns: repeat(3, 75px); grid-template-rows: repeat(3, 75px); gap: 8px; margin-bottom: 0.5rem; }
+.d-btn { background: #131b2e; border: 2px solid rgba(0,229,255,0.3); color: #00e5ff; font-size: 1.5rem; border-radius: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; touch-action: manipulation; transition: 0.1s; }
+.d-btn:active, .d-btn.pressed { background: #00e5ff; color: #000; transform: scale(0.95); box-shadow: 0 0 15px #00e5ff; }
+.d-stop { background: #ef4444; color: #fff; border-color: #ef4444; font-size: 1rem; font-weight: 800; }
+.d-stop:active { background: #b91c1c; }
+.info-footer { font-size: 0.75rem; color: #64748b; margin-top: auto; padding: 0.5rem; text-align: center; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🏎️ FPV CAR DIRECT</h1>
+  <div class="status-pill" id="statusPill">🟢 LOCAL CONNECTED</div>
+</header>
+<div class="video-box">
+  <img id="camStream" src="/stream" alt="Video Feed" onerror="retryStream()">
+</div>
+<div class="actions-bar">
+  <button class="act-btn" id="headlightBtn" onclick="toggleHeadlight()">💡 LIGHT</button>
+  <button class="act-btn" id="hornBtn">📢 HORN</button>
+  <button class="act-btn" onclick="location.reload()">🔄 REFRESH</button>
+</div>
+<div class="controls-box">
+  <div class="dpad">
+    <div></div>
+    <button class="d-btn" id="btnF" data-cmd="F">▲</button>
+    <div></div>
+    <button class="d-btn" id="btnL" data-cmd="L">◀</button>
+    <button class="d-btn d-stop" id="btnS" data-cmd="S">STOP</button>
+    <button class="d-btn" id="btnR" data-cmd="R">▶</button>
+    <div></div>
+    <button class="d-btn" id="btnB" data-cmd="B">▼</button>
+    <div></div>
+  </div>
+</div>
+<div class="info-footer">Keyboard: WASD / Arrows | H = Horn | Space = Stop</div>
+<script>
+let streamPort = 81;
+const cam = document.getElementById("camStream");
+cam.src = `http://${location.hostname}:${streamPort}/stream`;
+
+function retryStream() {
+  setTimeout(() => {
+    cam.src = `http://${location.hostname}:${streamPort}/stream?t=${Date.now()}`;
+  }, 1000);
 }
 
-void startApMode() {
-  isApMode = true;
-  WiFi.mode(WIFI_AP);
-  WiFi.softAP("FPV-Car-Setup", "");
-  dnsServer.start(DNS_PORT, "*", WiFi.softAPIP());
-  setupLocalServer();
-  if (MDNS.begin("fpvcar")) {
-    MDNS.addService("http", "tcp", 80);
+let pulseTimer = null;
+function sendCmd(cmd) {
+  fetch(`/cmd?dir=${cmd}`).catch(()=>{});
+  clearInterval(pulseTimer);
+  if (cmd !== 'S') {
+    pulseTimer = setInterval(() => { fetch(`/cmd?dir=${cmd}`).catch(()=>{}); }, 180);
   }
-  flashBlink(3, 160);
-  Serial.println("Z:AP_MODE");
-  Serial.flush();
 }
 
-char parseJsonCommand(const String& payload) {
-  int keyPos = payload.indexOf("\"cmd\":\"");
-  if (keyPos == -1) return 'S';
-  int valuePos = keyPos + 7;
-  if (valuePos >= payload.length()) return 'S';
-  char cmd = payload.charAt(valuePos);
-  if (cmd == 'F' || cmd == 'B' || cmd == 'L' || cmd == 'R' || cmd == 'S') return cmd;
-  return 'S';
+function stopCar() {
+  clearInterval(pulseTimer);
+  fetch('/cmd?dir=S').catch(()=>{});
 }
+
+function bindHold(el, cmd) {
+  const start = (e) => { e.preventDefault(); el.classList.add('pressed'); sendCmd(cmd); };
+  const end = (e) => { e.preventDefault(); el.classList.remove('pressed'); stopCar(); };
+  el.addEventListener('pointerdown', start);
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+  el.addEventListener('pointerleave', end);
+}
+
+bindHold(document.getElementById('btnF'), 'F');
+bindHold(document.getElementById('btnB'), 'B');
+bindHold(document.getElementById('btnL'), 'L');
+bindHold(document.getElementById('btnR'), 'R');
+document.getElementById('btnS').onclick = stopCar;
+
+let hornActive = false;
+const hornBtn = document.getElementById('hornBtn');
+const setHorn = (on) => {
+  if (hornActive === on) return;
+  hornActive = on;
+  hornBtn.classList.toggle('active', on);
+  fetch(`/horn?val=${on?1:0}`).catch(()=>{});
+};
+hornBtn.addEventListener('pointerdown', (e)=>{ e.preventDefault(); setHorn(true); });
+hornBtn.addEventListener('pointerup', (e)=>{ e.preventDefault(); setHorn(false); });
+hornBtn.addEventListener('pointerleave', ()=>{ if(hornActive) setHorn(false); });
+hornBtn.addEventListener('pointercancel', ()=>{ setHorn(false); });
+
+let flashState = false;
+function toggleHeadlight() {
+  flashState = !flashState;
+  document.getElementById('headlightBtn').classList.toggle('active', flashState);
+  fetch(`/flash?val=${flashState?1:0}`).catch(()=>{});
+}
+
+window.addEventListener('keydown', (e) => {
+  if (e.repeat) return;
+  const k = e.key.toLowerCase();
+  if (k === 'w' || k === 'arrowup') { document.getElementById('btnF').classList.add('pressed'); sendCmd('F'); }
+  else if (k === 's' || k === 'arrowdown') { document.getElementById('btnB').classList.add('pressed'); sendCmd('B'); }
+  else if (k === 'a' || k === 'arrowleft') { document.getElementById('btnL').classList.add('pressed'); sendCmd('L'); }
+  else if (k === 'd' || k === 'arrowright') { document.getElementById('btnR').classList.add('pressed'); sendCmd('R'); }
+  else if (k === ' ' || k === 'escape') { stopCar(); }
+  else if (k === 'h') { setHorn(true); }
+});
+
+window.addEventListener('keyup', (e) => {
+  const k = e.key.toLowerCase();
+  if (['w','s','a','d','arrowup','arrowdown','arrowleft','arrowright'].includes(k)) {
+    document.querySelectorAll('.d-btn').forEach(b => b.classList.remove('pressed'));
+    stopCar();
+  } else if (k === 'h') {
+    setHorn(false);
+  }
+});
+</script>
+</body>
+</html>
+)rawliteral";
 
 void setup() {
   Serial.begin(115200);
@@ -396,7 +448,7 @@ void setup() {
   digitalWrite(FLASH_LED_PIN, LOW);
 
   startCamera();
-  flashBlink(3, 140);
+  flashBlink(3, 120);
 
   prefs.begin("fpv_wifi", true);
   saved_ssid = prefs.getString("ssid", "");
@@ -407,14 +459,19 @@ void setup() {
 
   bool connected = false;
   if (saved_ssid.length() > 0) {
+    Serial.print("[WIFI] Connecting to: ");
+    Serial.println(saved_ssid);
     WiFi.begin(saved_ssid.c_str(), saved_password.c_str());
+
     int attempts = 0;
     while (WiFi.status() != WL_CONNECTED && attempts < 25) {
       delay(300);
+      Serial.print(".");
       attempts++;
     }
     if (WiFi.status() == WL_CONNECTED) {
       connected = true;
+      Serial.println("\n[WIFI] Connected! IP: " + WiFi.localIP().toString());
       flashBlink(2, 90);
       Serial.println("Z:WIFI_OK");
       Serial.flush();
@@ -422,13 +479,54 @@ void setup() {
   }
 
   if (!connected) {
-    startApMode();
-  } else {
-    setupLocalServer();
-    if (MDNS.begin("fpvcar")) {
-      MDNS.addService("http", "tcp", 80);
-    }
+    isApMode = true;
+    WiFi.mode(WIFI_AP);
+    WiFi.softAP("FPV-Car-Setup", "");
+    dnsServer.start(DNS_PORT, "*", WiFi.softAPIP());
+    flashBlink(3, 150);
+    Serial.println("Z:AP_MODE");
+    Serial.flush();
+    Serial.println("\n[WIFI] AP Hotspot Started: FPV-Car-Setup (192.168.4.1)");
   }
+
+  if (MDNS.begin("fpvcar")) {
+    MDNS.addService("http", "tcp", 80);
+  }
+
+  server.on("/ping.gif", HTTP_GET, handleProbeGif);
+  server.on("/ping", HTTP_GET, []() { handleCORS(); server.send(200, "text/plain", "pong"); });
+  server.on("/cmd", HTTP_GET, handleCmd);
+  server.on("/set.php", HTTP_GET, handleCmd);
+  server.on("/horn", HTTP_GET, handleHorn);
+  server.on("/speed", HTTP_GET, handleSpeed);
+  server.on("/flash", HTTP_GET, handleFlash);
+  server.on("/status", HTTP_GET, handleStatus);
+  server.on("/get.php", HTTP_GET, handleStatus);
+  server.on("/scan", HTTP_GET, handleScanWifi);
+  server.on("/save-wifi", HTTP_GET, handleSaveWifi);
+  server.on("/capture", HTTP_GET, handleCapture);
+  server.on("/stream", HTTP_GET, []() {
+    handleCORS();
+    server.sendHeader("Location", "http://" + (isApMode ? WiFi.softAPIP().toString() : WiFi.localIP().toString()) + ":81/stream");
+    server.send(302, "text/plain", "Redirecting");
+  });
+  server.on("/", HTTP_GET, []() {
+    handleCORS();
+    server.send_P(200, "text/html", INDEX_HTML);
+  });
+  server.onNotFound([]() {
+    handleCORS();
+    server.send_P(200, "text/html", INDEX_HTML);
+  });
+  server.begin();
+
+  // Start Core 0 Stream Task on Port 81
+  xTaskCreatePinnedToCore(streamTask, "streamTask", 4096, NULL, 1, NULL, 0);
+
+  Serial.println("=========================================");
+  Serial.print("READY! Direct Controller: http://");
+  Serial.println(connected ? WiFi.localIP().toString() : "192.168.4.1");
+  Serial.println("=========================================");
 }
 
 void loop() {
@@ -436,49 +534,5 @@ void loop() {
     dnsServer.processNextRequest();
   }
   server.handleClient();
-
-  uint32_t now = millis();
-
-  if (clientConnectedNoticeSent && (now - lastClientPingAt > 6000)) {
-    clientConnectedNoticeSent = false;
-    flashBlink(2, 60);
-    Serial.println("Z:CLIENT_OFF");
-    Serial.flush();
-  }
-
-  if (isApMode || WiFi.status() != WL_CONNECTED || localClientStreaming) {
-    delay(2);
-    return;
-  }
-
-  if (now - lastHeartbeatAt >= CLOUD_HEARTBEAT_INTERVAL_MS) {
-    lastHeartbeatAt = now;
-    HTTPClient http;
-    String myIp = isApMode ? WiFi.softAPIP().toString() : WiFi.localIP().toString();
-    http.begin(String(heartbeatUrl) + "&car_ip=" + myIp);
-    http.setTimeout(1200);
-    http.GET();
-    http.end();
-  }
-
-  if (now - lastControlAt >= CLOUD_CONTROL_INTERVAL_MS) {
-    lastControlAt = now;
-    HTTPClient http;
-    http.begin(controlUrl);
-    http.setTimeout(1200);
-    int code = http.GET();
-    if (code == 200) {
-      String res = http.getString();
-      res.trim();
-      char cmd = parseJsonCommand(res);
-      if (cmd != lastCmd || cmd != 'S') {
-        Serial.println(cmd);
-        Serial.flush();
-        lastCmd = cmd;
-      }
-    }
-    http.end();
-  }
-
   delay(2);
 }

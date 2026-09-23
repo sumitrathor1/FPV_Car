@@ -1151,7 +1151,12 @@
 
       function startVideoStream() {
         if (!isCamOn || !carHost) return;
-        liveCam.src = `http://${carHost}/stream?t=${Date.now()}`;
+        liveCam.src = `http://${carHost}:81/stream?t=${Date.now()}`;
+        liveCam.onerror = () => {
+          if (liveCam.src.includes(':81')) {
+            liveCam.src = `http://${carHost}/capture?t=${Date.now()}`;
+          }
+        };
         liveCam.onload = () => {
           setOnlineState(true);
         };
