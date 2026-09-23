@@ -854,9 +854,16 @@
       const commandLabels = { F: "FORWARD", B: "REVERSE", L: "LEFT", R: "RIGHT", S: "STOP" };
       let carHost = localStorage.getItem("fpv_car_host") || "";
 
-      // If directly running on car's web server (e.g. 192.168.4.1 or car's LAN IP), use that host
-      if (window.location.hostname && !window.location.hostname.includes("rf.gd") && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+      // 1. Check URL parameters for explicit car host: e.g. ?car=172.26.192.222 or ?ip=...
+      const urlParams = new URLSearchParams(window.location.search);
+      const paramIp = urlParams.get("car") || urlParams.get("ip");
+      if (paramIp && paramIp.trim()) {
+        carHost = paramIp.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+        localStorage.setItem("fpv_car_host", carHost);
+      } else if (window.location.hostname && !window.location.hostname.includes("rf.gd") && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+        // 2. If directly opened via car's IP (e.g. 192.168.4.1 or car's local IP), use current host
         carHost = window.location.hostname;
+        localStorage.setItem("fpv_car_host", carHost);
       }
 
       let driveMode = 0; // 0 = STEP, 1 = HOLD, 2 = LATCH
@@ -1629,6 +1636,7 @@
 
       // Initialize App
       window.addEventListener("DOMContentLoaded", () => {
+        updateHostUI();
         if (window.location.protocol === 'https:') {
           const warn = document.getElementById('httpsWarning');
           if (warn) {

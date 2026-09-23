@@ -1,5 +1,6 @@
 #include "esp_camera.h"
 #include <WiFi.h>
+#include <HTTPClient.h>
 #include <WebServer.h>
 #include <Preferences.h>
 #include <DNSServer.h>
@@ -302,146 +303,6 @@ void handleSaveWifi() {
   }
 }
 
-// Built-in Embedded Controller HTML (Runs 100% offline directly from ESP32!)
-const char INDEX_HTML[] PROGMEM = R"rawliteral(
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>🏎️ FPV Car Local Controller</title>
-<style>
-* { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
-body { background: #090d16; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 0.5rem; }
-header { width: 100%; max-width: 600px; display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 0.5rem; }
-h1 { font-size: 1.1rem; color: #00e5ff; }
-.status-pill { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.4); padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 700; }
-.video-box { width: 100%; max-width: 600px; aspect-ratio: 4/3; background: #000; border-radius: 12px; overflow: hidden; position: relative; border: 1px solid rgba(0,229,255,0.3); box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
-.video-box img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.actions-bar { width: 100%; max-width: 600px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin: 0.5rem 0; }
-.act-btn { background: #1a2234; border: 1px solid rgba(255,255,255,0.15); color: #fff; padding: 0.6rem; border-radius: 8px; font-size: 0.85rem; font-weight: 700; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 0.3rem; }
-.act-btn.active { background: #f59e0b; color: #000; border-color: #f59e0b; box-shadow: 0 0 10px rgba(245,158,11,0.5); }
-.controls-box { width: 100%; max-width: 600px; display: flex; flex-direction: column; align-items: center; margin-top: 0.5rem; }
-.dpad { display: grid; grid-template-columns: repeat(3, 75px); grid-template-rows: repeat(3, 75px); gap: 8px; margin-bottom: 0.5rem; }
-.d-btn { background: #131b2e; border: 2px solid rgba(0,229,255,0.3); color: #00e5ff; font-size: 1.5rem; border-radius: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; touch-action: manipulation; transition: 0.1s; }
-.d-btn:active, .d-btn.pressed { background: #00e5ff; color: #000; transform: scale(0.95); box-shadow: 0 0 15px #00e5ff; }
-.d-stop { background: #ef4444; color: #fff; border-color: #ef4444; font-size: 1rem; font-weight: 800; }
-.d-stop:active { background: #b91c1c; }
-.info-footer { font-size: 0.75rem; color: #64748b; margin-top: auto; padding: 0.5rem; text-align: center; }
-</style>
-</head>
-<body>
-<header>
-  <h1>🏎️ FPV CAR DIRECT</h1>
-  <div class="status-pill" id="statusPill">🟢 LOCAL CONNECTED</div>
-</header>
-<div class="video-box">
-  <img id="camStream" src="/stream" alt="Video Feed" onerror="retryStream()">
-</div>
-<div class="actions-bar">
-  <button class="act-btn" id="headlightBtn" onclick="toggleHeadlight()">💡 LIGHT</button>
-  <button class="act-btn" id="hornBtn">📢 HORN</button>
-  <button class="act-btn" onclick="location.reload()">🔄 REFRESH</button>
-</div>
-<div class="controls-box">
-  <div class="dpad">
-    <div></div>
-    <button class="d-btn" id="btnF" data-cmd="F">▲</button>
-    <div></div>
-    <button class="d-btn" id="btnL" data-cmd="L">◀</button>
-    <button class="d-btn d-stop" id="btnS" data-cmd="S">STOP</button>
-    <button class="d-btn" id="btnR" data-cmd="R">▶</button>
-    <div></div>
-    <button class="d-btn" id="btnB" data-cmd="B">▼</button>
-    <div></div>
-  </div>
-</div>
-<div class="info-footer">Keyboard: WASD / Arrows | H = Horn | Space = Stop</div>
-<script>
-let streamPort = 81;
-const cam = document.getElementById("camStream");
-cam.src = `http://${location.hostname}:${streamPort}/stream`;
-
-function retryStream() {
-  setTimeout(() => {
-    cam.src = `http://${location.hostname}:${streamPort}/stream?t=${Date.now()}`;
-  }, 1000);
-}
-
-let pulseTimer = null;
-function sendCmd(cmd) {
-  fetch(`/cmd?dir=${cmd}`).catch(()=>{});
-  clearInterval(pulseTimer);
-  if (cmd !== 'S') {
-    pulseTimer = setInterval(() => { fetch(`/cmd?dir=${cmd}`).catch(()=>{}); }, 180);
-  }
-}
-
-function stopCar() {
-  clearInterval(pulseTimer);
-  fetch('/cmd?dir=S').catch(()=>{});
-}
-
-function bindHold(el, cmd) {
-  const start = (e) => { e.preventDefault(); el.classList.add('pressed'); sendCmd(cmd); };
-  const end = (e) => { e.preventDefault(); el.classList.remove('pressed'); stopCar(); };
-  el.addEventListener('pointerdown', start);
-  el.addEventListener('pointerup', end);
-  el.addEventListener('pointercancel', end);
-  el.addEventListener('pointerleave', end);
-}
-
-bindHold(document.getElementById('btnF'), 'F');
-bindHold(document.getElementById('btnB'), 'B');
-bindHold(document.getElementById('btnL'), 'L');
-bindHold(document.getElementById('btnR'), 'R');
-document.getElementById('btnS').onclick = stopCar;
-
-let hornActive = false;
-const hornBtn = document.getElementById('hornBtn');
-const setHorn = (on) => {
-  if (hornActive === on) return;
-  hornActive = on;
-  hornBtn.classList.toggle('active', on);
-  fetch(`/horn?val=${on?1:0}`).catch(()=>{});
-};
-hornBtn.addEventListener('pointerdown', (e)=>{ e.preventDefault(); setHorn(true); });
-hornBtn.addEventListener('pointerup', (e)=>{ e.preventDefault(); setHorn(false); });
-hornBtn.addEventListener('pointerleave', ()=>{ if(hornActive) setHorn(false); });
-hornBtn.addEventListener('pointercancel', ()=>{ setHorn(false); });
-
-let flashState = false;
-function toggleHeadlight() {
-  flashState = !flashState;
-  document.getElementById('headlightBtn').classList.toggle('active', flashState);
-  fetch(`/flash?val=${flashState?1:0}`).catch(()=>{});
-}
-
-window.addEventListener('keydown', (e) => {
-  if (e.repeat) return;
-  const k = e.key.toLowerCase();
-  if (k === 'w' || k === 'arrowup') { document.getElementById('btnF').classList.add('pressed'); sendCmd('F'); }
-  else if (k === 's' || k === 'arrowdown') { document.getElementById('btnB').classList.add('pressed'); sendCmd('B'); }
-  else if (k === 'a' || k === 'arrowleft') { document.getElementById('btnL').classList.add('pressed'); sendCmd('L'); }
-  else if (k === 'd' || k === 'arrowright') { document.getElementById('btnR').classList.add('pressed'); sendCmd('R'); }
-  else if (k === ' ' || k === 'escape') { stopCar(); }
-  else if (k === 'h') { setHorn(true); }
-});
-
-window.addEventListener('keyup', (e) => {
-  const k = e.key.toLowerCase();
-  if (['w','s','a','d','arrowup','arrowdown','arrowleft','arrowright'].includes(k)) {
-    document.querySelectorAll('.d-btn').forEach(b => b.classList.remove('pressed'));
-    stopCar();
-  } else if (k === 'h') {
-    setHorn(false);
-  }
-});
-</script>
-</body>
-</html>
-)rawliteral";
-
 void setup() {
   Serial.begin(115200);
   pinMode(FLASH_LED_PIN, OUTPUT);
@@ -512,11 +373,14 @@ void setup() {
   });
   server.on("/", HTTP_GET, []() {
     handleCORS();
-    server.send_P(200, "text/html", INDEX_HTML);
+    String myIp = isApMode ? WiFi.softAPIP().toString() : WiFi.localIP().toString();
+    String target = "http://sumitrathor.rf.gd/FPV_Car/?car=" + myIp;
+    server.sendHeader("Location", target);
+    server.send(302, "text/html", "<html><head><meta http-equiv='refresh' content='0;url=" + target + "'></head><body><p>Redirecting to <a href='" + target + "'>FPV Car Dashboard</a>...</p></body></html>");
   });
   server.onNotFound([]() {
     handleCORS();
-    server.send_P(200, "text/html", INDEX_HTML);
+    server.send(200, "text/plain", "FPV Car Ready");
   });
   server.begin();
 
@@ -534,5 +398,18 @@ void loop() {
     dnsServer.processNextRequest();
   }
   server.handleClient();
+
+  // Lightweight IP reporting heartbeat to InfinityFree (no heavy uploads!)
+  uint32_t now = millis();
+  static uint32_t lastHbAt = 0;
+  if (!isApMode && WiFi.status() == WL_CONNECTED && (now - lastHbAt >= 4000)) {
+    lastHbAt = now;
+    HTTPClient http;
+    http.begin("http://sumitrathor.rf.gd/FPV_Car/set.php?esp_hb=1&car_ip=" + WiFi.localIP().toString());
+    http.setTimeout(1000);
+    http.GET();
+    http.end();
+  }
+
   delay(2);
 }
