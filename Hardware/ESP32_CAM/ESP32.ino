@@ -59,7 +59,7 @@ bool startCamera() {
 
   pinMode(PWDN_GPIO_NUM, OUTPUT);
   digitalWrite(PWDN_GPIO_NUM, HIGH);
-  delay(50);
+  delay(100);
   digitalWrite(PWDN_GPIO_NUM, LOW);
   delay(150);
 
@@ -99,11 +99,14 @@ bool startCamera() {
 
   esp_err_t err = esp_camera_init(&config);
   if (err != ESP_OK) {
+    Serial.printf("[CAMERA] Retry with 10MHz XCLK... (err 0x%x)\n", err);
     digitalWrite(PWDN_GPIO_NUM, HIGH);
-    delay(50);
-    digitalWrite(PWDN_GPIO_NUM, LOW);
     delay(100);
+    digitalWrite(PWDN_GPIO_NUM, LOW);
+    delay(150);
     config.xclk_freq_hz = 10000000;
+    config.frame_size   = FRAMESIZE_QVGA;
+    config.fb_count     = 1;
     err = esp_camera_init(&config);
   }
 
@@ -118,7 +121,7 @@ bool startCamera() {
       s->set_awb_gain(s, 1);
       s->set_wb_mode(s, 0);
     }
-    Serial.println("[CAMERA] OK");
+    Serial.println("[CAMERA] Sensor Initialized OK");
     return true;
   } else {
     cameraReady = false;
@@ -147,17 +150,35 @@ void handleProbeGif() {
 }
 
 #define PART_BOUNDARY "123456789000000000000987654321"
-static const char* _STREAM_PART = "Content-Type: image/jpeg\r\nContent-Length: %u\r\n\r\n";
 
 void streamTask(void* pvParameters) {
   streamServer.begin();
+  streamServer.setNoDelay(true);
   Serial.println("[STREAM] Port 81 Ready");
 
   while (true) {
     WiFiClient sClient = streamServer.available();
     if (sClient) {
-      sClient.print("HTTP/1.1 200 OK\r\nContent-Type: multipart/x-mixed-replace;boundary=" PART_BOUNDARY "\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n");
+      // 1. Consume and clear incoming browser HTTP request headers
+      unsigned long startWait = millis();
+      while (sClient.connected() && millis() - startWait < 400) {
+        if (sClient.available()) {
+          String l = sClient.readStringUntil('\n');
+          if (l == "\r" || l.length() == 0) break;
+        } else {
+          vTaskDelay(5 / portTICK_PERIOD_MS);
+        }
+      }
 
+      // 2. Send standard multipart HTTP headers
+      sClient.print("HTTP/1.1 200 OK\r\n"
+                    "Content-Type: multipart/x-mixed-replace; boundary=" PART_BOUNDARY "\r\n"
+                    "Access-Control-Allow-Origin: *\r\n"
+                    "Cache-Control: no-cache, no-store, must-revalidate\r\n"
+                    "Pragma: no-cache\r\n"
+                    "Connection: close\r\n\r\n");
+
+      // 3. Continuous frame loop
       while (sClient.connected()) {
         if (!cameraReady) {
           vTaskDelay(100 / portTICK_PERIOD_MS);
@@ -170,13 +191,22 @@ void streamTask(void* pvParameters) {
           continue;
         }
 
-        char part_buf[128];
-        size_t hlen = snprintf(part_buf, sizeof(part_buf), _STREAM_PART, fb->len);
-        sClient.write((const uint8_t*)("\r\n--" PART_BOUNDARY "\r\n"), strlen("\r\n--" PART_BOUNDARY "\r\n"));
-        sClient.write((const uint8_t*)part_buf, hlen);
-        sClient.write((const uint8_t*)fb->buf, fb->len);
-        sClient.write((const uint8_t*)"\r\n", 2);
+        sClient.print("--" PART_BOUNDARY "\r\n"
+                      "Content-Type: image/jpeg\r\n"
+                      "Content-Length: " + String(fb->len) + "\r\n\r\n");
 
+        // Write in safe 1024-byte chunks to prevent TCP socket overflow
+        size_t rem = fb->len;
+        uint8_t* p = fb->buf;
+        while (rem > 0 && sClient.connected()) {
+          size_t chunk = rem > 1024 ? 1024 : rem;
+          size_t w = sClient.write(p, chunk);
+          if (w == 0) break;
+          p += w;
+          rem -= w;
+        }
+
+        sClient.print("\r\n");
         esp_camera_fb_return(fb);
         vTaskDelay(20 / portTICK_PERIOD_MS);
       }
@@ -197,10 +227,18 @@ void handleCapture() {
     server.send(500, "text/plain", "Capture Failed");
     return;
   }
-  server.sendHeader("Content-Type", "image/jpeg");
-  server.sendHeader("Content-Length", String(fb->len));
+  server.setContentLength(fb->len);
+  server.send(200, "image/jpeg", "");
   WiFiClient client = server.client();
-  client.write((const uint8_t*)fb->buf, fb->len);
+  size_t rem = fb->len;
+  uint8_t* p = fb->buf;
+  while (rem > 0 && client.connected()) {
+    size_t chunk = rem > 1024 ? 1024 : rem;
+    size_t w = client.write(p, chunk);
+    if (w == 0) break;
+    p += w;
+    rem -= w;
+  }
   esp_camera_fb_return(fb);
 }
 
@@ -364,7 +402,21 @@ input[type=range]{width:100%;accent-color:#0284c7;}
 <script>
 let lightOn=false;
 const myHost=window.location.hostname||'192.168.4.1';
-document.getElementById('stream').src='http://'+myHost+':81/stream';
+const stImg=document.getElementById('stream');
+stImg.src='http://'+myHost+':81/stream';
+let snapTimer=null;
+stImg.onerror=function(){
+  if(!snapTimer){
+    snapTimer=setInterval(()=>{
+      const tmp=new Image();
+      tmp.onload=()=>{stImg.src=tmp.src;};
+      tmp.src='http://'+myHost+'/capture?t='+Date.now();
+    },100);
+  }
+};
+stImg.onload=function(){
+  if(snapTimer){clearInterval(snapTimer);snapTimer=null;}
+};
 document.getElementById('dashLink').href='http://sumitrathor.rf.gd/FPV_Car/?car='+myHost;
 function sendReq(u){fetch(u,{mode:'no-cors'}).catch(()=>{new Image().src=u;});}
 function sendDir(d){sendReq('/cmd?dir='+d);}
@@ -477,8 +529,8 @@ void setup() {
   });
   server.begin();
 
-  // Start Core 0 Stream Task on Port 81
-  xTaskCreatePinnedToCore(streamTask, "streamTask", 4096, NULL, 1, NULL, 0);
+  // Start Core 0 Stream Task on Port 81 (8KB stack to prevent FreeRTOS overflow)
+  xTaskCreatePinnedToCore(streamTask, "streamTask", 8192, NULL, 1, NULL, 0);
 
   Serial.println("=========================================");
   Serial.print("READY! Direct Controller: http://");

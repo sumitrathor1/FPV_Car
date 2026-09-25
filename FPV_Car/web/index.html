@@ -1152,9 +1152,15 @@
       }
 
       /* Camera Stream */
+      let streamRetryTimer = null;
+      let captureIntervalTimer = null;
+
       function toggleCameraPower() {
         if (isCamOn) {
           isCamOn = false;
+          clearInterval(captureIntervalTimer);
+          captureIntervalTimer = null;
+          clearTimeout(streamRetryTimer);
           liveCam.removeAttribute("src");
           liveCam.style.display = "none";
           videoPlaceholder.classList.add("active");
@@ -1176,14 +1182,51 @@
 
       function startVideoStream() {
         if (!isCamOn || !carHost) return;
-        liveCam.src = `http://${carHost}:81/stream?t=${Date.now()}`;
-        liveCam.onerror = () => {
-          if (liveCam.src.includes(':81')) {
-            liveCam.src = `http://${carHost}/capture?t=${Date.now()}`;
-          }
-        };
+        clearInterval(captureIntervalTimer);
+        captureIntervalTimer = null;
+        clearTimeout(streamRetryTimer);
+
+        liveCam.src = `http://${carHost}:81/stream`;
+
         liveCam.onload = () => {
+          if (captureIntervalTimer) {
+            clearInterval(captureIntervalTimer);
+            captureIntervalTimer = null;
+          }
+          videoPlaceholder.classList.remove("active");
+          liveCam.style.display = "block";
           setOnlineState(true);
+        };
+
+        liveCam.onerror = () => {
+          // If port 81 stream fails, immediately start high-speed capture polling fallback
+          if (!captureIntervalTimer) {
+            console.warn("[VIDEO] Port 81 stream failed, starting continuous /capture fallback...");
+            captureIntervalTimer = setInterval(() => {
+              if (!isCamOn || !carHost) {
+                clearInterval(captureIntervalTimer);
+                captureIntervalTimer = null;
+                return;
+              }
+              const tmp = new Image();
+              tmp.onload = () => {
+                liveCam.src = tmp.src;
+                videoPlaceholder.classList.remove("active");
+                liveCam.style.display = "block";
+                setOnlineState(true);
+              };
+              tmp.src = `http://${carHost}/capture?t=${Date.now()}`;
+            }, 90);
+          }
+
+          // Retry port 81 native stream after 4 seconds
+          streamRetryTimer = setTimeout(() => {
+            if (isCamOn && carHost) {
+              clearInterval(captureIntervalTimer);
+              captureIntervalTimer = null;
+              startVideoStream();
+            }
+          }, 4000);
         };
       }
 
