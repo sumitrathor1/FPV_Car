@@ -303,12 +303,111 @@ void handleSaveWifi() {
   }
 }
 
+const char PAGE_INDEX[] PROGMEM = R"rawliteral(<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>🏎️ FPV Car Direct</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;user-select:none;-webkit-user-select:none;}
+body{background:#090d16;color:#e2e8f0;font-family:system-ui,-apple-system,sans-serif;text-align:center;padding:12px;overflow-x:hidden;}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding:8px 12px;background:rgba(255,255,255,0.05);border-radius:12px;border:1px solid rgba(255,255,255,0.1);}
+.title{font-size:1.05rem;font-weight:800;letter-spacing:1px;color:#38bdf8;}
+.badge{background:#10b981;color:#fff;font-size:0.7rem;padding:3px 8px;border-radius:999px;font-weight:700;}
+.video-wrap{position:relative;width:100%;max-width:540px;margin:0 auto 12px;border-radius:14px;overflow:hidden;background:#000;border:2px solid #1e293b;aspect-ratio:4/3;box-shadow:0 8px 24px rgba(0,0,0,0.5);}
+.video-wrap img{width:100%;height:100%;object-fit:cover;display:block;}
+.hud-btn-row{display:flex;gap:8px;justify-content:center;margin-bottom:12px;flex-wrap:wrap;}
+.btn{background:#1e293b;color:#f8fafc;border:1px solid rgba(255,255,255,0.15);padding:10px 18px;border-radius:10px;font-size:0.9rem;font-weight:700;cursor:pointer;touch-action:manipulation;transition:all .15s;}
+.btn:active,.btn.active{transform:scale(0.95);background:#0284c7;}
+.btn-horn{background:rgba(239,68,68,0.2);border-color:#ef4444;color:#fca5a5;}
+.btn-horn:active,.btn-horn.active{background:#ef4444;color:#fff;}
+.btn-dash{background:rgba(14,165,233,0.15);border-color:#0ea5e9;color:#38bdf8;text-decoration:none;display:inline-block;}
+.controls{display:grid;grid-template-columns:repeat(3,75px);grid-template-rows:repeat(3,75px);gap:10px;justify-content:center;margin:10px auto 16px;}
+.ctrl-btn{background:#1e293b;border:2px solid #334155;border-radius:16px;color:#fff;font-size:1.6rem;display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:manipulation;}
+.ctrl-btn:active,.ctrl-btn.pressed{background:#0284c7;border-color:#38bdf8;box-shadow:0 0 15px rgba(56,189,248,0.5);}
+.ctrl-stop{background:#dc2626;border-color:#ef4444;font-size:1rem;font-weight:900;}
+.ctrl-stop:active{background:#b91c1c;}
+.slider-wrap{max-width:320px;margin:0 auto 14px;background:rgba(255,255,255,0.04);padding:8px 14px;border-radius:10px;}
+.slider-wrap label{display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:4px;color:#94a3b8;}
+input[type=range]{width:100%;accent-color:#0284c7;}
+</style>
+</head>
+<body>
+<div class="header">
+  <span class="title">🏎️ FPV CAR DIRECT</span>
+  <span class="badge" id="statBadge">CONNECTED</span>
+</div>
+<div class="video-wrap">
+  <img id="stream" src="" onerror="if(!this.src.includes('/capture'))this.src='/capture?t='+Date.now()" alt="Camera Feed" />
+</div>
+<div class="hud-btn-row">
+  <button class="btn btn-horn" id="hornBtn" onpointerdown="sendHorn(1)" onpointerup="sendHorn(0)" onpointerleave="sendHorn(0)">📢 HORN</button>
+  <button class="btn" id="lightBtn" onclick="toggleLight()">💡 LIGHT</button>
+  <a class="btn btn-dash" id="dashLink" href="http://sumitrathor.rf.gd/FPV_Car/">🌐 FULL DASHBOARD</a>
+</div>
+<div class="slider-wrap">
+  <label><span>⚡ MOTOR SPEED</span><span id="spdVal">255</span></label>
+  <input type="range" min="100" max="255" value="255" oninput="setSpeed(this.value)" />
+</div>
+<div class="controls">
+  <div></div>
+  <button class="ctrl-btn" onpointerdown="sendDir('F')" onpointerup="sendDir('S')">▲</button>
+  <div></div>
+  <button class="ctrl-btn" onpointerdown="sendDir('L')" onpointerup="sendDir('S')">◀</button>
+  <button class="ctrl-btn ctrl-stop" onclick="sendDir('S')">STOP</button>
+  <button class="ctrl-btn" onpointerdown="sendDir('R')" onpointerup="sendDir('S')">▶</button>
+  <div></div>
+  <button class="ctrl-btn" onpointerdown="sendDir('B')" onpointerup="sendDir('S')">▼</button>
+  <div></div>
+</div>
+<script>
+let lightOn=false;
+const myHost=window.location.hostname||'192.168.4.1';
+document.getElementById('stream').src='http://'+myHost+':81/stream';
+document.getElementById('dashLink').href='http://sumitrathor.rf.gd/FPV_Car/?car='+myHost;
+function sendReq(u){fetch(u,{mode:'no-cors'}).catch(()=>{new Image().src=u;});}
+function sendDir(d){sendReq('/cmd?dir='+d);}
+function sendHorn(v){sendReq('/horn?val='+v);document.getElementById('hornBtn').classList.toggle('active',v===1);}
+function toggleLight(){lightOn=!lightOn;sendReq('/flash?val='+(lightOn?1:0));document.getElementById('lightBtn').classList.toggle('active',lightOn);}
+function setSpeed(v){document.getElementById('spdVal').innerText=v;sendReq('/speed?fs='+v+'&bs='+v);}
+window.addEventListener('keydown',e=>{
+  if(e.repeat)return;
+  const k=e.key.toLowerCase();
+  if(k==='w'||k==='arrowup')sendDir('F');
+  else if(k==='s'||k==='arrowdown')sendDir('B');
+  else if(k==='a'||k==='arrowleft')sendDir('L');
+  else if(k==='d'||k==='arrowright')sendDir('R');
+  else if(k===' '||k==='escape')sendDir('S');
+  else if(k==='h')sendHorn(1);
+});
+window.addEventListener('keyup',e=>{
+  const k=e.key.toLowerCase();
+  if(['w','s','a','d','arrowup','arrowdown','arrowleft','arrowright'].includes(k))sendDir('S');
+  else if(k==='h')sendHorn(0);
+});
+</script>
+</body>
+</html>)rawliteral";
+
+void handleRoot() {
+  handleCORS();
+  server.send_P(200, "text/html", PAGE_INDEX);
+}
+
 void setup() {
   Serial.begin(115200);
   pinMode(FLASH_LED_PIN, OUTPUT);
   digitalWrite(FLASH_LED_PIN, LOW);
 
+  delay(800);
   startCamera();
+  delay(200);
+
+  // ESP32 Master triggers the Boot Self-Test (Buzzer + Motor Kick) on Arduino!
+  Serial.println();
+  Serial.println("Z:BOOT");
+  Serial.flush();
   flashBlink(3, 120);
 
   prefs.begin("fpv_wifi", true);
@@ -371,13 +470,7 @@ void setup() {
     server.sendHeader("Location", "http://" + (isApMode ? WiFi.softAPIP().toString() : WiFi.localIP().toString()) + ":81/stream");
     server.send(302, "text/plain", "Redirecting");
   });
-  server.on("/", HTTP_GET, []() {
-    handleCORS();
-    String myIp = isApMode ? WiFi.softAPIP().toString() : WiFi.localIP().toString();
-    String target = "http://sumitrathor.rf.gd/FPV_Car/?car=" + myIp;
-    server.sendHeader("Location", target);
-    server.send(302, "text/html", "<html><head><meta http-equiv='refresh' content='0;url=" + target + "'></head><body><p>Redirecting to <a href='" + target + "'>FPV Car Dashboard</a>...</p></body></html>");
-  });
+  server.on("/", HTTP_GET, handleRoot);
   server.onNotFound([]() {
     handleCORS();
     server.send(200, "text/plain", "FPV Car Ready");
@@ -397,19 +490,8 @@ void loop() {
   if (isApMode) {
     dnsServer.processNextRequest();
   }
+  // Pure local execution with zero blocking network calls
   server.handleClient();
-
-  // Lightweight IP reporting heartbeat to InfinityFree (no heavy uploads!)
-  uint32_t now = millis();
-  static uint32_t lastHbAt = 0;
-  if (!isApMode && WiFi.status() == WL_CONNECTED && (now - lastHbAt >= 4000)) {
-    lastHbAt = now;
-    HTTPClient http;
-    http.begin("http://sumitrathor.rf.gd/FPV_Car/set.php?esp_hb=1&car_ip=" + WiFi.localIP().toString());
-    http.setTimeout(1000);
-    http.GET();
-    http.end();
-  }
-
   delay(2);
 }
+

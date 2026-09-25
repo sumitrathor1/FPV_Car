@@ -3,6 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <script>
+      // Browsers block local camera feeds and commands if loaded via HTTPS (Mixed Content)
+      // Automatically redirect to plain HTTP version so local streaming works 100%
+      if (window.location.protocol === 'https:' && (window.location.hostname.includes('rf.gd') || window.location.hostname.includes('infinityfree') || window.location.hostname.includes('epizy'))) {
+        window.location.replace('http://' + window.location.host + window.location.pathname + window.location.search);
+      }
+    </script>
     <title>FPV Car Remote Controller</title>
     
     <!-- PWA Manifest & App Shell -->
@@ -563,9 +570,16 @@
   <body class="mode-step">
     <div class="app-shell">
       <!-- HTTPS notice (Only shown if opened via HTTPS) -->
-      <div id="httpsWarning" class="alert py-1 px-3 mb-2 d-none justify-content-between align-items-center" style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); color: #fde68a; border-radius: 10px; font-size: 0.76rem;">
-        <span>💡 <strong>Tip:</strong> If camera stream appears blank, open via <a href="http://sumitrathor.rf.gd/FPV_Car/" style="color:#38bdf8; font-weight:700; text-decoration:underline;">HTTP Mode</a> for seamless direct streaming.</span>
-        <button type="button" class="btn-close btn-close-white ms-2" style="font-size:0.6rem;" onclick="this.parentElement.remove()"></button>
+      <div id="httpsWarning" class="alert p-2 mb-2 d-none justify-content-between align-items-center flex-wrap gap-2" style="background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; border-radius: 10px; font-size: 0.82rem;">
+        <div>
+          <span>⚠️ <strong>HTTPS Mode Active:</strong> Chrome/Edge block local camera streams over HTTPS!</span>
+          <br>
+          <span style="font-size:0.75rem; color:#cbd5e1;">Switch to HTTP Mode or open car directly for direct video feed:</span>
+        </div>
+        <div class="d-flex gap-2">
+          <a href="http://sumitrathor.rf.gd/FPV_Car/" class="btn btn-warning btn-sm text-dark fw-bold px-3 py-1 text-nowrap" style="border-radius:999px; font-size:0.75rem;">👉 Open in HTTP Mode</a>
+          <a id="httpsDirectCarLink" href="http://172.26.192.222/" class="btn btn-outline-info btn-sm text-nowrap px-2 py-1" style="border-radius:999px; font-size:0.75rem;">🚗 Open Car Directly</a>
+        </div>
       </div>
 
       <!-- Header -->
@@ -864,6 +878,8 @@
         // 2. If directly opened via car's IP (e.g. 192.168.4.1 or car's local IP), use current host
         carHost = window.location.hostname;
         localStorage.setItem("fpv_car_host", carHost);
+      } else if (!carHost) {
+        carHost = "172.26.192.222";
       }
 
       let driveMode = 0; // 0 = STEP, 1 = HOLD, 2 = LATCH
@@ -995,6 +1011,8 @@
         failedPings = 0;
         setOnlineState(true);
         if (isCamOn) startVideoStream();
+        const directLink = document.getElementById("httpsDirectCarLink");
+        if (directLink) directLink.href = `http://${carHost}/`;
       }
 
       function sendCarRequest(path) {
