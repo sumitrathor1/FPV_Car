@@ -578,7 +578,7 @@
         </div>
         <div class="d-flex gap-2">
           <a href="http://sumitrathor.rf.gd/FPV_Car/" class="btn btn-warning btn-sm text-dark fw-bold px-3 py-1 text-nowrap" style="border-radius:999px; font-size:0.75rem;">👉 Open in HTTP Mode</a>
-          <a id="httpsDirectCarLink" href="http://172.26.192.222/" class="btn btn-outline-info btn-sm text-nowrap px-2 py-1" style="border-radius:999px; font-size:0.75rem;">🚗 Open Car Directly</a>
+          <a id="httpsDirectCarLink" href="http://10.160.144.222/" class="btn btn-outline-info btn-sm text-nowrap px-2 py-1" style="border-radius:999px; font-size:0.75rem;">🚗 Open Car Directly</a>
         </div>
       </div>
 
@@ -879,7 +879,7 @@
         carHost = window.location.hostname;
         localStorage.setItem("fpv_car_host", carHost);
       } else if (!carHost) {
-        carHost = "172.26.192.222";
+        carHost = "10.160.144.222";
       }
 
       let driveMode = 0; // 0 = STEP, 1 = HOLD, 2 = LATCH
@@ -911,8 +911,8 @@
       }
 
       function promptCarIp() {
-        const current = carHost || "192.168.4.1";
-        const newIp = prompt("Enter Car IP Address (e.g. 192.168.4.1 or router IP):", current);
+        const current = carHost || "10.160.144.222";
+        const newIp = prompt("Enter Car IP Address (e.g. 10.160.144.222 or router IP):", current);
         if (newIp && newIp.trim()) {
           connectToHost(newIp.trim());
         }
@@ -980,6 +980,7 @@
         const primaryCandidates = [
           carHost,
           localStorage.getItem("fpv_car_host"),
+          "10.160.144.222",
           "192.168.4.1",
           "172.26.192.222",
           "fpvcar.local"

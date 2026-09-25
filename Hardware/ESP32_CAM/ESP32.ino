@@ -57,12 +57,6 @@ int clampSpeed(long val) {
 bool startCamera() {
   if (cameraReady) return true;
 
-  pinMode(PWDN_GPIO_NUM, OUTPUT);
-  digitalWrite(PWDN_GPIO_NUM, HIGH);
-  delay(100);
-  digitalWrite(PWDN_GPIO_NUM, LOW);
-  delay(150);
-
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
   config.ledc_timer   = LEDC_TIMER_0;
@@ -89,21 +83,36 @@ bool startCamera() {
     config.frame_size   = FRAMESIZE_VGA;
     config.jpeg_quality = 12;
     config.fb_count     = 2;
-    config.grab_mode    = CAMERA_GRAB_LATEST;
   } else {
     config.frame_size   = FRAMESIZE_QVGA;
     config.jpeg_quality = 14;
     config.fb_count     = 1;
-    config.grab_mode    = CAMERA_GRAB_WHEN_EMPTY;
   }
 
+  // Attempt 1: Standard AI-Thinker configuration (20MHz XCLK, PWDN 32)
   esp_err_t err = esp_camera_init(&config);
+
+  // Attempt 2: 10MHz XCLK (fixes clock noise & timing on budget OV2640 sensors)
   if (err != ESP_OK) {
-    Serial.printf("[CAMERA] Retry with 10MHz XCLK... (err 0x%x)\n", err);
-    digitalWrite(PWDN_GPIO_NUM, HIGH);
-    delay(100);
-    digitalWrite(PWDN_GPIO_NUM, LOW);
-    delay(150);
+    Serial.printf("[CAMERA] Retry with 10MHz XCLK... (0x%x)\n", err);
+    config.xclk_freq_hz = 10000000;
+    config.frame_size   = FRAMESIZE_QVGA;
+    config.fb_count     = 1;
+    err = esp_camera_init(&config);
+  }
+
+  // Attempt 3: Clone board PWDN bypass (pin_pwdn = -1)
+  if (err != ESP_OK) {
+    Serial.printf("[CAMERA] Retry with PWDN bypass... (0x%x)\n", err);
+    config.pin_pwdn     = -1;
+    config.xclk_freq_hz = 20000000;
+    err = esp_camera_init(&config);
+  }
+
+  // Attempt 4: Clone board PWDN bypass + 10MHz XCLK
+  if (err != ESP_OK) {
+    Serial.printf("[CAMERA] Retry with PWDN bypass + 10MHz... (0x%x)\n", err);
+    config.pin_pwdn     = -1;
     config.xclk_freq_hz = 10000000;
     config.frame_size   = FRAMESIZE_QVGA;
     config.fb_count     = 1;
@@ -125,7 +134,7 @@ bool startCamera() {
     return true;
   } else {
     cameraReady = false;
-    Serial.printf("[CAMERA] Probe failed (0x%x)\n", err);
+    Serial.printf("[CAMERA] Probe failed (0x%x) -> Please check camera ribbon cable seating!\n", err);
     return false;
   }
 }
