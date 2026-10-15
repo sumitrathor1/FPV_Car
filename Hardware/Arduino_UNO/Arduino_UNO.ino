@@ -222,7 +222,7 @@ void processCommand(const String& input) {
     playWifiOkChime();
     return;
   }
-  if (text.startsWith("Z:AP_MODE")) {
+  if (text.startsWith("Z:AP")) {
     playApModeChime();
     return;
   }

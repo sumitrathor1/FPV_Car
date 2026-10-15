@@ -81,6 +81,12 @@ void playApReadyChime() {
   }
 }
 
+void playWifiConnectedChime() {
+  buzzerTone(1800, 100);
+  delay(60);
+  buzzerTone(2600, 180);
+}
+
 // ==========================================
 // Motor Controls
 // ==========================================
@@ -165,6 +171,10 @@ void parseCommand(String cmd) {
   }
   if (cmd == "Z:AP") {
     playApReadyChime();
+    return;
+  }
+  if (cmd == "Z:WIFI_OK") {
+    playWifiConnectedChime();
     return;
   }
   if (cmd.startsWith("FSP:")) {
