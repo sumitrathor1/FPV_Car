@@ -23,8 +23,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-WEB_DIR = BASE_DIR / "FPV_Car" / "web"
+WEB_DIR = BASE_DIR / "Frontend"
+if not WEB_DIR.exists():
+    WEB_DIR = BASE_DIR / "FPV_Car" / "web"
 RECORDINGS_DIR = BASE_DIR / "recordings"
 RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
 STATE_FILE = BASE_DIR / "state.json"
