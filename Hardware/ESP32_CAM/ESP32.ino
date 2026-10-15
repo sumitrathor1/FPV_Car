@@ -391,7 +391,7 @@ input[type=range]{width:100%;accent-color:#0284c7;}
 <div class="hud-btn-row">
   <button class="btn btn-horn" id="hornBtn" onpointerdown="sendHorn(1)" onpointerup="sendHorn(0)" onpointerleave="sendHorn(0)">📢 HORN</button>
   <button class="btn" id="lightBtn" onclick="toggleLight()">💡 LIGHT</button>
-  <a class="btn btn-dash" id="dashLink" href="http://sumitrathor.rf.gd/FPV_Car/">🌐 FULL DASHBOARD</a>
+  <a class="btn btn-dash" id="dashLink" href="http://172.198.73.188/">🌐 FULL DASHBOARD</a>
 </div>
 <div class="slider-wrap">
   <label><span>⚡ MOTOR SPEED</span><span id="spdVal">255</span></label>
@@ -426,7 +426,7 @@ stImg.onerror=function(){
 stImg.onload=function(){
   if(snapTimer){clearInterval(snapTimer);snapTimer=null;}
 };
-document.getElementById('dashLink').href='http://sumitrathor.rf.gd/FPV_Car/?car='+myHost;
+document.getElementById('dashLink').href='http://172.198.73.188/?car='+myHost;
 function sendReq(u){fetch(u,{mode:'no-cors'}).catch(()=>{new Image().src=u;});}
 function sendDir(d){sendReq('/cmd?dir='+d);}
 function sendHorn(v){sendReq('/horn?val='+v);document.getElementById('hornBtn').classList.toggle('active',v===1);}
