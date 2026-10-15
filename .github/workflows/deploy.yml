@@ -25,7 +25,7 @@ jobs:
           username: ${{ secrets.FTP_USER }}
           password: ${{ secrets.FTP_PASSWORD }}
           server-dir: /htdocs/FPV_Car/
-          local-dir: ./FPV_Car/web/
+          local-dir: ./Frontend/
           protocol: ftp
           port: 21
           dangerous-clean-slate: false

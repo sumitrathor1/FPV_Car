@@ -16,7 +16,7 @@ fi
 
 chmod 755 /home/azureuser
 
-cd "$APP_DIR/server"
+cd "$APP_DIR/Backend"
 
 # Create virtualenv if not exists
 if [ ! -d "venv" ]; then

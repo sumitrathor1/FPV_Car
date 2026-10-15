@@ -29,5 +29,5 @@ jobs:
           key: ${{ secrets.AZURE_VM_SSH_KEY }}
           port: 22
           script: |
-            cd /home/azureuser/FPV_Car/server
+            cd /home/azureuser/FPV_Car/Backend
             ./deploy.sh

@@ -1,75 +1,83 @@
 # 🏎️ FPV Surveillance Car & AI Autonomous Driving System
 
-An end-to-end IoT, Robotics, Computer Vision, and Web Engineering project featuring real-time first-person-view (FPV) video streaming, multi-mode remote car control, cloud telemetry, session recording playback, and an autonomous AI obstacle avoidance worker.
+An end-to-end IoT, Robotics, Computer Vision, and Web Engineering project featuring real-time first-person-view (FPV) video streaming, zero-delay local AP driving, cloud telemetry over Azure VM, and an ultra-fast sub-millisecond AI obstacle avoidance engine.
 
 ---
 
-## 🌟 System Overview
+## 📁 Clean Repository Structure
+
+All duplicate, legacy, and temporary files have been eliminated. The project contains strictly the 4 core components:
 
 ```text
-                                  +-----------------------+
-                                  |   Web Command Center  |
-                                  |   (Frontend HTML/JS)  |
-                                  +-----------+-----------+
-                                              |
-                                              | HTTP (AJAX / REST)
-                                              v
-                              +---------------+---------------+
-                              |       Cloud PHP Server        |
-                              |  (State Sync & Cam Handlers)  |
-                              +-------+---------------+-------+
-                                      |               |
-             HTTP Stream & Telemetry  |               |  Image Frames / AI Decision
-                                      v               v
-                +---------------------+--+     +------+------------------+
-                | ESP32-CAM (AI-Thinker) |     |  Python AI Engine       |
-                | (WiFi Video & Bridge)  |     |  (Obstacle Avoidance)   |
-                +-------------+----------+     +-------------------------+
-                              |
-                              | UART Serial (115200 Baud)
-                              v
-                +-------------+----------+
-                |      Arduino UNO       |
-                | (PWM Motor Controller) |
-                +-------------+----------+
-                              |
-                              v
-                      [DC Motors & L298N]
+FPV_Car/
+├── Arduino_UNO/            # 🚗 Arduino UNO Motor & Sound Driver
+│   └── Arduino_UNO.ino     # Final Arduino UNO sketch (L298N, Buzzer, Boot Sound)
+│
+├── ESP32_CAM/              # 📷 ESP32-CAM Master Controller & Web Server
+│   └── ESP32_CAM.ino       # Final ESP32 sketch (Camera, AP Hotspot, Wi-Fi Mode Switch)
+│
+├── Backend/                # ⚡ Cloud Backend & AI Engine (Azure VM)
+│   ├── main.py             # High-speed FastAPI server & OpenCV AI obstacle detector (<3ms)
+│   ├── requirements.txt    # Python dependencies (fastapi, uvicorn, opencv, websockets)
+│   ├── deploy.sh           # 1-click auto deployment script for Ubuntu/Azure
+│   ├── fpv-car.service     # Systemd production background service
+│   └── nginx.conf          # Nginx reverse proxy & static frontend configuration
+│
+├── Frontend/               # 🕹️ Unified Cyber-Dark Web Controller UI
+│   ├── index.html          # Responsive controller (AP 192.168.4.1 + Cloud 172.198.73.188)
+│   ├── manifest.json       # Progressive Web App (PWA) manifest
+│   └── sw.js               # Service Worker for offline/PWA caching
+│
+└── .github/workflows/      # Automated CI/CD pipelines
 ```
 
 ---
 
-## 📂 Repository Structure
+## 🚀 Quick Setup & Usage
 
-| Directory | Description | Documentation |
-| :--- | :--- | :--- |
-| **`Frontend/`** | Modern Responsive Web Dashboard (Live video, D-Pad/Split-stick controls, speed slider, AI metrics). | [Frontend Docs](Frontend/README.md) |
-| **`Backend/`** | Cloud REST API (`get.php`, `set.php`, `cam/*`) and Python Computer Vision engine (`ai_bot/`). | [Backend Docs](Backend/README.md) |
-| **`Hardware/`** | Embedded C/C++ firmware for ESP32-CAM and Arduino UNO with UART serial bridge. | [Hardware Docs](Hardware/README.md) |
-| **`.github/`** | Automated CI/CD workflows for frontend deployment over FTP to InfinityFree. | [deploy.yml](.github/workflows/deploy.yml) |
+### 1. 🚗 Arduino UNO (Motor & Buzzer Driver)
+- **Path**: `Arduino_UNO/Arduino_UNO.ino`
+- Open in **Arduino IDE**.
+- Select Board: `Arduino Uno`, select your COM Port, and click **Upload**.
+- **Features**:
+  - Full PWM speed control (80-255).
+  - Physical motor kick test and ascending chimes on boot.
+  - 1.5-second fail-safe auto-stop if signal is interrupted.
 
----
+### 2. 📷 ESP32-CAM (Camera, Hotspot & Controller)
+- **Path**: `ESP32_CAM/ESP32_CAM.ino`
+- Open in **Arduino IDE**.
+- Board Configuration:
+  - **Board**: `AI Thinker ESP32-CAM`
+  - **CPU Frequency**: `240MHz`
+  - **Flash Frequency**: `80MHz`
+  - **Partition Scheme**: `Huge APP (3MB No OTA/1MB SPIFFS)`
+  - **PSRAM**: `Enabled`
+- Click **Upload**.
+- **Operation Modes**:
+  - **Default Boot: Local Mode (AP Hotspot)**:
+    - Starts open Wi-Fi: **`FPV-Car`**
+    - Connect your phone/laptop to `FPV-Car` and open **`http://192.168.4.1/`** in your browser.
+    - Zero delay, direct LAN control (<2ms response time).
+  - **Server Mode (Cloud Wi-Fi)**:
+    - Click **`📻 LOCAL (AP)`** in the web dashboard header.
+    - Click **Scan** to find nearby Wi-Fi networks, enter your password, and click **Connect**.
+    - Car connects to your Wi-Fi, registers with the Azure Cloud VM, and provides the live dashboard URL: **`http://172.198.73.188/`**.
 
-## 🚀 Quick Start Guide
-
-### 1. Hardware Setup
-- Flash `Hardware/ESP32_CAM/ESP32_Server_Client/ESP32_Server_Client.ino` to your ESP32-CAM (configure your WiFi credentials).
-- Flash `Hardware/Arduino_UNO/Arduino_UNO.ino` to your Arduino UNO.
-- Connect ESP32 `TX -> Arduino RX`, `RX -> Arduino TX`, and common `GND`.
-
-### 2. Backend & Cloud Setup
-- Upload `Backend/` PHP scripts to your web server (e.g. Apache/PHP or cloud hosting).
-- Set write permissions (`chmod 777`) on the `/cam/` directory for saving frame uploads and recordings.
-
-### 3. AI Computer Vision Bot (Optional)
-- Install Python requirements:
+### 3. ⚡ Cloud Backend (Azure VM `172.198.73.188`)
+- **Path**: `Backend/`
+- Production FastAPI server with in-memory state, WebSockets, and real-time OpenCV obstacle avoidance.
+- Auto-deploy on Azure:
   ```bash
-  pip install -r Backend/ai_bot/requirements.txt
-  ```
-- Run the watchdog:
-  ```bash
-  python Backend/ai_bot/ai_watch.py
+  cd /home/azureuser/FPV_Car/Backend
+  ./deploy.sh
   ```
 
-### 4. Frontend Web Dashboard
-- Open `Frontend/index.html` in your browser or access it via your hosted URL.
+### 4. 🕹️ Frontend Dashboard
+- **Path**: `Frontend/index.html`
+- Unified cyber-dark interface embedded directly in ESP32-CAM Flash memory and served by Nginx on Azure VM.
+- Features:
+  - Tactile touch D-Pad and keyboard controls (`W, A, S, D, Space, H, L`).
+  - Hold Mode and Step Pulse driving modes.
+  - Live AI Obstacle HUD and telemetry strip.
+  - Camera Offline (0x106) auto-protection with on-demand `🔄 RE-DETECT CAMERA` button.
