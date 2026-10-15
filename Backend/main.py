@@ -23,6 +23,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+BASE_DIR = Path(__file__).resolve().parent.parent
 WEB_DIR = BASE_DIR / "Frontend"
 if not WEB_DIR.exists():
     WEB_DIR = BASE_DIR / "FPV_Car" / "web"
