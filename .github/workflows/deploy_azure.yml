@@ -10,11 +10,19 @@ jobs:
   deploy-to-azure:
     runs-on: ubuntu-latest
     steps:
+      - name: Check Secret Configuration
+        id: check_key
+        run: |
+          if [ -z "${{ secrets.AZURE_VM_SSH_KEY }}" ]; then
+            echo "::warning::AZURE_VM_SSH_KEY is not configured in GitHub Secrets yet. Skipping auto-deploy step."
+            echo "configured=false" >> $GITHUB_OUTPUT
+          else
+            echo "configured=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Deploy to Azure VM via SSH
+        if: steps.check_key.outputs.configured == 'true'
         uses: appleboy/ssh-action@v1.0.3
-        if: env.HAS_SSH_KEY == 'true'
-        env:
-          HAS_SSH_KEY: ${{ secrets.AZURE_VM_SSH_KEY != '' }}
         with:
           host: ${{ secrets.AZURE_VM_HOST || '172.198.73.188' }}
           username: ${{ secrets.AZURE_VM_USER || 'azureuser' }}
