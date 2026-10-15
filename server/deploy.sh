@@ -14,6 +14,8 @@ else
     git reset --hard origin/main
 fi
 
+chmod 755 /home/azureuser
+
 cd "$APP_DIR/server"
 
 # Create virtualenv if not exists
