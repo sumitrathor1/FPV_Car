@@ -57,6 +57,13 @@ int clampSpeed(long val) {
 bool startCamera() {
   if (cameraReady) return true;
 
+  // Hardware power-cycle camera module on Pin 32
+  pinMode(PWDN_GPIO_NUM, OUTPUT);
+  digitalWrite(PWDN_GPIO_NUM, HIGH); // Power off
+  delay(120);
+  digitalWrite(PWDN_GPIO_NUM, LOW);  // Power on
+  delay(120);
+
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
   config.ledc_timer   = LEDC_TIMER_0;
@@ -80,11 +87,14 @@ bool startCamera() {
   config.pixel_format = PIXFORMAT_JPEG;
 
   if (psramFound()) {
-    config.frame_size   = FRAMESIZE_VGA;
+    config.frame_size   = FRAMESIZE_HVGA; // 480x320: Crisp + Ultra-low lag (<30ms)
     config.jpeg_quality = 12;
     config.fb_count     = 2;
+#ifdef CAMERA_GRAB_LATEST
+    config.grab_mode    = CAMERA_GRAB_LATEST;
+#endif
   } else {
-    config.frame_size   = FRAMESIZE_QVGA;
+    config.frame_size   = FRAMESIZE_QVGA; // 320x240
     config.jpeg_quality = 14;
     config.fb_count     = 1;
   }
@@ -92,8 +102,10 @@ bool startCamera() {
   // Attempt 1: Standard AI-Thinker configuration (20MHz XCLK, PWDN 32)
   esp_err_t err = esp_camera_init(&config);
 
-  // Attempt 2: 10MHz XCLK (fixes clock noise & timing on budget OV2640 sensors)
+  // Attempt 2: 10MHz XCLK (fixes timing & noise on budget OV2640 sensors)
   if (err != ESP_OK) {
+    esp_camera_deinit();
+    delay(50);
     Serial.printf("[CAMERA] Retry with 10MHz XCLK... (0x%x)\n", err);
     config.xclk_freq_hz = 10000000;
     config.frame_size   = FRAMESIZE_QVGA;
@@ -103,6 +115,8 @@ bool startCamera() {
 
   // Attempt 3: Clone board PWDN bypass (pin_pwdn = -1)
   if (err != ESP_OK) {
+    esp_camera_deinit();
+    delay(50);
     Serial.printf("[CAMERA] Retry with PWDN bypass... (0x%x)\n", err);
     config.pin_pwdn     = -1;
     config.xclk_freq_hz = 20000000;
@@ -111,6 +125,8 @@ bool startCamera() {
 
   // Attempt 4: Clone board PWDN bypass + 10MHz XCLK
   if (err != ESP_OK) {
+    esp_camera_deinit();
+    delay(50);
     Serial.printf("[CAMERA] Retry with PWDN bypass + 10MHz... (0x%x)\n", err);
     config.pin_pwdn     = -1;
     config.xclk_freq_hz = 10000000;
@@ -168,14 +184,21 @@ void streamTask(void* pvParameters) {
   while (true) {
     WiFiClient sClient = streamServer.available();
     if (sClient) {
+      if (!cameraReady) {
+        sClient.print("HTTP/1.1 503 Service Unavailable\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\nCamera Offline");
+        sClient.stop();
+        vTaskDelay(200 / portTICK_PERIOD_MS);
+        continue;
+      }
+
       // 1. Consume and clear incoming browser HTTP request headers
       unsigned long startWait = millis();
-      while (sClient.connected() && millis() - startWait < 400) {
+      while (sClient.connected() && millis() - startWait < 300) {
         if (sClient.available()) {
           String l = sClient.readStringUntil('\n');
           if (l == "\r" || l.length() == 0) break;
         } else {
-          vTaskDelay(5 / portTICK_PERIOD_MS);
+          vTaskDelay(2 / portTICK_PERIOD_MS);
         }
       }
 
@@ -187,16 +210,11 @@ void streamTask(void* pvParameters) {
                     "Pragma: no-cache\r\n"
                     "Connection: close\r\n\r\n");
 
-      // 3. Continuous frame loop
-      while (sClient.connected()) {
-        if (!cameraReady) {
-          vTaskDelay(100 / portTICK_PERIOD_MS);
-          continue;
-        }
-
+      // 3. Low-latency continuous frame streaming loop
+      while (sClient.connected() && cameraReady) {
         camera_fb_t* fb = esp_camera_fb_get();
         if (!fb) {
-          vTaskDelay(10 / portTICK_PERIOD_MS);
+          vTaskDelay(5 / portTICK_PERIOD_MS);
           continue;
         }
 
@@ -204,24 +222,15 @@ void streamTask(void* pvParameters) {
                       "Content-Type: image/jpeg\r\n"
                       "Content-Length: " + String(fb->len) + "\r\n\r\n");
 
-        // Write in safe 1024-byte chunks to prevent TCP socket overflow
-        size_t rem = fb->len;
-        uint8_t* p = fb->buf;
-        while (rem > 0 && sClient.connected()) {
-          size_t chunk = rem > 1024 ? 1024 : rem;
-          size_t w = sClient.write(p, chunk);
-          if (w == 0) break;
-          p += w;
-          rem -= w;
-        }
-
+        // Direct full-buffer write for maximum network throughput
+        sClient.write((const uint8_t*)fb->buf, fb->len);
         sClient.print("\r\n");
         esp_camera_fb_return(fb);
-        vTaskDelay(20 / portTICK_PERIOD_MS);
+        vTaskDelay(5 / portTICK_PERIOD_MS);
       }
       sClient.stop();
     }
-    vTaskDelay(25 / portTICK_PERIOD_MS);
+    vTaskDelay(20 / portTICK_PERIOD_MS);
   }
 }
 
@@ -385,8 +394,13 @@ input[type=range]{width:100%;accent-color:#0284c7;}
   <span class="title">🏎️ FPV CAR DIRECT</span>
   <span class="badge" id="statBadge">CONNECTED</span>
 </div>
-<div class="video-wrap">
-  <img id="stream" src="" onerror="if(!this.src.includes('/capture'))this.src='/capture?t='+Date.now()" alt="Camera Feed" />
+<div class="video-wrap" style="position:relative;">
+  <img id="stream" src="" alt="Camera Feed" />
+  <div id="camAlert" style="display:none;position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.92);flex-direction:column;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;">
+    <div style="font-size:2rem;margin-bottom:6px;">📷</div>
+    <div style="font-weight:700;color:#f87171;font-size:0.95rem;margin-bottom:4px;">Camera Sensor Offline (0x106)</div>
+    <div style="font-size:0.75rem;color:#94a3b8;line-height:1.4;">Check ribbon cable seating & 5V power.<br><b style="color:#38bdf8;">Controls below are fully responsive!</b></div>
+  </div>
 </div>
 <div class="hud-btn-row">
   <button class="btn btn-horn" id="hornBtn" onpointerdown="sendHorn(1)" onpointerup="sendHorn(0)" onpointerleave="sendHorn(0)">📢 HORN</button>
@@ -412,22 +426,42 @@ input[type=range]{width:100%;accent-color:#0284c7;}
 let lightOn=false;
 const myHost=window.location.hostname||'192.168.4.1';
 const stImg=document.getElementById('stream');
-stImg.src='http://'+myHost+':81/stream';
-let snapTimer=null;
+const camAlert=document.getElementById('camAlert');
+
+fetch('/status').then(r=>r.json()).then(s=>{
+  if(!s.cam){
+    camAlert.style.display='flex';
+  } else {
+    camAlert.style.display='none';
+    stImg.src='http://'+myHost+':81/stream';
+  }
+}).catch(()=>{
+  stImg.src='http://'+myHost+':81/stream';
+});
+
+let snapPolling=false;
 stImg.onerror=function(){
-  if(!snapTimer){
-    snapTimer=setInterval(()=>{
+  if(!snapPolling){
+    snapPolling=true;
+    function pollFrame(){
       const tmp=new Image();
-      tmp.onload=()=>{stImg.src=tmp.src;};
+      tmp.onload=()=>{
+        stImg.src=tmp.src;
+        camAlert.style.display='none';
+        setTimeout(pollFrame, 40);
+      };
+      tmp.onerror=()=>{
+        camAlert.style.display='flex';
+        // Wait 3 seconds on failure so we NEVER flood the ESP32 server!
+        setTimeout(pollFrame, 3000);
+      };
       tmp.src='http://'+myHost+'/capture?t='+Date.now();
-    },100);
+    }
+    pollFrame();
   }
 };
-stImg.onload=function(){
-  if(snapTimer){clearInterval(snapTimer);snapTimer=null;}
-};
 document.getElementById('dashLink').href='http://172.198.73.188/?car='+myHost;
-function sendReq(u){fetch(u,{mode:'no-cors'}).catch(()=>{new Image().src=u;});}
+function sendReq(u){fetch(u,{mode:'no-cors',keepalive:true,cache:'no-store'}).catch(()=>{new Image().src=u;});}
 function sendDir(d){sendReq('/cmd?dir='+d);}
 function sendHorn(v){sendReq('/horn?val='+v);document.getElementById('hornBtn').classList.toggle('active',v===1);}
 function toggleLight(){lightOn=!lightOn;sendReq('/flash?val='+(lightOn?1:0));document.getElementById('lightBtn').classList.toggle('active',lightOn);}

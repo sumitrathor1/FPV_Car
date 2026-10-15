@@ -922,19 +922,20 @@
         }
       }
 
-      // Automatically sync car IP from InfinityFree get.php
-      function syncCarIpFromBackend() {
-        fetch(`./get.php?t=${Date.now()}`)
-          .then(r => r.json())
-          .then(data => {
-            if (data && data.car_ip && data.car_ip.length >= 7) {
-              if (carHost !== data.car_ip) {
-                console.log("[CAR SYNC] Found Car IP from backend:", data.car_ip);
-                connectToHost(data.car_ip);
-              }
+      // Automatically sync car IP from backend get.php
+      async function syncCarIpFromBackend() {
+        try {
+          const res = await fetch(`./get.php?t=${Date.now()}`);
+          const data = await res.json();
+          if (data && data.car_ip && data.car_ip.length >= 7) {
+            if (carHost !== data.car_ip) {
+              console.log("[CAR SYNC] Found Car IP from backend:", data.car_ip);
+              connectToHost(data.car_ip);
             }
-          })
-          .catch(() => {});
+            return data.car_ip;
+          }
+        } catch (e) {}
+        return null;
       }
 
       function probeHost(host, timeoutMs = 700) {
@@ -978,15 +979,16 @@
         setSearchingState();
 
         // 1. Sync from backend get.php first (gives exact IP reported by car)
-        syncCarIpFromBackend();
+        const cloudCarIp = await syncCarIpFromBackend();
 
         // 2. Primary candidates
         const primaryCandidates = [
+          cloudCarIp,
           carHost,
           localStorage.getItem("fpv_car_host"),
+          "10.172.34.222",
           "10.160.144.222",
           "192.168.4.1",
-          "172.26.192.222",
           "fpvcar.local"
         ].filter(Boolean);
 
@@ -1204,34 +1206,40 @@
         };
 
         liveCam.onerror = () => {
-          // If port 81 stream fails, immediately start high-speed capture polling fallback
+          // If port 81 stream fails, start sequential low-latency capture polling
           if (!captureIntervalTimer) {
-            console.warn("[VIDEO] Port 81 stream failed, starting continuous /capture fallback...");
-            captureIntervalTimer = setInterval(() => {
-              if (!isCamOn || !carHost) {
-                clearInterval(captureIntervalTimer);
-                captureIntervalTimer = null;
-                return;
-              }
+            console.warn("[VIDEO] Port 81 stream failed, starting sequential /capture fallback...");
+            captureIntervalTimer = true;
+
+            function pollFrame() {
+              if (!isCamOn || !carHost || !captureIntervalTimer) return;
               const tmp = new Image();
               tmp.onload = () => {
                 liveCam.src = tmp.src;
                 videoPlaceholder.classList.remove("active");
                 liveCam.style.display = "block";
                 setOnlineState(true);
+                // Trigger next frame only after previous renders successfully
+                setTimeout(pollFrame, 40);
+              };
+              tmp.onerror = () => {
+                // If capture fails (camera offline), back off for 3 seconds to NEVER flood the car
+                setTimeout(pollFrame, 3000);
               };
               tmp.src = `http://${carHost}/capture?t=${Date.now()}`;
-            }, 90);
+            }
+
+            pollFrame();
           }
 
-          // Retry port 81 native stream after 4 seconds
+          // Retry port 81 native stream after 5 seconds
+          clearTimeout(streamRetryTimer);
           streamRetryTimer = setTimeout(() => {
             if (isCamOn && carHost) {
-              clearInterval(captureIntervalTimer);
               captureIntervalTimer = null;
               startVideoStream();
             }
-          }, 4000);
+          }, 5000);
         };
       }
 
