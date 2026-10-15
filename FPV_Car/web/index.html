@@ -1,1728 +1,791 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <script>
-      // Browsers block local camera feeds and commands if loaded via HTTPS (Mixed Content)
-      // Automatically redirect to plain HTTP version so local streaming works 100%
-      if (window.location.protocol === 'https:' && (window.location.hostname.includes('rf.gd') || window.location.hostname.includes('infinityfree') || window.location.hostname.includes('epizy'))) {
-        window.location.replace('http://' + window.location.host + window.location.pathname + window.location.search);
-      }
-    </script>
-    <title>FPV Car Remote Controller</title>
-    
-    <!-- PWA Manifest & App Shell -->
-    <link rel="manifest" href="manifest.json" />
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%23090d16' stroke='%2300e5ff' stroke-width='6'/%3E%3Cpolygon points='35,25 75,50 35,75' fill='%2310b981'/%3E%3C/svg%3E" />
-    
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#090d16" />
+  <title>🏎️ FPV Car Cloud Controller</title>
+  <style>
+    :root {
+      --bg: #080c14;
+      --card-bg: rgba(15, 23, 42, 0.75);
+      --border: rgba(255, 255, 255, 0.1);
+      --primary: #00f2fe;
+      --primary-glow: rgba(0, 242, 254, 0.4);
+      --accent: #4facfe;
+      --danger: #f43f5e;
+      --danger-glow: rgba(244, 63, 94, 0.4);
+      --success: #10b981;
+      --warning: #f59e0b;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+    }
 
-    <style>
-      :root {
-        --bg-dark: #090d16;
-        --card-bg: rgba(18, 24, 38, 0.85);
-        --card-border: rgba(255, 255, 255, 0.08);
-        --accent-cyan: #00e5ff;
-        --accent-emerald: #10b981;
-        --accent-amber: #f59e0b;
-        --accent-purple: #a855f7;
-        --accent-rose: #f43f5e;
-        --text-primary: #f8fafc;
-        --text-secondary: #94a3b8;
-        --btn-surface: #1e293b;
-        --btn-border: #334155;
-      }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
 
-      * {
-        box-sizing: border-box;
-        -webkit-tap-highlight-color: transparent;
-      }
+    body {
+      background: var(--bg);
+      background-image: radial-gradient(circle at 50% 0%, rgba(0, 242, 254, 0.08) 0%, transparent 70%);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px;
+    }
 
-      html, body {
-        user-select: none;
-        -webkit-user-select: none;
-        touch-action: manipulation;
-        background-color: var(--bg-dark);
-        color: var(--text-primary);
-        font-family: 'Plus Jakarta Sans', sans-serif;
-        min-height: 100vh;
-        overflow-x: hidden;
-      }
+    .app-container {
+      width: 100%;
+      max-width: 900px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
 
-      body::before {
-        content: '';
-        position: fixed;
-        top: 0;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 100vw;
-        height: 100vh;
-        background: radial-gradient(circle at 50% 0%, rgba(0, 229, 255, 0.08) 0%, transparent 60%),
-                    radial-gradient(circle at 100% 100%, rgba(16, 185, 129, 0.05) 0%, transparent 50%);
-        pointer-events: none;
-        z-index: -1;
-      }
+    /* Header */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      padding: 8px 14px;
+      border-radius: 14px;
+      backdrop-filter: blur(10px);
+    }
 
-      .app-shell {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 0.75rem;
-      }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      color: var(--primary);
+    }
 
-      @media (min-width: 768px) {
-        .app-shell {
-          padding: 1.25rem;
-        }
-      }
+    .badge-group {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
 
-      /* Top Navbar */
-      .top-navbar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        background: var(--card-bg);
-        border: 1px solid var(--card-border);
-        border-radius: 14px;
-        padding: 0.6rem 1rem;
-        backdrop-filter: blur(12px);
-        margin-bottom: 0.85rem;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-      }
+    .badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
 
-      .brand-title {
-        font-weight: 800;
-        font-size: 1.1rem;
-        letter-spacing: -0.02em;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin: 0;
-      }
+    .badge.online {
+      background: rgba(16, 185, 129, 0.2);
+      border-color: var(--success);
+      color: #34d399;
+    }
 
-      .brand-title span {
-        color: var(--accent-cyan);
-      }
+    .badge.offline {
+      background: rgba(244, 63, 94, 0.2);
+      border-color: var(--danger);
+      color: #fb7185;
+    }
 
-      .live-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.4rem;
-        background: rgba(16, 185, 129, 0.12);
-        color: #34d399;
-        border: 1px solid rgba(16, 185, 129, 0.3);
-        padding: 0.25rem 0.65rem;
-        border-radius: 999px;
-        font-size: 0.75rem;
-        font-weight: 700;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-      }
+    /* Main Grid */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
 
-      .pulse-dot {
-        width: 7px;
-        height: 7px;
-        border-radius: 50%;
-        background-color: var(--accent-emerald);
-        box-shadow: 0 0 8px var(--accent-emerald);
-        animation: pulse 1.6s infinite;
+    @media (min-width: 768px) {
+      .dashboard-grid {
+        grid-template-columns: 1.15fr 1fr;
       }
+    }
 
-      @keyframes pulse {
-        0%, 100% { opacity: 1; transform: scale(1); }
-        50% { opacity: 0.4; transform: scale(0.85); }
-      }
+    /* Video Section */
+    .video-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
 
+    .video-wrapper {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4/3;
+      background: #000;
+      border: 2px solid #1e293b;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+    }
 
+    .video-wrapper img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
 
-      /* Remote Cards */
-      .remote-card {
-        background: var(--card-bg);
-        border: 1px solid var(--card-border);
-        border-radius: 16px;
-        backdrop-filter: blur(16px);
-        padding: 1rem;
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-      }
+    /* AI Overlay Banner */
+    .ai-hud-overlay {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      right: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+    }
 
-      /* Video Stage */
-      .video-viewport {
-        position: relative;
-        width: 100%;
-        background: #000;
-        border-radius: 12px;
-        overflow: hidden;
-        aspect-ratio: 16 / 9;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-      }
+    .ai-pill {
+      font-size: 0.7rem;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 6px;
+      backdrop-filter: blur(8px);
+      letter-spacing: 0.5px;
+    }
 
-      .video-viewport img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
-      }
+    .ai-pill.clear {
+      background: rgba(16, 185, 129, 0.7);
+      color: #fff;
+    }
 
-      .video-overlay-info {
-        position: absolute;
-        top: 8px;
-        left: 8px;
-        right: 8px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        pointer-events: none;
-        z-index: 5;
-      }
+    .ai-pill.obstacle {
+      background: rgba(244, 63, 94, 0.85);
+      color: #fff;
+      animation: pulseAlert 1s infinite alternate;
+    }
 
-      .osd-badge {
-        background: rgba(0, 0, 0, 0.65);
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        border-radius: 6px;
-        padding: 2px 8px;
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.72rem;
-        color: #e2e8f0;
-        backdrop-filter: blur(4px);
-      }
+    .ai-pill.idle {
+      background: rgba(15, 23, 42, 0.75);
+      color: var(--text-muted);
+    }
 
-      .video-placeholder {
-        position: absolute;
-        inset: 0;
-        background: #0d1322;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        color: var(--text-secondary);
-        font-size: 0.85rem;
-        z-index: 2;
-        transition: opacity 0.25s ease;
-      }
+    @keyframes pulseAlert {
+      from { transform: scale(1); box-shadow: 0 0 10px rgba(244, 63, 94, 0.5); }
+      to { transform: scale(1.04); box-shadow: 0 0 20px rgba(244, 63, 94, 0.9); }
+    }
 
-      .video-placeholder.active {
-        display: flex;
-      }
+    .video-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #020617;
+      color: var(--text-muted);
+      gap: 6px;
+    }
 
-      .video-placeholder:not(.active) {
-        display: none;
-      }
+    /* Telemetry Mini Strip */
+    .telemetry-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.03);
+      padding: 8px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      text-align: center;
+    }
 
-      /* Quick Action Bar */
-      .quick-actions-bar {
-        display: grid;
-        grid-template-columns: repeat(5, 1fr);
-        gap: 0.4rem;
-        margin-top: 0.75rem;
-      }
+    .tele-item .label {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      font-weight: 700;
+      display: block;
+      margin-bottom: 2px;
+    }
 
-      .action-pill-btn.horn-action-btn.active {
-        background: rgba(245, 158, 11, 0.28);
-        border-color: var(--accent-amber);
-        color: var(--accent-amber);
-        box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
-        transform: scale(0.96);
-      }
+    .tele-item .val {
+      font-size: 0.8rem;
+      font-weight: 800;
+      color: var(--primary);
+    }
 
-      .action-pill-btn {
-        background: var(--btn-surface);
-        border: 1px solid var(--btn-border);
-        color: var(--text-primary);
-        font-size: 0.75rem;
-        font-weight: 700;
-        padding: 0.55rem 0.3rem;
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.35rem;
-        cursor: pointer;
-        transition: all 0.15s ease;
-      }
+    .tele-item .val.danger {
+      color: var(--danger);
+    }
 
-      .action-pill-btn:hover {
-        border-color: var(--accent-cyan);
-      }
+    /* Actions Pill Bar */
+    .actions-bar {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
 
-      .action-pill-btn.active {
-        background: rgba(0, 229, 255, 0.18);
-        border-color: var(--accent-cyan);
-        color: var(--accent-cyan);
-      }
+    .action-btn {
+      flex: 1;
+      min-width: 75px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 8px 10px;
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      touch-action: manipulation;
+      transition: all 0.15s;
+    }
 
-      .action-pill-btn.danger-action.active {
-        background: rgba(244, 63, 94, 0.22);
-        border-color: var(--accent-rose);
-        color: var(--accent-rose);
-      }
+    .action-btn:active, .action-btn.active {
+      background: var(--primary);
+      color: #000;
+      border-color: var(--primary);
+      box-shadow: 0 0 14px var(--primary-glow);
+    }
 
-      /* Mini Telemetry Strip */
-      .telemetry-strip {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 0.4rem;
-        margin-top: 0.75rem;
-        background: rgba(15, 23, 42, 0.6);
-        border: 1px solid var(--card-border);
-        border-radius: 10px;
-        padding: 0.5rem;
-      }
+    .action-btn.horn:active, .action-btn.horn.active {
+      background: var(--danger);
+      color: #fff;
+      border-color: var(--danger);
+    }
 
-      .tele-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-      }
+    /* Controller Card */
+    .ctrl-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 12px;
+    }
 
-      .tele-label {
-        font-size: 0.62rem;
-        font-weight: 700;
-        color: var(--text-secondary);
-        letter-spacing: 0.04em;
-      }
+    /* Drive Mode Selector */
+    .mode-selector {
+      display: flex;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 3px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
 
-      .tele-val {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.78rem;
-        font-weight: 700;
-        margin-top: 1px;
-      }
+    .mode-tab {
+      flex: 1;
+      text-align: center;
+      padding: 6px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      border-radius: 8px;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
 
-      /* Speed Slider */
-      .slider-box {
-        background: rgba(15, 23, 42, 0.6);
-        border: 1px solid var(--card-border);
-        border-radius: 12px;
-        padding: 0.75rem 0.85rem;
-        margin-top: 0.75rem;
-      }
+    .mode-tab.active {
+      background: var(--primary);
+      color: #000;
+      box-shadow: 0 2px 8px var(--primary-glow);
+    }
 
-      .slider-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-size: 0.78rem;
-        font-weight: 600;
-        color: var(--text-secondary);
-        margin-bottom: 0.4rem;
-      }
+    /* D-PAD Controls */
+    .dpad {
+      display: grid;
+      grid-template-columns: repeat(3, 76px);
+      grid-template-rows: repeat(3, 76px);
+      gap: 10px;
+      justify-content: center;
+      margin: 8px auto;
+    }
 
-      .slider-header span.val {
-        font-family: 'JetBrains Mono', monospace;
-        color: var(--accent-cyan);
-        font-weight: 700;
-      }
+    .d-btn {
+      background: #1e293b;
+      border: 2px solid #334155;
+      border-radius: 18px;
+      color: #fff;
+      font-size: 1.8rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      touch-action: none;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+      transition: all 0.08s;
+    }
 
-      input[type="range"] {
-        width: 100%;
-        height: 6px;
-        border-radius: 3px;
-        background: #334155;
-        outline: none;
-        appearance: none;
-        -webkit-appearance: none;
-      }
+    .d-btn:active, .d-btn.pressed {
+      background: var(--primary);
+      border-color: #fff;
+      color: #000;
+      transform: scale(0.92);
+      box-shadow: 0 0 20px var(--primary-glow);
+    }
 
-      input[type="range"]::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        appearance: none;
-        width: 18px;
-        height: 18px;
-        border-radius: 50%;
-        background: var(--accent-cyan);
-        cursor: pointer;
-        box-shadow: 0 0 10px var(--accent-cyan);
-      }
+    .d-btn.stop {
+      background: var(--danger);
+      border-color: #fda4af;
+      font-size: 1rem;
+      font-weight: 900;
+    }
 
-      /* D-PAD Driving Controller */
-      .dpad-container {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        grid-template-rows: repeat(3, 1fr);
-        gap: 0.6rem;
-        max-width: 320px;
-        margin: 0.5rem auto;
-        aspect-ratio: 1;
-      }
+    .d-btn.stop:active {
+      background: #b91c1c;
+    }
 
-      .dpad-btn {
-        background: linear-gradient(145deg, #1e293b, #0f172a);
-        border: 1px solid #334155;
-        border-radius: 16px;
-        color: var(--text-primary);
-        font-size: 1.5rem;
-        font-weight: 800;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        user-select: none;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-        transition: transform 0.08s ease, background 0.15s ease, border-color 0.15s ease;
-      }
+    /* Slider Box */
+    .slider-wrap {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      border-radius: 10px;
+    }
 
-      .dpad-btn .label {
-        font-size: 0.62rem;
-        font-weight: 700;
-        letter-spacing: 0.04em;
-        margin-top: 3px;
-        color: var(--text-secondary);
-      }
+    .slider-wrap label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
 
-      /* Mode 0 (STEP) Cyan Pulse */
-      body.mode-step .dpad-btn:active,
-      body.mode-step .dpad-btn.pressed {
-        background: var(--accent-cyan) !important;
-        border-color: var(--accent-cyan) !important;
-        color: #04121d !important;
-        transform: scale(0.92);
-        box-shadow: 0 0 25px rgba(0, 229, 255, 0.7) !important;
-      }
+    input[type=range] {
+      width: 100%;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
 
-      /* Mode 1 (HOLD) Amber Glow */
-      body.mode-hold .dpad-btn:active,
-      body.mode-hold .dpad-btn.pressed {
-        background: #f59e0b !important;
-        border-color: #f59e0b !important;
-        color: #04121d !important;
-        transform: scale(0.92);
-        box-shadow: 0 0 25px rgba(245, 158, 11, 0.7) !important;
-      }
-
-      /* Mode 2 (LATCH) Purple Lock */
-      body.mode-latch .dpad-btn:active,
-      body.mode-latch .dpad-btn.pressed,
-      body.mode-latch .dpad-btn.latched {
-        background: #a855f7 !important;
-        border-color: #a855f7 !important;
-        color: #ffffff !important;
-        transform: scale(0.94);
-        box-shadow: 0 0 25px rgba(168, 85, 247, 0.8) !important;
-      }
-
-      .dpad-btn.stop-btn {
-        background: rgba(244, 63, 94, 0.15);
-        border-color: rgba(244, 63, 94, 0.4);
-        color: var(--accent-rose);
-      }
-
-      .dpad-btn.stop-btn:active, .dpad-btn.stop-btn.pressed {
-        background: var(--accent-rose) !important;
-        color: white !important;
-        border-color: var(--accent-rose) !important;
-        transform: scale(0.92);
-        box-shadow: 0 0 25px rgba(244, 63, 94, 0.8) !important;
-      }
-
-      /* Drive Mode Capsules */
-      .section-heading {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-size: 0.78rem;
-        font-weight: 700;
-        color: var(--text-secondary);
-        text-transform: uppercase;
-        margin-top: 0.5rem;
-      }
-
-      .mode-capsule-group {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 0.4rem;
-        margin-top: 0.35rem;
-      }
-
-      .mode-capsule-btn {
-        background: var(--btn-surface);
-        border: 1px solid var(--btn-border);
-        color: var(--text-secondary);
-        font-size: 0.75rem;
-        font-weight: 700;
-        padding: 0.45rem 0.2rem;
-        border-radius: 8px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-      }
-
-      .mode-capsule-btn.active {
-        color: #041019;
-        font-weight: 800;
-      }
-
-      .mode-capsule-btn[data-mode="0"].active {
-        background: var(--accent-cyan);
-        box-shadow: 0 0 12px rgba(0, 229, 255, 0.4);
-      }
-      .mode-capsule-btn[data-mode="1"].active {
-        background: var(--accent-amber);
-        box-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
-      }
-      .mode-capsule-btn[data-mode="2"].active {
-        background: var(--accent-purple);
-        box-shadow: 0 0 12px rgba(168, 85, 247, 0.4);
-      }
-
-      /* Bottom Status Banner */
-      .status-banner {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        background: rgba(15, 23, 42, 0.6);
-        border: 1px solid var(--card-border);
-        border-radius: 10px;
-        padding: 0.5rem 0.8rem;
-        margin-top: 0.75rem;
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.75rem;
-      }
-
-      .status-banner .val {
-        color: var(--accent-cyan);
-        font-weight: 700;
-      }
-
-      /* Footer */
-      .app-footer {
-        margin-top: 1.2rem;
-        padding: 0.8rem 0;
-        border-top: 1px solid var(--card-border);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-      }
-
-      .footer-author {
-        font-size: 0.82rem;
-        color: var(--text-secondary);
-      }
-
-      .footer-author a.author-name {
-        color: #ffffff;
-        font-weight: 700;
-        text-decoration: none;
-      }
-
-      .footer-links {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-      }
-
-      .footer-link-item {
-        color: var(--text-secondary);
-        font-size: 0.8rem;
-        font-weight: 600;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        gap: 0.3rem;
-      }
-
-      .footer-link-item:hover {
-        color: var(--accent-cyan);
-      }
-
-      .footer-link-item svg {
-        width: 14px;
-        height: 14px;
-        fill: currentColor;
-      }
-
-      .dark-modal {
-        background: #0d1322;
-        color: #f8fafc;
-        border: 1px solid #1e293b;
-      }
-      .dark-modal-header {
-        border-bottom: 1px solid #1e293b;
-      }
-
-      .playback-stage {
-        aspect-ratio: 4/3;
-        background: #000;
-        border-radius: 8px;
-        overflow: hidden;
-        position: relative;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .playback-stage img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-      }
-    </style>
-  </head>
-
-  <body class="mode-step">
-    <div class="app-shell">
-      <!-- HTTPS notice (Only shown if opened via HTTPS) -->
-      <div id="httpsWarning" class="alert p-2 mb-2 d-none justify-content-between align-items-center flex-wrap gap-2" style="background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; border-radius: 10px; font-size: 0.82rem;">
-        <div>
-          <span>⚠️ <strong>HTTPS Mode Active:</strong> Chrome/Edge block local camera streams over HTTPS!</span>
-          <br>
-          <span style="font-size:0.75rem; color:#cbd5e1;">Switch to HTTP Mode or open car directly for direct video feed:</span>
-        </div>
-        <div class="d-flex gap-2">
-          <a href="http://172.198.73.188/" class="btn btn-warning btn-sm text-dark fw-bold px-3 py-1 text-nowrap" style="border-radius:999px; font-size:0.75rem;">👉 Open in HTTP Mode</a>
-          <a id="httpsDirectCarLink" href="http://10.160.144.222/" class="btn btn-outline-info btn-sm text-nowrap px-2 py-1" style="border-radius:999px; font-size:0.75rem;">🚗 Open Car Directly</a>
-        </div>
+    /* Footer */
+    .footer {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-align: center;
+      margin-top: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Top Header -->
+    <header class="header">
+      <div class="brand">
+        <span>🏎️</span>
+        <span>FPV CONTROLLER</span>
       </div>
+      <div class="badge-group">
+        <span class="badge offline" id="statusBadge">● OFFLINE</span>
+        <span class="badge" id="ipBadge" onclick="editCarIp()">IP: AUTO</span>
+        <span class="badge" id="latencyBadge">⚡ --ms</span>
+      </div>
+    </header>
 
-      <!-- Header -->
-      <header class="top-navbar">
-        <h1 class="brand-title">
-          <span>🏎️ FPV</span> REMOTE
-        </h1>
-        
-        <div class="d-flex align-items-center gap-2 flex-wrap">
-          <!-- Status Pill -->
-          <div class="live-pill" id="espStatusPill" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border-color: rgba(245, 158, 11, 0.35);">
-            <div class="pulse-dot" id="espStatusDot" style="background-color: #f59e0b; box-shadow: 0 0 8px #f59e0b;"></div>
-            <span id="espStatusText">SEARCHING FOR CAR...</span>
+    <!-- Main Grid -->
+    <div class="dashboard-grid">
+      <!-- LEFT: Video & AI HUD -->
+      <section class="video-card">
+        <div class="video-wrapper">
+          <img id="liveCam" src="" alt="FPV Live Camera Feed" />
+          
+          <div class="ai-hud-overlay">
+            <span class="ai-pill idle" id="aiStatusPill">🛡️ AI: IDLE</span>
+            <span class="ai-pill idle" id="aiLatencyPill">0ms</span>
           </div>
 
-          <!-- Car IP Badge / Manual IP Override -->
-          <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1 py-1 px-2" id="carIpBadgeBtn" onclick="promptCarIp()" style="border-radius: 999px; font-size: 0.75rem; font-weight: 600; border-color: rgba(255,255,255,0.2); color: #cbd5e1;" title="Click to view or manually set car IP">
-            <span>📍</span> <span id="carIpBadgeText">IP: Searching</span>
-          </button>
-
-          <!-- WiFi Provisioning Config Button -->
-          <button class="btn btn-outline-info btn-sm d-flex align-items-center gap-1 py-1 px-2" onclick="openWifiModal()" style="border-radius: 999px; font-size: 0.75rem; font-weight: 700;">
-            <span>📶</span> <span>WIFI SETUP</span>
-          </button>
-        </div>
-      </header>
-
-      <!-- Main Grid -->
-      <main class="row g-3">
-        <!-- LEFT: Video Stage -->
-        <section class="col-12 col-lg-7">
-          <div class="remote-card">
-            <div class="video-viewport">
-              <img id="liveCam" alt="FPV Live Video Feed" src="" />
-              <div id="videoPlaceholder" class="video-placeholder active">
-                <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">📷</div>
-                <div class="fw-bold text-white mb-1">Camera Feed Inactive</div>
-                <small>Tap "CAM ON" below to start live stream</small>
-              </div>
-
-              <!-- Telemetry Badges -->
-              <div class="video-overlay-info">
-                <span class="osd-badge" id="osdFps">CAM 1</span>
-                <span class="osd-badge" id="osdLatency">READY</span>
-              </div>
-            </div>
-
-            <!-- Quick Action Bar -->
-            <div class="quick-actions-bar">
-              <button class="action-pill-btn active" id="camToggleBtn" onclick="toggleCameraPower()">
-                <span id="camIcon">📷</span> <span id="camText">CAM ON</span>
-              </button>
-              <button class="action-pill-btn" id="flashToggleBtn" onclick="toggleHeadlight()">
-                <span>💡</span> <span id="flashText">HEADLIGHT</span>
-              </button>
-              <button class="action-pill-btn horn-action-btn" id="hornBtn" title="Press & Hold or Tap for Horn (Key: H)">
-                <span id="hornIcon">📢</span> <span id="hornText">HORN</span>
-              </button>
-              <button class="action-pill-btn" id="recToggleBtn" onclick="toggleRecording()">
-                <span>🔴</span> <span id="recText">REC</span>
-              </button>
-              <button class="action-pill-btn" id="galleryOpenBtn" onclick="openGalleryModal()">
-                <span>📼</span> <span>RECORDINGS</span>
-              </button>
-            </div>
-
-            <!-- Mini Telemetry Strip -->
-            <div class="telemetry-strip">
-              <div class="tele-item">
-                <span class="tele-label">ACTION</span>
-                <span class="tele-val text-info" id="teleAction">IDLE</span>
-              </div>
-              <div class="tele-item">
-                <span class="tele-label">OBSTACLE</span>
-                <span class="tele-val" id="teleObstacle">CLEAR</span>
-              </div>
-              <div class="tele-item">
-                <span class="tele-label">LINK</span>
-                <span class="tele-val text-warning" id="teleLinkDisplay">SEARCHING</span>
-              </div>
-              <div class="tele-item">
-                <span class="tele-label">LAST CMD</span>
-                <span class="tele-val text-warning" id="teleCmd">S</span>
-              </div>
-            </div>
-
-            <!-- Speed Tuning -->
-            <div class="slider-box mt-auto">
-              <div class="slider-header">
-                <span>Motor Speed PWM</span>
-                <span>FWD: <span class="val" id="speedFwdVal">255</span> | REV: <span class="val" id="speedRevVal">255</span></span>
-              </div>
-              <input id="speedSlider" type="range" min="80" max="255" value="255" step="5" oninput="updateSpeed(this.value)" />
-            </div>
+          <div class="video-placeholder" id="placeholder">
+            <span style="font-size: 2rem;">📷</span>
+            <span style="font-weight: 700; font-size: 0.9rem;" id="placeholderText">Camera Stream Disconnected</span>
+            <button class="action-btn" onclick="startStream()" style="flex:none; padding:4px 12px; margin-top:4px;">RECONNECT</button>
           </div>
-        </section>
-
-        <!-- RIGHT: Drive Controller -->
-        <section class="col-12 col-lg-5">
-          <div class="remote-card">
-            <!-- D-PAD Controller -->
-            <div class="dpad-container mt-2">
-              <div></div>
-              <button class="dpad-btn drive-btn" data-cmd="F" aria-label="Forward">
-                ▲
-                <span class="label">FORWARD</span>
-              </button>
-              <div></div>
-
-              <button class="dpad-btn drive-btn" data-cmd="L" aria-label="Left">
-                ◀
-                <span class="label">LEFT</span>
-              </button>
-              <button class="dpad-btn stop-btn stop-action" data-cmd="S" onclick="stopCar()" aria-label="Stop">
-                ■
-                <span class="label">STOP</span>
-              </button>
-              <button class="dpad-btn drive-btn" data-cmd="R" aria-label="Right">
-                ▶
-                <span class="label">RIGHT</span>
-              </button>
-
-              <div></div>
-              <button class="dpad-btn drive-btn" data-cmd="B" aria-label="Backward">
-                ▼
-                <span class="label">BACKWARD</span>
-              </button>
-              <div></div>
-            </div>
-
-            <!-- Drive Mode Selector -->
-            <div class="section-heading mt-2">
-              <span>Drive Mode</span>
-              <small id="modeDescription" style="color: var(--accent-cyan); text-transform: none; font-size: 0.72rem;">STEP (One tap pulse)</small>
-            </div>
-            <div class="mode-capsule-group mb-2">
-              <button class="mode-capsule-btn active" data-mode="0" onclick="setDriveMode(0)">STEP</button>
-              <button class="mode-capsule-btn" data-mode="1" onclick="setDriveMode(1)">HOLD</button>
-              <button class="mode-capsule-btn" data-mode="2" onclick="setDriveMode(2)">LATCH</button>
-            </div>
-
-            <!-- Bottom Live State Bar -->
-            <div class="status-banner">
-              <div>STATUS: <span class="val" id="activeStatus">READY</span></div>
-              <div>CMD: <span class="val" id="currentCommandLabel">STOP</span></div>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      <!-- Footer -->
-      <footer class="app-footer">
-        <div class="footer-author">
-          <div>
-            <span>© 2026 </span>
-            <a href="https://sumitrathor.rf.gd/" target="_blank" rel="noopener noreferrer" class="author-name">Sumit Rathor</a>
-          </div>
-          <div class="author-role">Full Stack Developer · Software Engineer</div>
         </div>
 
-        <div class="footer-links">
-          <a href="https://sumitrathor.rf.gd/" target="_blank" rel="noopener noreferrer" class="footer-link-item" title="Portfolio Website">
-            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
-            <span>Portfolio</span>
-          </a>
-          <a href="https://www.linkedin.com/in/sumitrathor/" target="_blank" rel="noopener noreferrer" class="footer-link-item" title="LinkedIn Profile">
-            <svg viewBox="0 0 24 24"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 10.9v8.37H9.2V10.9H6.46M7.83 6.45a1.64 1.64 0 1 0 1.64 1.64 1.64 1.64 0 0 0-1.64-1.64"/></svg>
-            <span>LinkedIn</span>
-          </a>
-          <a href="https://github.com/sumitrathor1/FPV_Car" target="_blank" rel="noopener noreferrer" class="footer-link-item" title="GitHub Repository">
-            <svg viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.1-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z"/></svg>
-            <span>GitHub</span>
-          </a>
+        <!-- Telemetry Strip -->
+        <div class="telemetry-strip">
+          <div class="tele-item">
+            <span class="label">ACTION</span>
+            <span class="val" id="teleAction">IDLE</span>
+          </div>
+          <div class="tele-item">
+            <span class="label">OBSTACLE</span>
+            <span class="val" id="teleObstacle">CLEAR</span>
+          </div>
+          <div class="tele-item">
+            <span class="label">AI MODE</span>
+            <span class="val" id="teleAiMode">ASSIST</span>
+          </div>
+          <div class="tele-item">
+            <span class="label">SPEED</span>
+            <span class="val" id="teleSpeed">255</span>
+          </div>
         </div>
-      </footer>
+
+        <!-- Quick Toggles -->
+        <div class="actions-bar">
+          <button class="action-btn active" id="camBtn" onclick="toggleCam()"><span>📹</span><span id="camBtnTxt">CAM ON</span></button>
+          <button class="action-btn active" id="aiBtn" onclick="toggleAi()"><span>🤖</span><span id="aiBtnTxt">AI ON</span></button>
+          <button class="action-btn" id="lightBtn" onclick="toggleLight()"><span>💡</span><span>LIGHT</span></button>
+          <button class="action-btn horn" id="hornBtn" onpointerdown="sendHorn(1)" onpointerup="sendHorn(0)" onpointerleave="sendHorn(0)"><span>📢</span><span>HORN</span></button>
+        </div>
+      </section>
+
+      <!-- RIGHT: Touch Controls -->
+      <section class="ctrl-card">
+        <div class="mode-selector">
+          <div class="mode-tab active" id="modeHold" onclick="setDriveMode(0)">HOLD MODE</div>
+          <div class="mode-tab" id="modeStep" onclick="setDriveMode(1)">STEP PULSE</div>
+          <div class="mode-tab" id="modeAuto" onclick="toggleAutoMode()">AI ASSIST</div>
+        </div>
+
+        <!-- Tactile D-PAD -->
+        <div class="dpad">
+          <div></div>
+          <button class="d-btn" onpointerdown="handlePress('F')" onpointerup="handleRelease('F')" onpointerleave="handleRelease('F')">▲</button>
+          <div></div>
+
+          <button class="d-btn" onpointerdown="handlePress('L')" onpointerup="handleRelease('L')" onpointerleave="handleRelease('L')">◀</button>
+          <button class="d-btn stop" onclick="sendCmd('S')">STOP</button>
+          <button class="d-btn" onpointerdown="handlePress('R')" onpointerup="handleRelease('R')" onpointerleave="handleRelease('R')">▶</button>
+
+          <div></div>
+          <button class="d-btn" onpointerdown="handlePress('B')" onpointerup="handleRelease('B')" onpointerleave="handleRelease('B')">▼</button>
+          <div></div>
+        </div>
+
+        <!-- Speed Slider -->
+        <div class="slider-wrap">
+          <label><span>⚡ MOTOR SPEED PWM</span><span id="sliderVal">255</span></label>
+          <input type="range" min="80" max="255" value="255" step="5" oninput="changeSpeed(this.value)" />
+        </div>
+      </section>
     </div>
 
-    <!-- WiFi Setup Modal -->
-    <div class="modal fade" id="wifiModal" tabindex="-1" aria-labelledby="wifiModalLabel" aria-hidden="true">
-      <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content dark-modal">
-          <div class="modal-header dark-modal-header">
-            <h5 class="modal-title fs-6 fw-bold" id="wifiModalLabel">📶 Connect ESP32 to WiFi</h5>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <div class="modal-body p-3">
-            <div class="alert alert-info py-2 px-3 mb-3" style="font-size: 0.8rem; background: rgba(0, 229, 255, 0.1); border-color: rgba(0, 229, 255, 0.25); color: #bae6fd;">
-              <strong>WiFi Setup:</strong><br>
-              1. Connect device to car hotspot <strong>"FPV-Car-Setup"</strong> (IP 192.168.4.1).<br>
-              2. Click <strong>"Scan"</strong>, choose your network, and save.
-            </div>
+    <footer class="footer">
+      ⌨️ Controls: W, A, S, D / Arrow Keys to Drive | Space = STOP | H = Horn | L = Light
+    </footer>
+  </div>
 
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <span class="text-secondary small fw-bold text-uppercase">Available Networks</span>
-              <button class="btn btn-outline-info btn-sm py-0 px-2" id="scanWifiBtn" onclick="scanWifiNetworks()" style="font-size: 0.75rem;">🔍 Scan</button>
-            </div>
+  <script>
+    // Configuration
+    let carHost = localStorage.getItem("fpv_car_ip") || "10.172.34.222";
+    let isCamOn = true;
+    let isAiOn = true;
+    let isLightOn = false;
+    let isAutoMode = false;
+    let driveMode = 0; // 0 = Hold, 1 = Step
+    let activeDirection = 'S';
+    let currentSpeed = 255;
+    let lastPingTime = 0;
 
-            <div class="mb-3">
-              <select class="form-select form-select-sm bg-dark text-light border-secondary mb-2" id="wifiSelect" onchange="if(this.value) document.getElementById('wifiSsidInput').value = this.value">
-                <option value="">-- Select scanned network or type below --</option>
-              </select>
-              <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary mb-2" id="wifiSsidInput" placeholder="Enter WiFi SSID name..." />
-              <input type="password" class="form-control form-control-sm bg-dark text-light border-secondary" id="wifiPassInput" placeholder="Enter WiFi password..." />
-            </div>
+    // Elements
+    const liveCam = document.getElementById("liveCam");
+    const placeholder = document.getElementById("placeholder");
+    const placeholderText = document.getElementById("placeholderText");
+    const statusBadge = document.getElementById("statusBadge");
+    const ipBadge = document.getElementById("ipBadge");
+    const latencyBadge = document.getElementById("latencyBadge");
+    const aiStatusPill = document.getElementById("aiStatusPill");
+    const aiLatencyPill = document.getElementById("aiLatencyPill");
+    const teleAction = document.getElementById("teleAction");
+    const teleObstacle = document.getElementById("teleObstacle");
+    const teleAiMode = document.getElementById("teleAiMode");
+    const teleSpeed = document.getElementById("teleSpeed");
+    const sliderVal = document.getElementById("sliderVal");
 
-            <div id="wifiStatusMsg" class="small text-center mb-2" style="display:none;"></div>
-            <button class="btn btn-info w-100 py-2 fw-bold text-dark" id="saveWifiBtn" onclick="saveWifiCredentials()">SAVE & CONNECT</button>
+    ipBadge.textContent = "IP: " + carHost;
 
-            <div class="mt-3 pt-2 border-top border-secondary text-center">
-              <a class="text-secondary small text-decoration-none" data-bs-toggle="collapse" href="#advancedHostBox" role="button" style="font-size:0.75rem;">
-                ⚙️ Advanced: Manual Host Override
-              </a>
-              <div class="collapse mt-2 text-start" id="advancedHostBox">
-                <div class="input-group input-group-sm">
-                  <input type="text" class="form-control bg-dark text-light border-secondary" id="manualHostInput" placeholder="fpvcar.local or 192.168.4.1" />
-                  <button class="btn btn-outline-info" onclick="setCarHost(document.getElementById('manualHostInput').value)">Save</button>
-                </div>
-                <small class="text-secondary" style="font-size:0.7rem;">Default is 100% automatic auto-discovery.</small>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    function editCarIp() {
+      const val = prompt("Enter Car Local IP Address (e.g. 10.172.34.222 or 192.168.4.1):", carHost);
+      if (val && val.trim()) {
+        carHost = val.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+        localStorage.setItem("fpv_car_ip", carHost);
+        ipBadge.textContent = "IP: " + carHost;
+        sendServerReq(`/set.php?car_ip=${carHost}`);
+        startStream();
+      }
+    }
 
-    <!-- Recordings Gallery Modal -->
-    <div class="modal fade" id="galleryModal" tabindex="-1" aria-labelledby="galleryModalLabel" aria-hidden="true">
-      <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content dark-modal">
-          <div class="modal-header dark-modal-header">
-            <h5 class="modal-title fs-6 fw-bold" id="galleryModalLabel">📼 Recorded Video Sessions</h5>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" onclick="stopPlaybackTimer()"></button>
-          </div>
-          <div class="modal-body p-3">
-            <div class="row g-3">
-              <div class="col-12 col-md-5">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                  <span class="text-secondary small fw-bold text-uppercase">Saved Sessions</span>
-                  <button class="btn btn-outline-info btn-sm py-0 px-2" onclick="fetchRecordingList()" style="font-size: 0.75rem;">🔄 Refresh</button>
-                </div>
-                <div id="folderList" class="overflow-auto border border-secondary rounded p-2" style="max-height: 280px; background: rgba(0,0,0,0.3);">
-                  <div class="text-secondary small text-center py-3">Loading sessions...</div>
-                </div>
-              </div>
-              <div class="col-12 col-md-7">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                  <span class="text-secondary small fw-bold text-uppercase" id="selectedSessionTitle">No Session Selected</span>
-                  <span class="badge bg-secondary" id="playbackCounterBadge">0 / 0</span>
-                </div>
-                <div class="playback-stage border border-secondary">
-                  <img id="playbackImg" alt="Recording playback frame" src="" style="display:none;" />
-                  <div id="playbackPlaceholder" class="text-secondary small text-center px-3">Select a session to start playback.</div>
-                </div>
-                <div class="mt-2">
-                  <input type="range" class="form-range" id="playbackSeek" min="0" max="0" value="0" step="1" oninput="onSeekChange(this.value)" />
-                </div>
-                <div class="d-flex gap-2 align-items-center mt-2">
-                  <button class="btn btn-outline-light btn-sm px-2" onclick="stepFrame(-1)">⏮</button>
-                  <button class="btn btn-info btn-sm px-3 fw-bold text-dark" id="playPauseBtn" onclick="togglePlaybackPlay()">▶ PLAY</button>
-                  <button class="btn btn-outline-light btn-sm px-2" onclick="stepFrame(1)">⏭</button>
-                  <button class="btn btn-outline-success btn-sm ms-auto" id="downloadSessionBtn" onclick="downloadCurrentSession()" style="display:none;">📥 Download</button>
-                  <button class="btn btn-outline-danger btn-sm" id="deleteSessionBtn" onclick="deleteCurrentSession()" style="display:none;">🗑️</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    // ==========================================
+    // Real-Time Video Stream
+    // ==========================================
+    let streamRetryTimer = null;
+    let fallbackCaptureTimer = null;
 
-    <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-      // Register Service Worker for offline PWA caching
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js')
-            .then(reg => console.log('[PWA] Service Worker registered'))
-            .catch(() => {});
-        });
+    function startStream() {
+      if (!isCamOn) {
+        liveCam.src = "";
+        placeholder.style.display = "flex";
+        placeholderText.textContent = "Camera Turned Off (0% CPU)";
+        aiStatusPill.className = "ai-pill idle";
+        aiStatusPill.textContent = "🛡️ AI: CAM OFF";
+        return;
       }
 
-      /* ======================================================
-       * Zero-Config Auto-Discovery & Connection Management
-       * ====================================================== */
-      const commandLabels = { F: "FORWARD", B: "REVERSE", L: "LEFT", R: "RIGHT", S: "STOP" };
-      let carHost = localStorage.getItem("fpv_car_host") || "";
+      clearTimeout(streamRetryTimer);
+      clearTimeout(fallbackCaptureTimer);
 
-      function isPrivateCarIp(ip) {
-        return /^(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})$/.test(ip);
-      }
+      placeholder.style.display = "flex";
+      placeholderText.textContent = "Connecting to Video Stream...";
 
-      // 1. Check URL parameters for explicit car host: e.g. ?car=10.160.144.222 or ?ip=...
-      const urlParams = new URLSearchParams(window.location.search);
-      const paramIp = urlParams.get("car") || urlParams.get("ip");
-      if (paramIp && paramIp.trim()) {
-        carHost = paramIp.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
-        localStorage.setItem("fpv_car_host", carHost);
-      } else if (window.location.hostname && isPrivateCarIp(window.location.hostname)) {
-        // 2. If directly opened via car's private IP (e.g. 192.168.4.1 or car's local IP), use current host
-        carHost = window.location.hostname;
-        localStorage.setItem("fpv_car_host", carHost);
-      } else if (!carHost) {
-        carHost = "10.160.144.222";
-      }
+      // Prefer local camera stream port 81 if available, fallback to server /cam/latest.jpg
+      const streamUrl = `http://${carHost}:81/stream`;
+      liveCam.src = streamUrl;
 
-      let driveMode = 0; // 0 = STEP, 1 = HOLD, 2 = LATCH
-      let isCamOn = false;
-      let isFlashOn = false;
-      let isRecording = false;
-      let heldCommand = null;
-      let latchedCommand = null;
-      let lastSentCommand = "X";
-      let currentPwmSpeed = 255;
-      let espOnlineState = false;
-      let isScanning = false;
-      let failedPings = 0;
+      liveCam.onload = () => {
+        placeholder.style.display = "none";
+        setOnline(true);
+      };
 
-      const liveCam = document.getElementById("liveCam");
-      const videoPlaceholder = document.getElementById("videoPlaceholder");
-      const activeStatus = document.getElementById("activeStatus");
-      const currentCommandLabel = document.getElementById("currentCommandLabel");
-      const speedFwdVal = document.getElementById("speedFwdVal");
-      const speedRevVal = document.getElementById("speedRevVal");
-      const osdFps = document.getElementById("osdFps");
-      const osdLatency = document.getElementById("osdLatency");
-
-      function updateHostUI() {
-        const badge = document.getElementById("carIpBadgeText");
-        if (badge) {
-          badge.textContent = carHost ? `IP: ${carHost}` : "IP: Auto";
-        }
-      }
-
-      function promptCarIp() {
-        const current = carHost || "10.160.144.222";
-        const newIp = prompt("Enter Car IP Address (e.g. 10.160.144.222 or router IP):", current);
-        if (newIp && newIp.trim()) {
-          connectToHost(newIp.trim());
-        }
-      }
-
-      // Automatically sync car IP from backend get.php
-      async function syncCarIpFromBackend() {
-        try {
-          const res = await fetch(`./get.php?t=${Date.now()}`);
-          const data = await res.json();
-          if (data && data.car_ip && data.car_ip.length >= 7) {
-            if (carHost !== data.car_ip) {
-              console.log("[CAR SYNC] Found Car IP from backend:", data.car_ip);
-              connectToHost(data.car_ip);
-            }
-            return data.car_ip;
-          }
-        } catch (e) {}
-        return null;
-      }
-
-      function probeHost(host, timeoutMs = 700) {
-        return new Promise((resolve) => {
-          if (!host) return resolve(false);
-          const cleanHost = host.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+      liveCam.onerror = () => {
+        console.warn("[STREAM] Native stream unavailable, trying sequential capture...");
+        // Sequential single-frame fallback (Never floods!)
+        function pollFallback() {
+          if (!isCamOn) return;
           const img = new Image();
-          let settled = false;
-
-          const timer = setTimeout(() => {
-            if (!settled) {
-              settled = true;
-              img.src = "";
-              resolve(false);
-            }
-          }, timeoutMs);
-
           img.onload = () => {
-            if (!settled) {
-              settled = true;
-              clearTimeout(timer);
-              resolve(cleanHost);
-            }
+            liveCam.src = img.src;
+            placeholder.style.display = "none";
+            setOnline(true);
+            setTimeout(pollFallback, 50);
           };
-
           img.onerror = () => {
-            if (!settled) {
-              settled = true;
-              clearTimeout(timer);
-              resolve(false);
-            }
+            placeholder.style.display = "flex";
+            placeholderText.textContent = "Camera Sensor Offline / Check Ribbon Cable";
+            setTimeout(pollFallback, 3000);
           };
+          img.src = `http://${carHost}/capture?t=${Date.now()}`;
+        }
+        pollFallback();
 
-          img.src = `http://${cleanHost}/ping.gif?t=${Date.now()}`;
+        // Retry native port 81 every 6 seconds
+        streamRetryTimer = setTimeout(startStream, 6000);
+      };
+    }
+
+    // ==========================================
+    // Fast Command Dispatcher (<2ms)
+    // ==========================================
+    function sendServerReq(url) {
+      lastPingTime = performance.now();
+      fetch(url, { keepalive: true, cache: 'no-store' })
+        .then(r => {
+          const lat = Math.round(performance.now() - lastPingTime);
+          latencyBadge.textContent = `⚡ ${lat}ms`;
+          setOnline(true);
+        })
+        .catch(() => {});
+    }
+
+    function sendCmd(cmd) {
+      activeDirection = cmd;
+      teleAction.textContent = cmd === 'S' ? 'STOP' : cmd;
+
+      // 1. Direct to car local LAN (instant 0ms)
+      if (carHost) {
+        const u = `http://${carHost}/cmd?dir=${cmd}`;
+        fetch(u, { mode: 'no-cors', keepalive: true }).catch(() => {
+          new Image().src = u;
         });
       }
 
-      async function startAutoDiscovery() {
-        if (isScanning) return;
-        isScanning = true;
-        setSearchingState();
+      // 2. Cloud Server relay
+      sendServerReq(`/set.php?cmd=${cmd}`);
+    }
 
-        // 1. Sync from backend get.php first (gives exact IP reported by car)
-        const cloudCarIp = await syncCarIpFromBackend();
+    function handlePress(dir) {
+      if (driveMode === 0) {
+        // Hold mode
+        sendCmd(dir);
+      } else {
+        // Step pulse mode
+        sendCmd(dir);
+        setTimeout(() => sendCmd('S'), 200);
+      }
+    }
 
-        // 2. Primary candidates
-        const primaryCandidates = [
-          cloudCarIp,
-          carHost,
-          localStorage.getItem("fpv_car_host"),
-          "10.172.34.222",
-          "10.160.144.222",
-          "192.168.4.1",
-          "fpvcar.local"
-        ].filter(Boolean);
+    function handleRelease(dir) {
+      if (driveMode === 0 && activeDirection === dir) {
+        sendCmd('S');
+      }
+    }
 
-        const uniquePrimaries = [...new Set(primaryCandidates)];
-        for (const host of uniquePrimaries) {
-          const found = await probeHost(host, 600);
-          if (found) {
-            connectToHost(found);
-            isScanning = false;
-            return;
-          }
-        }
+    function sendHorn(v) {
+      const u = `http://${carHost}/horn?val=${v}`;
+      fetch(u, { mode: 'no-cors' }).catch(() => {});
+      sendServerReq(`/set.php?horn=${v}`);
+      document.getElementById("hornBtn").classList.toggle("active", v === 1);
+    }
 
-        isScanning = false;
-        if (!carHost) {
-          setOfflineState();
-        } else {
-          setOnlineState(true);
-        }
+    function toggleLight() {
+      isLightOn = !isLightOn;
+      const v = isLightOn ? 1 : 0;
+      fetch(`http://${carHost}/flash?val=${v}`, { mode: 'no-cors' }).catch(() => {});
+      sendServerReq(`/set.php?flash=${v}`);
+      document.getElementById("lightBtn").classList.toggle("active", isLightOn);
+    }
+
+    function toggleCam() {
+      isCamOn = !isCamOn;
+      document.getElementById("camBtn").classList.toggle("active", isCamOn);
+      document.getElementById("camBtnTxt").textContent = isCamOn ? "CAM ON" : "CAM OFF";
+      sendServerReq(`/set.php?cam=${isCamOn ? 1 : 0}`);
+      startStream();
+    }
+
+    function toggleAi() {
+      isAiOn = !isAiOn;
+      document.getElementById("aiBtn").classList.toggle("active", isAiOn);
+      document.getElementById("aiBtnTxt").textContent = isAiOn ? "AI ON" : "AI OFF";
+      sendServerReq(`/set.php?ai=${isAiOn ? 1 : 0}`);
+      updateAiUI();
+    }
+
+    function changeSpeed(val) {
+      currentSpeed = val;
+      sliderVal.textContent = val;
+      teleSpeed.textContent = val;
+      fetch(`http://${carHost}/speed?fs=${val}&bs=${val}`, { mode: 'no-cors' }).catch(() => {});
+      sendServerReq(`/set.php?speed=${val}`);
+    }
+
+    function setDriveMode(m) {
+      driveMode = m;
+      document.getElementById("modeHold").classList.toggle("active", m === 0);
+      document.getElementById("modeStep").classList.toggle("active", m === 1);
+    }
+
+    function toggleAutoMode() {
+      isAutoMode = !isAutoMode;
+      document.getElementById("modeAuto").classList.toggle("active", isAutoMode);
+      teleAiMode.textContent = isAutoMode ? "AUTO-STOP" : "MANUAL";
+      sendServerReq(`/set.php?mode=${isAutoMode ? 1 : 0}`);
+    }
+
+    function setOnline(online) {
+      statusBadge.className = online ? "badge online" : "badge offline";
+      statusBadge.textContent = online ? "● ONLINE" : "● OFFLINE";
+    }
+
+    function updateAiUI(state) {
+      if (!isCamOn) {
+        aiStatusPill.className = "ai-pill idle";
+        aiStatusPill.textContent = "🛡️ AI: CAM OFF";
+        teleObstacle.textContent = "IDLE";
+        teleObstacle.className = "val";
+        return;
+      }
+      if (!isAiOn) {
+        aiStatusPill.className = "ai-pill idle";
+        aiStatusPill.textContent = "🛡️ AI: OFF";
+        teleObstacle.textContent = "DISABLED";
+        teleObstacle.className = "val";
+        return;
       }
 
-      function connectToHost(host) {
-        if (!host) return;
-        carHost = host.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
-        localStorage.setItem("fpv_car_host", carHost);
-        updateHostUI();
-        failedPings = 0;
-        setOnlineState(true);
-        if (isCamOn) startVideoStream();
-        const directLink = document.getElementById("httpsDirectCarLink");
-        if (directLink) directLink.href = `http://${carHost}/`;
+      if (state && state.ai_obstacle === "1") {
+        aiStatusPill.className = "ai-pill obstacle";
+        aiStatusPill.textContent = `🚨 OBSTACLE DETECTED!`;
+        teleObstacle.textContent = "DETECTED";
+        teleObstacle.className = "val danger";
+      } else {
+        aiStatusPill.className = "ai-pill clear";
+        aiStatusPill.textContent = "🛡️ PATH CLEAR";
+        teleObstacle.textContent = "CLEAR";
+        teleObstacle.className = "val";
       }
 
-      function sendCarRequest(path) {
-        if (carHost) {
-          const url = `http://${carHost}${path}${path.includes('?') ? '&' : '?'}t=${Date.now()}`;
-          const beacon = new Image();
-          beacon.src = url;
-          fetch(url, { mode: 'no-cors' }).catch(() => {});
-        }
-        // Cloud sync backup
-        if (path.startsWith('/cmd?dir=')) {
-          const dir = path.split('dir=')[1]?.charAt(0) || 'S';
-          fetch(`./set.php?cmd=${dir}&t=${Date.now()}`).catch(() => {});
-        } else if (path.startsWith('/horn')) {
-          const val = path.includes('val=1') ? '1' : '0';
-          fetch(`./set.php?horn=${val}&t=${Date.now()}`).catch(() => {});
-        }
+      if (state && state.ai_latency) {
+        aiLatencyPill.textContent = state.ai_latency;
       }
+    }
 
-      /* ======================================================
-       * Horn Control
-       * ====================================================== */
-      let isHornActive = false;
-      let hornAutoReleaseTimer = null;
-
-      function setHorn(active) {
-        if (isHornActive === active) return;
-        isHornActive = active;
-        const btn = document.getElementById("hornBtn");
-        if (btn) btn.classList.toggle("active", active);
-
-        if (active) {
-          sendCarRequest("/horn?val=1");
-          // Safety auto-shutoff after 3 seconds if button is held
-          clearTimeout(hornAutoReleaseTimer);
-          hornAutoReleaseTimer = setTimeout(() => {
-            if (isHornActive) setHorn(false);
-          }, 3000);
-        } else {
-          clearTimeout(hornAutoReleaseTimer);
-          sendCarRequest("/horn?val=0");
-        }
-      }
-
-      /* ======================================================
-       * Car Command Execution
-       * ====================================================== */
-      let drivePulseTimer = null;
-
-      function sendCommand(cmd, label = "DRIVE") {
-        if (cmd === lastSentCommand && cmd !== "S" && driveMode !== 0) return;
-        lastSentCommand = cmd;
-        currentCommandLabel.textContent = commandLabels[cmd] || cmd;
-        activeStatus.textContent = cmd === "S" ? "READY" : label;
-
-        setButtonVisual(cmd, true);
-        sendCarRequest(`/cmd?dir=${cmd}`);
-
-        // Continuous driving pulse every 200ms while active (keeps Arduino safety timer alive)
-        clearInterval(drivePulseTimer);
-        if (cmd !== "S") {
-          drivePulseTimer = setInterval(() => {
-            sendCarRequest(`/cmd?dir=${cmd}`);
-          }, 200);
-        }
-
-        if (driveMode === 2) latchedCommand = (cmd === "S") ? null : cmd;
-      }
-
-      function stopCar() {
-        clearInterval(drivePulseTimer);
-        heldCommand = null;
-        latchedCommand = null;
-        lastSentCommand = "S";
-        currentCommandLabel.textContent = "STOP";
-        activeStatus.textContent = "STOP";
-        document.querySelectorAll(".dpad-btn").forEach(b => b.classList.remove("pressed", "latched"));
-        setButtonVisual("S", true);
-        setTimeout(() => setButtonVisual("S", false), 150);
-        sendCarRequest('/cmd?dir=S');
-      }
-
-      function setButtonVisual(cmd, isPressed) {
-        const btn = document.querySelector(`.dpad-btn[data-cmd="${cmd}"]`);
-        if (!btn) return;
-
-        if (driveMode === 2) {
-          if (cmd === "S") {
-            document.querySelectorAll(".dpad-btn").forEach(b => b.classList.remove("latched", "pressed"));
-          } else if (isPressed) {
-            document.querySelectorAll(".dpad-btn").forEach(b => b.classList.remove("latched", "pressed"));
-            btn.classList.add("latched");
-          }
-        } else if (driveMode === 0) {
-          if (isPressed) {
-            btn.classList.add("pressed");
-            setTimeout(() => btn.classList.remove("pressed"), 180);
-          }
-        } else {
-          if (isPressed) btn.classList.add("pressed");
-          else btn.classList.remove("pressed");
-        }
-      }
-
-      /* Drive Mode Switching */
-      function setDriveMode(mode) {
-        stopCar();
-        driveMode = mode;
-        document.querySelectorAll(".mode-capsule-btn").forEach(b => {
-          b.classList.toggle("active", Number(b.dataset.mode) === mode);
-        });
-
-        document.body.classList.remove("mode-step", "mode-hold", "mode-latch");
-        const desc = document.getElementById("modeDescription");
-
-        if (mode === 0) {
-          document.body.classList.add("mode-step");
-          desc.textContent = "STEP (One tap pulse)";
-          desc.style.color = "var(--accent-cyan)";
-        } else if (mode === 1) {
-          document.body.classList.add("mode-hold");
-          desc.textContent = "HOLD (Continuous press)";
-          desc.style.color = "var(--accent-amber)";
-        } else {
-          document.body.classList.add("mode-latch");
-          desc.textContent = "LATCH (Cruise lock)";
-          desc.style.color = "var(--accent-purple)";
-        }
-      }
-
-      /* Speed Slider */
-      function updateSpeed(val) {
-        currentPwmSpeed = Math.round(Number(val));
-        speedFwdVal.textContent = String(currentPwmSpeed);
-        speedRevVal.textContent = String(currentPwmSpeed);
-        sendCarRequest(`/speed?fs=${currentPwmSpeed}&bs=${currentPwmSpeed}`);
-      }
-
-      /* Camera Stream */
-      let streamRetryTimer = null;
-      let captureIntervalTimer = null;
-
-      function toggleCameraPower() {
-        if (isCamOn) {
-          isCamOn = false;
-          clearInterval(captureIntervalTimer);
-          captureIntervalTimer = null;
-          clearTimeout(streamRetryTimer);
-          liveCam.removeAttribute("src");
-          liveCam.style.display = "none";
-          videoPlaceholder.classList.add("active");
-          document.getElementById("camToggleBtn").classList.remove("active");
-          document.getElementById("camText").textContent = "CAM OFF";
-          osdFps.textContent = "CAM OFF";
-          sendCarRequest('/cam?power=0');
-        } else {
-          isCamOn = true;
-          videoPlaceholder.classList.remove("active");
-          liveCam.style.display = "block";
-          document.getElementById("camToggleBtn").classList.add("active");
-          document.getElementById("camText").textContent = "CAM ON";
-          osdFps.textContent = "LIVE 20FPS";
-          sendCarRequest('/cam?power=1');
-          startVideoStream();
-        }
-      }
-
-      function startVideoStream() {
-        if (!isCamOn || !carHost) return;
-        clearInterval(captureIntervalTimer);
-        captureIntervalTimer = null;
-        clearTimeout(streamRetryTimer);
-
-        liveCam.src = `http://${carHost}:81/stream`;
-
-        liveCam.onload = () => {
-          if (captureIntervalTimer) {
-            clearInterval(captureIntervalTimer);
-            captureIntervalTimer = null;
-          }
-          videoPlaceholder.classList.remove("active");
-          liveCam.style.display = "block";
-          setOnlineState(true);
+    // ==========================================
+    // Real-Time WebSocket Connection
+    // ==========================================
+    let ws = null;
+    function connectWS() {
+      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${proto}//${window.location.host}/ws`;
+      try {
+        ws = new WebSocket(wsUrl);
+        ws.onopen = () => setOnline(true);
+        ws.onmessage = (e) => {
+          try {
+            const data = JSON.parse(e.data);
+            if (data.car_ip && data.car_ip.length >= 7 && data.car_ip !== carHost) {
+              carHost = data.car_ip;
+              localStorage.setItem("fpv_car_ip", carHost);
+              ipBadge.textContent = "IP: " + carHost;
+            }
+            updateAiUI(data);
+          } catch (err) {}
         };
-
-        liveCam.onerror = () => {
-          // If port 81 stream fails, start sequential low-latency capture polling
-          if (!captureIntervalTimer) {
-            console.warn("[VIDEO] Port 81 stream failed, starting sequential /capture fallback...");
-            captureIntervalTimer = true;
-
-            function pollFrame() {
-              if (!isCamOn || !carHost || !captureIntervalTimer) return;
-              const tmp = new Image();
-              tmp.onload = () => {
-                liveCam.src = tmp.src;
-                videoPlaceholder.classList.remove("active");
-                liveCam.style.display = "block";
-                setOnlineState(true);
-                // Trigger next frame only after previous renders successfully
-                setTimeout(pollFrame, 40);
-              };
-              tmp.onerror = () => {
-                // If capture fails (camera offline), back off for 3 seconds to NEVER flood the car
-                setTimeout(pollFrame, 3000);
-              };
-              tmp.src = `http://${carHost}/capture?t=${Date.now()}`;
-            }
-
-            pollFrame();
-          }
-
-          // Retry port 81 native stream after 5 seconds
-          clearTimeout(streamRetryTimer);
-          streamRetryTimer = setTimeout(() => {
-            if (isCamOn && carHost) {
-              captureIntervalTimer = null;
-              startVideoStream();
-            }
-          }, 5000);
+        ws.onclose = () => {
+          setTimeout(connectWS, 2500);
         };
+      } catch (err) {
+        setTimeout(connectWS, 3000);
       }
+    }
 
-      /* Flashlight / Headlight */
-      function toggleHeadlight() {
-        isFlashOn = !isFlashOn;
-        const btn = document.getElementById("flashToggleBtn");
-        btn.classList.toggle("active", isFlashOn);
-        document.getElementById("flashText").textContent = isFlashOn ? "HEADLIGHT ON" : "HEADLIGHT";
-        sendCarRequest(`/flash?val=${isFlashOn ? 1 : 0}`);
-      }
-
-      /* Session Recording */
-      function toggleRecording() {
-        isRecording = !isRecording;
-        const btn = document.getElementById("recToggleBtn");
-        btn.classList.toggle("active", isRecording);
-        btn.classList.toggle("danger-action", isRecording);
-        document.getElementById("recText").textContent = isRecording ? "RECORDING..." : "REC";
-        fetch(`./cam/${isRecording ? 'start_record.php' : 'stop_record.php'}`).catch(() => {});
-      }
-
-      /* ======================================================
-       * Connection Monitor & Status Handlers
-       * ====================================================== */
-      function checkConnection() {
-        // Sync car IP from backend in case car connected with new DHCP address
-        syncCarIpFromBackend();
-
-        if (!carHost) {
-          startAutoDiscovery();
-          return;
-        }
-
-        const start = performance.now();
-        const probe = new Image();
-        let handled = false;
-
-        const timer = setTimeout(() => {
-          if (!handled) {
-            handled = true;
-            probe.src = "";
-            handlePingFailure();
+    // Poll status fallback
+    setInterval(() => {
+      fetch(`./get.php?t=${Date.now()}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.car_ip && data.car_ip.length >= 7 && data.car_ip !== carHost) {
+            carHost = data.car_ip;
+            localStorage.setItem("fpv_car_ip", carHost);
+            ipBadge.textContent = "IP: " + carHost;
           }
-        }, 1500);
+          updateAiUI(data);
+          setOnline(true);
+        })
+        .catch(() => {});
+    }, 2000);
 
-        probe.onload = () => {
-          if (!handled) {
-            handled = true;
-            clearTimeout(timer);
-            failedPings = 0;
-            const latency = Math.max(1, Math.round(performance.now() - start));
-            osdLatency.textContent = `${latency}ms`;
-            setOnlineState(true);
-          }
-        };
+    // ==========================================
+    // Keyboard Controller
+    // ==========================================
+    window.addEventListener("keydown", e => {
+      if (e.repeat) return;
+      const k = e.key.toLowerCase();
+      if (k === 'w' || k === 'arrowup') handlePress('F');
+      else if (k === 's' || k === 'arrowdown') handlePress('B');
+      else if (k === 'a' || k === 'arrowleft') handlePress('L');
+      else if (k === 'd' || k === 'arrowright') handlePress('R');
+      else if (k === ' ' || k === 'escape') sendCmd('S');
+      else if (k === 'h') sendHorn(1);
+      else if (k === 'l') toggleLight();
+    });
 
-        probe.onerror = () => {
-          if (!handled) {
-            handled = true;
-            clearTimeout(timer);
-            handlePingFailure();
-          }
-        };
-
-        probe.src = `http://${carHost}/ping.gif?t=${Date.now()}`;
+    window.addEventListener("keyup", e => {
+      const k = e.key.toLowerCase();
+      if (['w', 's', 'a', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) {
+        handleRelease(activeDirection);
+      } else if (k === 'h') {
+        sendHorn(0);
       }
+    });
 
-      function handlePingFailure() {
-        // Only trigger reconnect if camera is not playing and 3 consecutive pings failed
-        if (isCamOn && liveCam && liveCam.naturalWidth > 0) return;
-        failedPings++;
-        if (failedPings >= 3) {
-          setOfflineState();
-          startAutoDiscovery();
-        }
-      }
-
-      function setSearchingState() {
-        const pill = document.getElementById("espStatusPill");
-        const dot = document.getElementById("espStatusDot");
-        const text = document.getElementById("espStatusText");
-        const link = document.getElementById("teleLinkDisplay");
-
-        if (pill) {
-          pill.style.background = "rgba(245, 158, 11, 0.15)";
-          pill.style.color = "#fbbf24";
-          pill.style.borderColor = "rgba(245, 158, 11, 0.35)";
-        }
-        if (dot) {
-          dot.style.backgroundColor = "#f59e0b";
-          dot.style.boxShadow = "0 0 8px #f59e0b";
-        }
-        if (text) text.textContent = "SEARCHING CAR...";
-        if (link) {
-          link.textContent = "SEARCHING";
-          link.className = "tele-val text-warning";
-        }
-      }
-
-      function setOnlineState(online) {
-        espOnlineState = online;
-        const pill = document.getElementById("espStatusPill");
-        const dot = document.getElementById("espStatusDot");
-        const text = document.getElementById("espStatusText");
-        const link = document.getElementById("teleLinkDisplay");
-
-        if (online) {
-          if (pill) {
-            pill.style.background = "rgba(16, 185, 129, 0.15)";
-            pill.style.color = "#34d399";
-            pill.style.borderColor = "rgba(16, 185, 129, 0.4)";
-          }
-          if (dot) {
-            dot.style.backgroundColor = "#10b981";
-            dot.style.boxShadow = "0 0 8px #10b981";
-          }
-          if (text) text.textContent = "CAR CONNECTED";
-          if (link) {
-            link.textContent = "ONLINE";
-            link.className = "tele-val text-success";
-          }
-        } else {
-          setOfflineState();
-        }
-      }
-
-      function setOfflineState() {
-        espOnlineState = false;
-        const pill = document.getElementById("espStatusPill");
-        const dot = document.getElementById("espStatusDot");
-        const text = document.getElementById("espStatusText");
-        const link = document.getElementById("teleLinkDisplay");
-
-        if (pill) {
-          pill.style.background = "rgba(239, 68, 68, 0.15)";
-          pill.style.color = "#f87171";
-          pill.style.borderColor = "rgba(239, 68, 68, 0.4)";
-        }
-        if (dot) {
-          dot.style.backgroundColor = "#ef4444";
-          dot.style.boxShadow = "0 0 8px #ef4444";
-        }
-        if (text) text.textContent = "CAR DISCONNECTED";
-        if (link) {
-          link.textContent = "OFFLINE";
-          link.className = "tele-val text-danger";
-        }
-      }
-
-      /* ======================================================
-       * Touch & Keyboard Controls
-       * ====================================================== */
-      function initControls() {
-        document.querySelectorAll(".drive-btn").forEach((btn) => {
-          const cmd = btn.dataset.cmd;
-
-          btn.addEventListener("pointerdown", (e) => {
-            e.preventDefault();
-            if (driveMode === 1) {
-              heldCommand = cmd;
-              sendCommand(cmd, "HOLDING");
-            } else {
-              sendCommand(cmd, "DRIVE");
-            }
-          });
-
-          btn.addEventListener("pointerup", (e) => {
-            e.preventDefault();
-            if (driveMode === 1) {
-              setButtonVisual(cmd, false);
-              stopCar();
-            }
-          });
-
-          btn.addEventListener("pointercancel", () => {
-            if (driveMode === 1) {
-              setButtonVisual(cmd, false);
-              stopCar();
-            }
-          });
-        });
-
-        // Horn Button Listeners (Press & Hold + Tap)
-        const hornBtn = document.getElementById("hornBtn");
-        if (hornBtn) {
-          hornBtn.addEventListener("pointerdown", (e) => {
-            e.preventDefault();
-            setHorn(true);
-          });
-          hornBtn.addEventListener("pointerup", (e) => {
-            e.preventDefault();
-            setHorn(false);
-          });
-          hornBtn.addEventListener("pointercancel", () => setHorn(false));
-          hornBtn.addEventListener("pointerleave", () => {
-            if (isHornActive) setHorn(false);
-          });
-        }
-
-        // Keyboard Driving (WASD, Arrows, Space, H for Horn)
-        const keyMap = {
-          w: "F", arrowup: "F", "8": "F",
-          s: "B", arrowdown: "B", "2": "B",
-          a: "L", arrowleft: "L", "4": "L",
-          d: "R", arrowright: "R", "6": "R",
-          " ": "S", escape: "S"
-        };
-
-        window.addEventListener("keydown", (e) => {
-          if (e.repeat) return;
-          const k = e.key.toLowerCase();
-          if (k === "h" || k === "k") {
-            e.preventDefault();
-            setHorn(true);
-            return;
-          }
-          const cmd = keyMap[k];
-          if (cmd) {
-            e.preventDefault();
-            if (cmd === "S") stopCar();
-            else {
-              if (driveMode === 1) heldCommand = cmd;
-              sendCommand(cmd, "KEYBOARD");
-            }
-          }
-        });
-
-        window.addEventListener("keyup", (e) => {
-          const k = e.key.toLowerCase();
-          if (k === "h" || k === "k") {
-            e.preventDefault();
-            setHorn(false);
-            return;
-          }
-          const cmd = keyMap[k];
-          if (cmd && cmd !== "S" && driveMode === 1 && heldCommand === cmd) {
-            setButtonVisual(cmd, false);
-            stopCar();
-          }
-        });
-      }
-
-      /* ======================================================
-       * WiFi Setup Modal Client
-       * ====================================================== */
-      let wifiModalInstance = null;
-      function openWifiModal() {
-        if (!wifiModalInstance && window.bootstrap) {
-          wifiModalInstance = new bootstrap.Modal(document.getElementById('wifiModal'));
-        }
-        if (wifiModalInstance) wifiModalInstance.show();
-        scanWifiNetworks();
-      }
-
-      function scanWifiNetworks() {
-        const btn = document.getElementById("scanWifiBtn");
-        const select = document.getElementById("wifiSelect");
-        const msg = document.getElementById("wifiStatusMsg");
-
-        btn.disabled = true;
-        btn.textContent = "Scanning...";
-        msg.style.display = "block";
-        msg.className = "small text-info text-center mb-2";
-        msg.textContent = `Scanning Wi-Fi networks near car...`;
-
-        fetch(`http://${carHost}/scan?t=${Date.now()}`, { mode: "cors" })
-          .then(r => r.json())
-          .then(networks => {
-            btn.disabled = false;
-            btn.textContent = "🔍 Scan";
-            if (!Array.isArray(networks) || networks.length === 0) {
-              msg.textContent = "No WiFi networks found in range.";
-              return;
-            }
-            select.innerHTML = '<option value="">-- Select scanned network or type below --</option>';
-            networks.forEach(net => {
-              const opt = document.createElement("option");
-              opt.value = net.ssid;
-              opt.textContent = `📶 ${net.ssid} (${net.rssi} dBm)`;
-              select.appendChild(opt);
-            });
-            msg.className = "small text-success text-center mb-2";
-            msg.textContent = `Found ${networks.length} networks.`;
-          })
-          .catch(() => {
-            btn.disabled = false;
-            btn.textContent = "🔍 Scan";
-            msg.className = "small text-warning text-center mb-2";
-            msg.innerHTML = `Make sure device is connected to car hotspot <strong>"FPV-Car-Setup"</strong>.`;
-          });
-      }
-
-      function saveWifiCredentials() {
-        const ssid = document.getElementById("wifiSsidInput").value.trim();
-        const pass = document.getElementById("wifiPassInput").value;
-        const msg = document.getElementById("wifiStatusMsg");
-        const btn = document.getElementById("saveWifiBtn");
-
-        if (!ssid) {
-          msg.style.display = "block";
-          msg.textContent = "Please enter or select a WiFi SSID.";
-          return;
-        }
-
-        btn.disabled = true;
-        btn.textContent = "SAVING & RESTARTING...";
-        msg.style.display = "block";
-        msg.textContent = "Saving to car flash memory...";
-
-        fetch(`http://${carHost}/save-wifi?ssid=${encodeURIComponent(ssid)}&password=${encodeURIComponent(pass)}`, { mode: "cors" })
-          .then(() => {
-            msg.className = "small text-success text-center mb-2";
-            msg.innerHTML = "✅ <strong>WiFi Saved!</strong> Car is restarting and connecting to your network.";
-            setTimeout(() => {
-              if (wifiModalInstance) wifiModalInstance.hide();
-              btn.disabled = false;
-              btn.textContent = "SAVE & CONNECT";
-            }, 4000);
-          })
-          .catch(() => {
-            btn.disabled = false;
-            btn.textContent = "SAVE & CONNECT";
-            msg.textContent = "Credentials sent! Reconnecting to car...";
-          });
-      }
-
-      /* ======================================================
-       * Recordings Gallery Client
-       * ====================================================== */
-      let galleryModalInstance = null;
-      let selectedFolder = "";
-      let playbackFrames = [];
-      let playbackIndex = 0;
-      let playbackTimer = null;
-      let isPlaying = false;
-
-      function openGalleryModal() {
-        if (!galleryModalInstance && window.bootstrap) {
-          galleryModalInstance = new bootstrap.Modal(document.getElementById('galleryModal'));
-        }
-        if (galleryModalInstance) galleryModalInstance.show();
-        fetchRecordingList();
-      }
-
-      function fetchRecordingList() {
-        const folderListEl = document.getElementById("folderList");
-        folderListEl.innerHTML = `<div class="text-secondary small text-center py-3">Fetching sessions...</div>`;
-
-        fetch(`./cam/list.php?t=${Date.now()}`)
-          .then(r => r.json())
-          .then(folders => {
-            if (!Array.isArray(folders) || folders.length === 0) {
-              folderListEl.innerHTML = `<div class="text-secondary small text-center py-3">No recorded sessions found.</div>`;
-              return;
-            }
-            folderListEl.innerHTML = "";
-            folders.forEach(folder => {
-              const div = document.createElement("div");
-              div.className = "d-flex justify-content-between align-items-center p-2 mb-1 rounded bg-dark border border-secondary";
-              div.style.cursor = "pointer";
-              div.innerHTML = `
-                <span onclick="loadFolderFrames('${folder}')" style="flex:1;">📁 ${folder}</span>
-                <button class="btn btn-link text-danger p-0 ms-2" onclick="event.stopPropagation(); deleteRecording('${folder}')">🗑️</button>
-              `;
-              folderListEl.appendChild(div);
-            });
-          })
-          .catch(() => {
-            folderListEl.innerHTML = `<div class="text-secondary small text-center py-3">Failed to load recordings.</div>`;
-          });
-      }
-
-      function loadFolderFrames(folder) {
-        selectedFolder = folder;
-        stopPlaybackTimer();
-        document.getElementById("selectedSessionTitle").textContent = folder;
-        document.getElementById("playbackPlaceholder").textContent = "Loading frames...";
-        document.getElementById("playbackPlaceholder").style.display = "block";
-        document.getElementById("playbackImg").style.display = "none";
-
-        fetch(`./cam/list_frames.php?folder=${encodeURIComponent(folder)}&t=${Date.now()}`)
-          .then(r => r.json())
-          .then(frames => {
-            if (!Array.isArray(frames) || frames.length === 0) {
-              document.getElementById("playbackPlaceholder").textContent = "No frames in session.";
-              playbackFrames = [];
-              return;
-            }
-            playbackFrames = frames;
-            playbackIndex = 0;
-            document.getElementById("playbackSeek").max = String(playbackFrames.length - 1);
-            document.getElementById("playbackSeek").value = "0";
-            document.getElementById("downloadSessionBtn").style.display = "inline-block";
-            document.getElementById("deleteSessionBtn").style.display = "inline-block";
-            renderCurrentFrame();
-          });
-      }
-
-      function renderCurrentFrame() {
-        if (!playbackFrames.length) return;
-        const frameName = playbackFrames[playbackIndex];
-        const img = document.getElementById("playbackImg");
-        img.src = `./cam/${selectedFolder}/${frameName}`;
-        img.style.display = "block";
-        document.getElementById("playbackPlaceholder").style.display = "none";
-        document.getElementById("playbackSeek").value = String(playbackIndex);
-        document.getElementById("playbackCounterBadge").textContent = `${playbackIndex + 1} / ${playbackFrames.length}`;
-      }
-
-      function onSeekChange(val) {
-        stopPlaybackTimer();
-        playbackIndex = Math.min(playbackFrames.length - 1, Math.max(0, Number(val)));
-        renderCurrentFrame();
-      }
-
-      function stepFrame(step) {
-        if (!playbackFrames.length) return;
-        stopPlaybackTimer();
-        playbackIndex = (playbackIndex + step + playbackFrames.length) % playbackFrames.length;
-        renderCurrentFrame();
-      }
-
-      function togglePlaybackPlay() {
-        if (!playbackFrames.length) return;
-        if (isPlaying) {
-          stopPlaybackTimer();
-        } else {
-          isPlaying = true;
-          document.getElementById("playPauseBtn").textContent = "⏸ PAUSE";
-          playbackTimer = setInterval(() => {
-            playbackIndex = (playbackIndex + 1) % playbackFrames.length;
-            renderCurrentFrame();
-          }, 100);
-        }
-      }
-
-      function stopPlaybackTimer() {
-        isPlaying = false;
-        clearInterval(playbackTimer);
-        const btn = document.getElementById("playPauseBtn");
-        if (btn) btn.textContent = "▶ PLAY";
-      }
-
-      function downloadCurrentSession() {
-        if (!selectedFolder) return;
-        window.open(`./cam/download_recording.php?folder=${encodeURIComponent(selectedFolder)}&type=zip`, '_blank');
-      }
-
-      function deleteRecording(folder) {
-        if (!confirm(`Delete recorded session "${folder}"?`)) return;
-        fetch(`./cam/delete.php?folder=${encodeURIComponent(folder)}`)
-          .then(() => {
-            if (selectedFolder === folder) {
-              selectedFolder = "";
-              playbackFrames = [];
-              document.getElementById("playbackImg").style.display = "none";
-              document.getElementById("playbackPlaceholder").textContent = "Select a session.";
-              document.getElementById("playbackPlaceholder").style.display = "block";
-              document.getElementById("selectedSessionTitle").textContent = "No Session Selected";
-              document.getElementById("playbackCounterBadge").textContent = "0 / 0";
-              document.getElementById("downloadSessionBtn").style.display = "none";
-              document.getElementById("deleteSessionBtn").style.display = "none";
-            }
-            fetchRecordingList();
-          });
-      }
-
-      // Initialize App
-      window.addEventListener("DOMContentLoaded", () => {
-        updateHostUI();
-        if (window.location.protocol === 'https:') {
-          const warn = document.getElementById('httpsWarning');
-          if (warn) {
-            warn.classList.remove('d-none');
-            warn.classList.add('d-flex');
-          }
-        }
-        initControls();
-        toggleCameraPower(); // Start camera feed automatically
-        startAutoDiscovery(); // Automatic zero-config car discovery
-        setInterval(checkConnection, 1500); // Periodic connection monitor
-      });
-    </script>
-  </body>
+    // Initialize
+    connectWS();
+    startStream();
+  </script>
+</body>
 </html>
