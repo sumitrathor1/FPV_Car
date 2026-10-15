@@ -496,6 +496,13 @@ void setup() {
       flashBlink(2, 90);
       Serial.println("Z:WIFI_OK");
       Serial.flush();
+
+      // Register local IP with Cloud Server (Azure VM)
+      HTTPClient http;
+      http.begin("http://172.198.73.188/set.php?car_ip=" + WiFi.localIP().toString() + "&esp_hb=1");
+      http.setTimeout(1500);
+      http.GET();
+      http.end();
     }
   }
 
