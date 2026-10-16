@@ -116,6 +116,12 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
       color: #34d399;
     }
 
+    .badge.warning {
+      background: rgba(245, 158, 11, 0.2);
+      border-color: var(--warning);
+      color: #fbbf24;
+    }
+
     .badge.offline {
       background: rgba(244, 63, 94, 0.2);
       border-color: var(--danger);
@@ -750,16 +756,44 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
       wifiModal.classList.remove("active");
     }
 
-    function scanWifi() {
+    let isStreamActive = false;
+    let isCarServerActive = false;
+    let isCamHardwareReady = true;
+
+    function updateConnectionBadge() {
+      if (!isCarServerActive) {
+        statusBadge.className = "badge offline";
+        statusBadge.textContent = "● OFFLINE";
+      } else if (!isCamHardwareReady) {
+        statusBadge.className = "badge warning";
+        statusBadge.textContent = "● CAM OFFLINE";
+      } else if (!isStreamActive) {
+        statusBadge.className = "badge warning";
+        statusBadge.textContent = "● CONNECTING";
+      } else {
+        statusBadge.className = "badge online";
+        statusBadge.textContent = "● ONLINE";
+      }
+    }
+
+    function setOnline(online) {
+      isCarServerActive = online;
+      updateConnectionBadge();
+    }
+
+    function scanWifi(isRefresh = false) {
       const box = document.getElementById("wifiListBox");
-      box.innerHTML = `<div style="padding:10px; text-align:center; color:#00f2fe; font-size:0.75rem; animation: pulse 1s infinite;">📡 Scanning 2.4GHz Wi-Fi networks...</div>`;
+      if (isRefresh) {
+        box.innerHTML = `<div style="padding:10px; text-align:center; color:#00f2fe; font-size:0.75rem;">📡 Scanning nearby 2.4GHz Wi-Fi networks...</div>`;
+      }
       
       const target = isRunningOnLocalAp ? "" : `http://${carHost}`;
-      fetch(`${target}/scan`, { cache: 'no-store' })
+      const url = `${target}/scan${isRefresh ? '?refresh=1' : ''}`;
+      fetch(url, { cache: 'no-store' })
         .then(r => r.json())
         .then(list => {
-          if (!list || list.length === 0) {
-            box.innerHTML = `<div style="padding:10px; text-align:center; color:#94a3b8; font-size:0.75rem;">No networks found. Ensure router is 2.4GHz. You can type SSID manually below.</div>`;
+          if (!Array.isArray(list) || list.length === 0) {
+            box.innerHTML = `<div style="padding:10px; text-align:center; color:#94a3b8; font-size:0.75rem;">No networks found. (Click Scan to refresh, or enter SSID below).</div>`;
             return;
           }
           box.innerHTML = "";
@@ -778,9 +812,11 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
           });
         })
         .catch(() => {
-          box.innerHTML = `<div style="padding:8px; text-align:center; color:#f87171; font-size:0.75rem;">Scan error. You can type SSID manually below.</div>`;
+          box.innerHTML = `<div style="padding:8px; text-align:center; color:#f87171; font-size:0.75rem;">Auto-scan error. You can type SSID manually below.</div>`;
         });
     }
+
+    let wifiStatusPollInterval = null;
 
     function submitWifiConnect() {
       const ssid = document.getElementById("ssidInput").value.trim();
@@ -795,7 +831,7 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
 
       btn.disabled = true;
       msg.style.color = "#00f2fe";
-      msg.textContent = `Saving credentials & connecting car to "${ssid}"...`;
+      msg.innerHTML = `⏳ Sending Wi-Fi credentials for "<b>${ssid}</b>"...`;
 
       const target = isRunningOnLocalAp ? "" : `http://${carHost}`;
       const url = `${target}/save-wifi?ssid=${encodeURIComponent(ssid)}&pass=${encodeURIComponent(pass)}`;
@@ -803,20 +839,55 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
       fetch(url, { cache: 'no-store' })
         .then(r => r.json())
         .then(res => {
-          btn.disabled = false;
-          msg.style.color = "#34d399";
-          msg.innerHTML = `✅ Saved! Car is connecting to "<b>${ssid}</b>".<br><br>` +
-                          `<b>Next Steps:</b><br>` +
-                          `1. Connect your phone/laptop to Wi-Fi "<b>${ssid}</b>"<br>` +
-                          `2. <a href="${CLOUD_SERVER_URL}" target="_blank" style="color:#00f2fe; text-decoration:underline; font-weight:800; font-size:0.95rem;">🚀 Open Cloud Dashboard (${CLOUD_SERVER_URL})</a>`;
+          msg.innerHTML = `⏳ Car is connecting to "<b>${ssid}</b>"... (Please wait)`;
+
+          clearInterval(wifiStatusPollInterval);
+          let pollCount = 0;
+
+          wifiStatusPollInterval = setInterval(() => {
+            pollCount++;
+            fetch(`${target}/wifi-status`, { cache: 'no-store' })
+              .then(r => r.json())
+              .then(stat => {
+                if (stat.state === "connected") {
+                  clearInterval(wifiStatusPollInterval);
+                  btn.disabled = false;
+                  msg.style.color = "#34d399";
+                  msg.innerHTML = `🎉 <b>Connected to "${stat.ssid}"!</b> (Car IP: ${stat.ip})<br><br>` +
+                                  `<b>Next Steps:</b><br>` +
+                                  `1. Connect your phone/laptop to Wi-Fi "<b>${stat.ssid}</b>"<br>` +
+                                  `2. <a href="${CLOUD_SERVER_URL}" target="_blank" style="color:#00f2fe; text-decoration:underline; font-weight:800; font-size:0.95rem;">🚀 Open Cloud Dashboard (${CLOUD_SERVER_URL})</a>`;
+                } else if (stat.state === "failed") {
+                  clearInterval(wifiStatusPollInterval);
+                  btn.disabled = false;
+                  msg.style.color = "#f87171";
+                  msg.innerHTML = `❌ <b>Connection Failed:</b> ${stat.err || 'Timeout'}.<br>Please verify password and try again.`;
+                } else {
+                  msg.innerHTML = `⏳ Connecting to "<b>${ssid}</b>" (attempt ${pollCount}/15)...`;
+                  if (pollCount >= 18) {
+                    clearInterval(wifiStatusPollInterval);
+                    btn.disabled = false;
+                    msg.innerHTML = `✅ Signal sent! If connected, switch your phone to "<b>${ssid}</b>" and open <a href="${CLOUD_SERVER_URL}" target="_blank" style="color:#00f2fe;">${CLOUD_SERVER_URL}</a>`;
+                  }
+                }
+              })
+              .catch(() => {
+                if (pollCount > 3) {
+                  clearInterval(wifiStatusPollInterval);
+                  btn.disabled = false;
+                  msg.style.color = "#34d399";
+                  msg.innerHTML = `✅ Car switched to "<b>${ssid}</b>"!<br><br>` +
+                                  `<b>Next Steps:</b><br>` +
+                                  `1. Connect your phone/laptop to Wi-Fi "<b>${ssid}</b>"<br>` +
+                                  `2. <a href="${CLOUD_SERVER_URL}" target="_blank" style="color:#00f2fe; text-decoration:underline; font-weight:800; font-size:0.95rem;">🚀 Open Cloud Dashboard (${CLOUD_SERVER_URL})</a>`;
+                }
+              });
+          }, 1200);
         })
         .catch(() => {
           btn.disabled = false;
           msg.style.color = "#34d399";
-          msg.innerHTML = `✅ Signal sent! Car is connecting to "<b>${ssid}</b>".<br><br>` +
-                          `<b>Next Steps:</b><br>` +
-                          `1. Connect your phone/laptop to Wi-Fi "<b>${ssid}</b>"<br>` +
-                          `2. <a href="${CLOUD_SERVER_URL}" target="_blank" style="color:#00f2fe; text-decoration:underline; font-weight:800; font-size:0.95rem;">🚀 Open Cloud Dashboard (${CLOUD_SERVER_URL})</a>`;
+          msg.innerHTML = `✅ Credentials sent! Connect to "<b>${ssid}</b>" and open <a href="${CLOUD_SERVER_URL}" target="_blank" style="color:#00f2fe;">Cloud Dashboard</a>`;
         });
     }
 
@@ -845,6 +916,7 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
     // Real-Time Video Stream
     // ==========================================
     let streamRetryTimer = null;
+    let streamCheckTimer = null;
     let fallbackCaptureTimer = null;
 
     function startStream() {
@@ -855,37 +927,52 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
         placeholderDesc.textContent = "Camera is sleeping (0% CPU / Zero Latency)";
         aiStatusPill.className = "ai-pill idle";
         aiStatusPill.textContent = "🛡️ AI: CAM OFF";
+        isStreamActive = false;
+        updateConnectionBadge();
         return;
       }
 
       clearTimeout(streamRetryTimer);
+      clearInterval(streamCheckTimer);
       clearTimeout(fallbackCaptureTimer);
 
       placeholder.style.display = "flex";
       placeholderTitle.textContent = "Connecting to Video Stream...";
       placeholderDesc.textContent = "Establishing live stream link...";
 
-      // If running on local AP, stream is direct /stream. Otherwise port 80 /stream on carHost.
       const streamUrl = isRunningOnLocalAp ? "/stream" : `http://${carHost}/stream`;
       liveCam.src = streamUrl;
 
-      liveCam.onload = () => {
-        placeholder.style.display = "none";
-        setOnline(true);
-      };
+      // Check for first valid frame arriving (Chrome does not fire onload on MJPEG)
+      streamCheckTimer = setInterval(() => {
+        if (liveCam.naturalWidth > 0 && liveCam.naturalHeight > 0) {
+          placeholder.style.display = "none";
+          isStreamActive = true;
+          isCarServerActive = true;
+          updateConnectionBadge();
+        }
+      }, 100);
 
       liveCam.onerror = () => {
-        // Sequential single-frame fallback
+        clearInterval(streamCheckTimer);
+        isStreamActive = false;
+        updateConnectionBadge();
+
+        // Sequential snapshot fallback
         function pollFallback() {
           if (!isCamOn) return;
           const img = new Image();
           img.onload = () => {
             liveCam.src = img.src;
             placeholder.style.display = "none";
-            setOnline(true);
-            setTimeout(pollFallback, 45);
+            isStreamActive = true;
+            isCarServerActive = true;
+            updateConnectionBadge();
+            setTimeout(pollFallback, 50);
           };
           img.onerror = () => {
+            isStreamActive = false;
+            updateConnectionBadge();
             placeholder.style.display = "flex";
             placeholderTitle.textContent = "Waiting for Video Stream...";
             placeholderDesc.innerHTML = "Check that Car is powered on & phone is on the same Wi-Fi.<br><b style='color:#00f2fe;'>Motor controls are active below!</b>";
@@ -918,7 +1005,8 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
         .then(r => {
           const lat = Math.round(performance.now() - lastPingTime);
           latencyBadge.textContent = `⚡ ${lat}ms`;
-          setOnline(true);
+          isCarServerActive = true;
+          updateConnectionBadge();
         })
         .catch(() => {});
     }
@@ -1009,11 +1097,6 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
       if (!isRunningOnLocalAp) sendServerReq(`/set.php?mode=${isAutoMode ? 1 : 0}`);
     }
 
-    function setOnline(online) {
-      statusBadge.className = online ? "badge online" : "badge offline";
-      statusBadge.textContent = online ? "● ONLINE" : "● OFFLINE";
-    }
-
     function updateAiUI(state) {
       if (!isCamOn) {
         aiStatusPill.className = "ai-pill idle";
@@ -1081,15 +1164,23 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
       fetch(endpoint)
         .then(r => r.json())
         .then(data => {
+          isCarServerActive = true;
+          if (typeof data.cam !== "undefined") {
+            isCamHardwareReady = (data.cam === true || data.cam === "1" || data.cam === 1);
+          }
           if (data.car_ip && data.car_ip.length >= 7 && data.car_ip !== carHost) {
             carHost = data.car_ip;
             localStorage.setItem("fpv_car_ip", carHost);
             updateModeBadgeUI();
           }
           updateAiUI(data);
-          setOnline(true);
+          updateConnectionBadge();
         })
-        .catch(() => {});
+        .catch(() => {
+          isCarServerActive = false;
+          isStreamActive = false;
+          updateConnectionBadge();
+        });
     }, 2000);
 
     // ==========================================

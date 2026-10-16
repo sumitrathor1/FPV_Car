@@ -58,6 +58,13 @@ unsigned long pendingConnectStartTime = 0;
 unsigned long lastCloudPoll = 0;
 unsigned long lastHeartbeat = 0;
 
+// Wi-Fi Scanning & Connection Progress Tracking
+String cachedScanResults = "[]";
+volatile bool isScanningAsync = false;
+String wifiConnectState = "idle"; // "idle", "connecting", "connected", "failed"
+String wifiConnectError = "";
+unsigned long wifiConnectStartMs = 0;
+
 Preferences prefs;
 DNSServer dnsServer;
 const byte DNS_PORT = 53;
@@ -334,43 +341,95 @@ esp_err_t reprobe_handler(httpd_req_t *req) {
   return httpd_resp_send(req, cameraReady ? "OK" : "FAIL", HTTPD_RESP_USE_STRLEN);
 }
 
-// Scan nearby 2.4GHz Wi-Fi networks
-esp_err_t scan_handler(httpd_req_t *req) {
-  // Ensure station mode is active for RF scanning
-  if (!(WiFi.getMode() & WIFI_MODE_STA)) {
-    WiFi.mode(WIFI_AP_STA);
-    delay(50);
+// Helper to parse scanned networks into JSON cache
+void updateScanCacheFromCount(int n) {
+  if (n <= 0) {
+    cachedScanResults = "[]";
+    return;
   }
-  WiFi.scanDelete();
-
-  int16_t n = WiFi.scanNetworks(false, false, false, 150);
   String json = "[";
-  if (n > 0) {
-    bool first = true;
-    for (int i = 0; i < n; ++i) {
-      String ssid = WiFi.SSID(i);
-      ssid.trim();
-      if (ssid.length() == 0) continue; // skip hidden networks
-      ssid.replace("\\", "\\\\");
-      ssid.replace("\"", "\\\"");
-      int rssi = WiFi.RSSI(i);
-      if (!first) json += ",";
-      json += "{\"ssid\":\"" + ssid + "\",\"rssi\":" + String(rssi) + "}";
-      first = false;
-    }
+  bool first = true;
+  for (int i = 0; i < n; ++i) {
+    String ssid = WiFi.SSID(i);
+    ssid.trim();
+    if (ssid.length() == 0) continue; // skip hidden
+    ssid.replace("\\", "\\\\");
+    ssid.replace("\"", "\\\"");
+    int rssi = WiFi.RSSI(i);
+    if (!first) json += ",";
+    json += "{\"ssid\":\"" + ssid + "\",\"rssi\":" + String(rssi) + "}";
+    first = false;
   }
   json += "]";
+  cachedScanResults = json;
   WiFi.scanDelete();
+}
+
+// Single Frame Snapshot Capture Handler
+esp_err_t capture_handler(httpd_req_t *req) {
+  if (!cameraReady) {
+    httpd_resp_set_status(req, "503 Camera Offline");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    return httpd_resp_send(req, "Camera Offline", HTTPD_RESP_USE_STRLEN);
+  }
+  camera_fb_t *fb = esp_camera_fb_get();
+  if (!fb) {
+    httpd_resp_set_status(req, "500 Capture Failed");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    return httpd_resp_send(req, "Capture Failed", HTTPD_RESP_USE_STRLEN);
+  }
+  httpd_resp_set_type(req, "image/jpeg");
+  httpd_resp_set_hdr(req, "Content-Disposition", "inline; filename=capture.jpg");
+  httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+  httpd_resp_set_hdr(req, "Cache-Control", "no-cache, no-store, must-revalidate");
+  esp_err_t res = httpd_resp_send(req, (const char *)fb->buf, fb->len);
+  esp_camera_fb_return(fb);
+  return res;
+}
+
+// Wi-Fi Connection Progress Status Handler
+esp_err_t wifi_status_handler(httpd_req_t *req) {
+  char json[220];
+  snprintf(json, sizeof(json),
+    "{\"state\":\"%s\",\"ssid\":\"%s\",\"ip\":\"%s\",\"rssi\":%d,\"err\":\"%s\"}",
+    wifiConnectState.c_str(),
+    connectedSsid.c_str(),
+    WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString().c_str() : "",
+    WiFi.status() == WL_CONNECTED ? WiFi.RSSI() : 0,
+    wifiConnectError.c_str()
+  );
+  httpd_resp_set_type(req, "application/json");
+  httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+  httpd_resp_set_hdr(req, "Cache-Control", "no-cache, no-store, must-revalidate");
+  return httpd_resp_send(req, json, strlen(json));
+}
+
+// Scan nearby 2.4GHz Wi-Fi networks (Instant response from cache + async refresh)
+esp_err_t scan_handler(httpd_req_t *req) {
+  char buf[32];
+  bool refresh = false;
+  if (httpd_req_get_url_query_str(req, buf, sizeof(buf)) == ESP_OK) {
+    char ref[8];
+    if (httpd_query_key_value(buf, "refresh", ref, sizeof(ref)) == ESP_OK && ref[0] == '1') {
+      refresh = true;
+    }
+  }
+
+  // If refresh requested and not currently scanning, trigger background async scan
+  if (refresh && !isScanningAsync) {
+    isScanningAsync = true;
+    WiFi.scanNetworks(true, false, false, 80);
+  }
 
   httpd_resp_set_type(req, "application/json");
   httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
   httpd_resp_set_hdr(req, "Cache-Control", "no-cache, no-store, must-revalidate");
-  return httpd_resp_send(req, json.c_str(), HTTPD_RESP_USE_STRLEN);
+  return httpd_resp_send(req, cachedScanResults.c_str(), HTTPD_RESP_USE_STRLEN);
 }
 
 // Connect to Wi-Fi and switch to Server Mode (Non-blocking response to client)
 esp_err_t save_wifi_handler(httpd_req_t *req) {
-  char buf[160];
+  char buf[256];
   String ssid = "", pass = "";
   if (httpd_req_get_url_query_str(req, buf, sizeof(buf)) == ESP_OK) {
     char s[64], p[64];
@@ -387,7 +446,9 @@ esp_err_t save_wifi_handler(httpd_req_t *req) {
     pendingSsid = ssid;
     pendingPass = pass;
     pendingWifiConnect = true;
-    pendingConnectStartTime = millis() + 600; // Allow 600ms for phone to finish receiving response
+    pendingConnectStartTime = millis() + 400; // Allow 400ms for phone to finish receiving response
+    wifiConnectState = "connecting";
+    wifiConnectError = "";
 
     String res = "{\"status\":\"ok\",\"msg\":\"connecting\",\"ssid\":\"" + ssid + "\",\"cloud\":\"http://172.198.73.188/\"}";
     httpd_resp_set_type(req, "application/json");
@@ -404,8 +465,9 @@ esp_err_t save_wifi_handler(httpd_req_t *req) {
 void switchToLocalAp() {
   isApMode = true;
   connectedSsid = "";
+  wifiConnectState = "idle";
 
-  WiFi.disconnect();
+  WiFi.disconnect(false, true);
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAP("FPV-Car", "");
   dnsServer.start(DNS_PORT, "*", WiFi.softAPIP());
@@ -461,6 +523,7 @@ void startWebServer() {
 
   httpd_uri_t uri_index = { .uri = "/", .method = HTTP_GET, .handler = index_handler, .user_ctx = NULL };
   httpd_uri_t uri_stream = { .uri = "/stream", .method = HTTP_GET, .handler = stream_handler, .user_ctx = NULL };
+  httpd_uri_t uri_capture = { .uri = "/capture", .method = HTTP_GET, .handler = capture_handler, .user_ctx = NULL };
   httpd_uri_t uri_cmd = { .uri = "/cmd", .method = HTTP_GET, .handler = cmd_handler, .user_ctx = NULL };
   httpd_uri_t uri_horn = { .uri = "/horn", .method = HTTP_GET, .handler = horn_handler, .user_ctx = NULL };
   httpd_uri_t uri_speed = { .uri = "/speed", .method = HTTP_GET, .handler = speed_handler, .user_ctx = NULL };
@@ -469,6 +532,7 @@ void startWebServer() {
   httpd_uri_t uri_reprobe = { .uri = "/reprobe", .method = HTTP_GET, .handler = reprobe_handler, .user_ctx = NULL };
   httpd_uri_t uri_scan = { .uri = "/scan", .method = HTTP_GET, .handler = scan_handler, .user_ctx = NULL };
   httpd_uri_t uri_save_wifi = { .uri = "/save-wifi", .method = HTTP_GET, .handler = save_wifi_handler, .user_ctx = NULL };
+  httpd_uri_t uri_wifi_status = { .uri = "/wifi-status", .method = HTTP_GET, .handler = wifi_status_handler, .user_ctx = NULL };
   httpd_uri_t uri_switch_mode = { .uri = "/switch-mode", .method = HTTP_GET, .handler = switch_mode_handler, .user_ctx = NULL };
   httpd_uri_t uri_cp1 = { .uri = "/generate_204", .method = HTTP_GET, .handler = redirect_handler, .user_ctx = NULL };
   httpd_uri_t uri_cp2 = { .uri = "/hotspot-detect.html", .method = HTTP_GET, .handler = redirect_handler, .user_ctx = NULL };
@@ -476,6 +540,7 @@ void startWebServer() {
   if (httpd_start(&serverHttpd, &config) == ESP_OK) {
     httpd_register_uri_handler(serverHttpd, &uri_index);
     httpd_register_uri_handler(serverHttpd, &uri_stream);
+    httpd_register_uri_handler(serverHttpd, &uri_capture);
     httpd_register_uri_handler(serverHttpd, &uri_cmd);
     httpd_register_uri_handler(serverHttpd, &uri_horn);
     httpd_register_uri_handler(serverHttpd, &uri_speed);
@@ -484,6 +549,7 @@ void startWebServer() {
     httpd_register_uri_handler(serverHttpd, &uri_reprobe);
     httpd_register_uri_handler(serverHttpd, &uri_scan);
     httpd_register_uri_handler(serverHttpd, &uri_save_wifi);
+    httpd_register_uri_handler(serverHttpd, &uri_wifi_status);
     httpd_register_uri_handler(serverHttpd, &uri_switch_mode);
     httpd_register_uri_handler(serverHttpd, &uri_cp1);
     httpd_register_uri_handler(serverHttpd, &uri_cp2);
@@ -569,17 +635,22 @@ void handlePendingWifiConnect() {
   if (millis() < pendingConnectStartTime) return;
   pendingWifiConnect = false;
 
-  Serial.println("\n[WIFI] Connecting to Station: " + pendingSsid);
+  wifiConnectState = "connecting";
+  wifiConnectError = "";
+  wifiConnectStartMs = millis();
+
+  Serial.println("\n[WIFI] Connecting to: " + pendingSsid);
+  WiFi.disconnect(false, true);
+  delay(50);
   WiFi.mode(WIFI_AP_STA);
   WiFi.begin(pendingSsid.c_str(), pendingPass.c_str());
+}
 
-  unsigned long start = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - start < 12000) {
-    delay(250);
-    Serial.print(".");
-  }
+void checkWifiConnectionProgress() {
+  if (wifiConnectState != "connecting") return;
 
   if (WiFi.status() == WL_CONNECTED) {
+    wifiConnectState = "connected";
     isApMode = false;
     connectedSsid = pendingSsid;
     String localIp = WiFi.localIP().toString();
@@ -593,9 +664,18 @@ void handlePendingWifiConnect() {
     http.setTimeout(2500);
     http.GET();
     http.end();
-  } else {
-    Serial.println("\n[WIFI] Connection failed. Reverting to Local AP mode.");
-    WiFi.disconnect();
+  } else if (millis() - wifiConnectStartMs > 16000) {
+    wifiConnectState = "failed";
+    wl_status_t st = WiFi.status();
+    if (st == WL_CONNECT_FAILED) {
+      wifiConnectError = "Incorrect Wi-Fi password";
+    } else if (st == WL_NO_SSID_AVAIL) {
+      wifiConnectError = "SSID not found or out of range";
+    } else {
+      wifiConnectError = "Connection timed out (Check 2.4GHz Wi-Fi)";
+    }
+    Serial.println("\n[WIFI] Connection failed: " + wifiConnectError);
+    WiFi.disconnect(false, true);
     WiFi.mode(WIFI_AP_STA);
     WiFi.softAP("FPV-Car", "");
     isApMode = true;
@@ -650,10 +730,17 @@ void setup() {
   Serial.flush();
 
   // ALWAYS BOOT IN LOCAL (AP) MODE BY DEFAULT!
-  // WIFI_AP_STA keeps the "FPV-Car" hotspot running and enables RF scanning
   isApMode = true;
   WiFi.mode(WIFI_AP_STA);
-  WiFi.softAP("FPV-Car", ""); // Open network for 1-tap connection
+
+  // Fast pre-scan of nearby 2.4GHz Wi-Fi networks before starting AP
+  Serial.println("[WIFI] Scanning nearby networks...");
+  int n = WiFi.scanNetworks(false, false, false, 120);
+  updateScanCacheFromCount(n);
+  Serial.printf("[WIFI] Boot scan found %d networks\n", n);
+
+  // Start "FPV-Car" Hotspot
+  WiFi.softAP("FPV-Car", "");
   WiFi.setSleep(false);
 
   // Captive Portal DNS on Port 53
@@ -678,12 +765,27 @@ void setup() {
 // Main Loop
 // ==========================================
 void loop() {
+  // Check async scan completion
+  if (isScanningAsync) {
+    int16_t count = WiFi.scanComplete();
+    if (count >= 0) {
+      updateScanCacheFromCount(count);
+      isScanningAsync = false;
+      Serial.printf("[WIFI] Async scan completed: %d networks\n", count);
+    } else if (count == WIFI_SCAN_FAILED) {
+      isScanningAsync = false;
+    }
+  }
+
+  // Handle Wi-Fi connection progression
+  handlePendingWifiConnect();
+  checkWifiConnectionProgress();
+
   if (isApMode) {
     dnsServer.processNextRequest();
   } else {
     pollCloudServer();
   }
 
-  handlePendingWifiConnect();
   delay(2);
 }
