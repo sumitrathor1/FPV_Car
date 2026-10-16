@@ -703,14 +703,14 @@
     updateModeBadgeUI();
 
     function updateModeBadgeUI() {
-      if (isRunningOnLocalAp || carHost === LOCAL_AP_IP) {
-        modeSwitchBtn.textContent = "📻 LOCAL (AP)";
-        modeSwitchBtn.title = "Click to switch Car to Server Mode (Wi-Fi)";
+      if (isRunningOnLocalAp) {
+        modeSwitchBtn.textContent = "☁️ SWITCH TO SERVER";
+        modeSwitchBtn.title = "Click to connect Car to Wi-Fi (Server Mode)";
         ipBadge.textContent = "IP: 192.168.4.1";
       } else {
-        modeSwitchBtn.textContent = "☁️ SERVER (WIFI)";
+        modeSwitchBtn.textContent = "📻 SWITCH TO LOCAL (AP)";
         modeSwitchBtn.title = "Click to switch Car back to Local AP Hotspot";
-        ipBadge.textContent = "IP: " + carHost;
+        ipBadge.textContent = "CAR IP: " + carHost;
       }
     }
 
@@ -729,14 +729,10 @@
     // Mode Switch & Wi-Fi Setup Logic
     // ==========================================
     function handleModeSwitchClick() {
-      if (isRunningOnLocalAp || carHost === LOCAL_AP_IP) {
-        // Open Wi-Fi connect modal to go to Server Mode
+      if (isRunningOnLocalAp) {
         openWifiModal();
       } else {
-        // Prompt to switch back to Local AP mode
-        if (confirm("Switch Car back to Local Hotspot mode (192.168.4.1)?\n\nYour phone/laptop will need to connect to Wi-Fi 'FPV-Car'.")) {
-          switchToLocalAp();
-        }
+        switchToLocalAp();
       }
     }
 
@@ -751,21 +747,22 @@
 
     function scanWifi() {
       const box = document.getElementById("wifiListBox");
-      box.innerHTML = `<div style="padding:10px; text-align:center; color:#00f2fe; font-size:0.75rem;">Scanning nearby Wi-Fi networks...</div>`;
+      box.innerHTML = `<div style="padding:10px; text-align:center; color:#00f2fe; font-size:0.75rem; animation: pulse 1s infinite;">📡 Scanning 2.4GHz Wi-Fi networks...</div>`;
       
       const target = isRunningOnLocalAp ? "" : `http://${carHost}`;
-      fetch(`${target}/scan`)
+      fetch(`${target}/scan`, { cache: 'no-store' })
         .then(r => r.json())
         .then(list => {
           if (!list || list.length === 0) {
-            box.innerHTML = `<div style="padding:10px; text-align:center; color:#94a3b8; font-size:0.75rem;">No networks found</div>`;
+            box.innerHTML = `<div style="padding:10px; text-align:center; color:#94a3b8; font-size:0.75rem;">No networks found. Ensure router is 2.4GHz. You can type SSID manually below.</div>`;
             return;
           }
           box.innerHTML = "";
           list.forEach(item => {
+            if (!item.ssid) return;
             const div = document.createElement("div");
             div.className = "wifi-item";
-            div.innerHTML = `<span><b>${item.ssid}</b></span><span style="color:#64748b;">${item.rssi} dBm</span>`;
+            div.innerHTML = `<span>📶 <b>${item.ssid}</b></span><span style="color:#64748b;">${item.rssi} dBm</span>`;
             div.onclick = () => {
               document.querySelectorAll(".wifi-item").forEach(el => el.classList.remove("selected"));
               div.classList.add("selected");
@@ -776,7 +773,7 @@
           });
         })
         .catch(() => {
-          box.innerHTML = `<div style="padding:8px; text-align:center; color:#f87171; font-size:0.75rem;">Scan failed. You can type SSID manually below.</div>`;
+          box.innerHTML = `<div style="padding:8px; text-align:center; color:#f87171; font-size:0.75rem;">Scan error. You can type SSID manually below.</div>`;
         });
     }
 
@@ -793,43 +790,50 @@
 
       btn.disabled = true;
       msg.style.color = "#00f2fe";
-      msg.textContent = `Connecting car to "${ssid}"... Please wait up to 10s...`;
+      msg.textContent = `Saving credentials & connecting car to "${ssid}"...`;
 
       const target = isRunningOnLocalAp ? "" : `http://${carHost}`;
       const url = `${target}/save-wifi?ssid=${encodeURIComponent(ssid)}&pass=${encodeURIComponent(pass)}`;
 
-      fetch(url)
+      fetch(url, { cache: 'no-store' })
         .then(r => r.json())
         .then(res => {
           btn.disabled = false;
-          if (res.status === "ok") {
-            msg.style.color = "#34d399";
-            msg.innerHTML = `✅ Connected! Car IP: <b>${res.ip}</b><br><br><a href="${CLOUD_SERVER_URL}" target="_blank" style="color:#00f2fe; text-decoration:underline; font-weight:800;">🚀 Open Cloud Dashboard (http://172.198.73.188/)</a>`;
-            carHost = res.ip;
-            localStorage.setItem("fpv_car_ip", carHost);
-            updateModeBadgeUI();
-          } else {
-            msg.style.color = "#f87171";
-            msg.textContent = `❌ Connection failed. Check Wi-Fi password and try again.`;
-          }
+          msg.style.color = "#34d399";
+          msg.innerHTML = `✅ Saved! Car is connecting to "<b>${ssid}</b>".<br><br>` +
+                          `<b>Next Steps:</b><br>` +
+                          `1. Connect your phone/laptop to Wi-Fi "<b>${ssid}</b>"<br>` +
+                          `2. <a href="${CLOUD_SERVER_URL}" target="_blank" style="color:#00f2fe; text-decoration:underline; font-weight:800; font-size:0.95rem;">🚀 Open Cloud Dashboard (${CLOUD_SERVER_URL})</a>`;
         })
         .catch(() => {
           btn.disabled = false;
-          msg.style.color = "#f59e0b";
-          msg.innerHTML = `Signal sent! Car is connecting to Wi-Fi.<br>Connect your phone to <b>"${ssid}"</b> and visit <a href="${CLOUD_SERVER_URL}" style="color:#00f2fe;">${CLOUD_SERVER_URL}</a>`;
+          msg.style.color = "#34d399";
+          msg.innerHTML = `✅ Signal sent! Car is connecting to "<b>${ssid}</b>".<br><br>` +
+                          `<b>Next Steps:</b><br>` +
+                          `1. Connect your phone/laptop to Wi-Fi "<b>${ssid}</b>"<br>` +
+                          `2. <a href="${CLOUD_SERVER_URL}" target="_blank" style="color:#00f2fe; text-decoration:underline; font-weight:800; font-size:0.95rem;">🚀 Open Cloud Dashboard (${CLOUD_SERVER_URL})</a>`;
         });
     }
 
     function switchToLocalAp() {
-      const target = isRunningOnLocalAp ? "" : `http://${carHost}`;
-      fetch(`${target}/switch-mode?mode=ap`)
-        .then(() => {
-          alert("Car is now in Local Hotspot mode!\n\n1. Connect phone to Wi-Fi: FPV-Car\n2. Open http://192.168.4.1/");
-          window.location.href = `http://${LOCAL_AP_IP}/`;
-        })
-        .catch(() => {
-          alert("Mode switch command sent. Connect phone to Wi-Fi 'FPV-Car' and visit http://192.168.4.1/");
-        });
+      if (!confirm("Switch Car back to Local Hotspot mode (192.168.4.1)?\n\nThe car will drop Wi-Fi and restart its 'FPV-Car' hotspot.")) {
+        return;
+      }
+
+      // 1. Send to Cloud Server so the car receives it via cloud polling
+      sendServerReq('/set.php?car_mode=ap&mode=ap&cmd=S');
+
+      // 2. Also send direct to car LAN if reachable
+      if (carHost && carHost !== LOCAL_AP_IP) {
+        fetch(`http://${carHost}/switch-mode?mode=ap`, { mode: 'no-cors' }).catch(() => {});
+      }
+
+      // 3. Reset local carHost
+      carHost = LOCAL_AP_IP;
+      localStorage.setItem("fpv_car_ip", LOCAL_AP_IP);
+      updateModeBadgeUI();
+
+      alert("✅ Mode Switch Command Sent!\n\n1. Connect your phone/laptop to Wi-Fi: 'FPV-Car'\n2. Open: http://192.168.4.1/");
     }
 
     // ==========================================
@@ -856,7 +860,7 @@
       placeholderTitle.textContent = "Connecting to Video Stream...";
       placeholderDesc.textContent = "Establishing live stream link...";
 
-      // If running on local AP, stream is direct /stream. Otherwise port 81 or /stream on carHost.
+      // If running on local AP, stream is direct /stream. Otherwise port 80 /stream on carHost.
       const streamUrl = isRunningOnLocalAp ? "/stream" : `http://${carHost}/stream`;
       liveCam.src = streamUrl;
 
@@ -866,7 +870,7 @@
       };
 
       liveCam.onerror = () => {
-        // Sequential single-frame fallback (Never floods!)
+        // Sequential single-frame fallback
         function pollFallback() {
           if (!isCamOn) return;
           const img = new Image();
@@ -878,16 +882,16 @@
           };
           img.onerror = () => {
             placeholder.style.display = "flex";
-            placeholderTitle.textContent = "Camera Sensor Offline (0x106)";
-            placeholderDesc.innerHTML = "Check 24-pin ribbon cable seating & 5V power.<br><b style='color:#00f2fe;'>Motor controls are 100% active below!</b>";
-            setTimeout(pollFallback, 3000);
+            placeholderTitle.textContent = "Waiting for Video Stream...";
+            placeholderDesc.innerHTML = "Check that Car is powered on & phone is on the same Wi-Fi.<br><b style='color:#00f2fe;'>Motor controls are active below!</b>";
+            setTimeout(pollFallback, 2500);
           };
           const base = isRunningOnLocalAp ? "" : `http://${carHost}`;
           img.src = `${base}/capture?t=${Date.now()}`;
         }
         pollFallback();
 
-        streamRetryTimer = setTimeout(startStream, 6000);
+        streamRetryTimer = setTimeout(startStream, 5000);
       };
     }
 

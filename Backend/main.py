@@ -36,12 +36,13 @@ LATEST_FRAME_FILE = RECORDINGS_DIR / "latest.jpg"
 car_state: Dict[str, Any] = {
     "cmd": "S",
     "mode": "0",          # 0 = Manual, 1 = Auto-Stop AI Assist
+    "car_mode": "sta",    # "ap" or "sta"
     "cam": "1",           # 1 = On, 0 = Off
     "flash": "0",
     "fs": "255",
     "bs": "255",
     "esp_hb": 0,
-    "car_ip": "10.172.34.222",
+    "car_ip": "192.168.4.1",
     "horn": "0",
     "ai": "1",            # 1 = AI Active, 0 = AI Disabled
     "ai_obstacle": "0",   # 0 = Clear, 1 = Obstacle Detected
@@ -217,6 +218,7 @@ async def set_state_endpoint(
     dir: Optional[str] = None,
     horn: Optional[str] = None,
     mode: Optional[str] = None,
+    car_mode: Optional[str] = None,
     cam: Optional[str] = None,
     flash: Optional[str] = None,
     fs: Optional[int] = None,
@@ -242,8 +244,18 @@ async def set_state_endpoint(
     elif val is not None and command in ["H", "h"]:
         car_state["horn"] = "1" if str(val) in ["1", "true"] else "0"
 
-    if mode is not None and str(mode) in ["0", "1", "2"]:
-        car_state["mode"] = str(mode)
+    # Support switching mode to AP or STA
+    if car_mode is not None:
+        car_state["car_mode"] = str(car_mode)
+        if str(car_mode) == "ap":
+            car_state["cmd"] = "S"
+
+    if mode is not None:
+        if str(mode) == "ap":
+            car_state["car_mode"] = "ap"
+            car_state["cmd"] = "S"
+        elif str(mode) in ["0", "1", "2"]:
+            car_state["mode"] = str(mode)
 
     if cam is not None:
         car_state["cam"] = "0" if str(cam) == "0" else "1"
@@ -481,7 +493,7 @@ if WEB_DIR.exists():
     def serve_index():
         index_file = WEB_DIR / "index.html"
         if index_file.exists():
-            return FileResponse(index_file)
+            return FileResponse(index_file, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
         return PlainTextResponse("FPV Car Server Running")
 
     @app.get("/manifest.json")

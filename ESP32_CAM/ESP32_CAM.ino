@@ -50,6 +50,14 @@ char currentCmd = 'S';
 int currentSpeed = 255;
 String connectedSsid = "";
 
+// Asynchronous Wi-Fi Connect & Cloud Polling States
+bool pendingWifiConnect = false;
+String pendingSsid = "";
+String pendingPass = "";
+unsigned long pendingConnectStartTime = 0;
+unsigned long lastCloudPoll = 0;
+unsigned long lastHeartbeat = 0;
+
 Preferences prefs;
 DNSServer dnsServer;
 const byte DNS_PORT = 53;
@@ -326,21 +334,41 @@ esp_err_t reprobe_handler(httpd_req_t *req) {
   return httpd_resp_send(req, cameraReady ? "OK" : "FAIL", HTTPD_RESP_USE_STRLEN);
 }
 
-// Scan nearby Wi-Fi networks
+// Scan nearby 2.4GHz Wi-Fi networks
 esp_err_t scan_handler(httpd_req_t *req) {
-  int n = WiFi.scanNetworks();
+  // Ensure station mode is active for RF scanning
+  if (!(WiFi.getMode() & WIFI_MODE_STA)) {
+    WiFi.mode(WIFI_AP_STA);
+    delay(50);
+  }
+  WiFi.scanDelete();
+
+  int16_t n = WiFi.scanNetworks(false, false, false, 150);
   String json = "[";
-  for (int i = 0; i < n; ++i) {
-    if (i > 0) json += ",";
-    json += "{\"ssid\":\"" + WiFi.SSID(i) + "\",\"rssi\":" + String(WiFi.RSSI(i)) + "}";
+  if (n > 0) {
+    bool first = true;
+    for (int i = 0; i < n; ++i) {
+      String ssid = WiFi.SSID(i);
+      ssid.trim();
+      if (ssid.length() == 0) continue; // skip hidden networks
+      ssid.replace("\\", "\\\\");
+      ssid.replace("\"", "\\\"");
+      int rssi = WiFi.RSSI(i);
+      if (!first) json += ",";
+      json += "{\"ssid\":\"" + ssid + "\",\"rssi\":" + String(rssi) + "}";
+      first = false;
+    }
   }
   json += "]";
+  WiFi.scanDelete();
+
   httpd_resp_set_type(req, "application/json");
   httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+  httpd_resp_set_hdr(req, "Cache-Control", "no-cache, no-store, must-revalidate");
   return httpd_resp_send(req, json.c_str(), HTTPD_RESP_USE_STRLEN);
 }
 
-// Connect to Wi-Fi and switch to Server Mode
+// Connect to Wi-Fi and switch to Server Mode (Non-blocking response to client)
 esp_err_t save_wifi_handler(httpd_req_t *req) {
   char buf[160];
   String ssid = "", pass = "";
@@ -356,39 +384,43 @@ esp_err_t save_wifi_handler(httpd_req_t *req) {
     prefs.putString("pass", pass);
     prefs.end();
 
-    // Enable Station Mode alongside AP while connecting
-    WiFi.mode(WIFI_AP_STA);
-    WiFi.begin(ssid.c_str(), pass.c_str());
+    pendingSsid = ssid;
+    pendingPass = pass;
+    pendingWifiConnect = true;
+    pendingConnectStartTime = millis() + 600; // Allow 600ms for phone to finish receiving response
 
-    unsigned long start = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - start < 10000) {
-      delay(250);
-    }
-
-    if (WiFi.status() == WL_CONNECTED) {
-      isApMode = false;
-      connectedSsid = ssid;
-      String localIp = WiFi.localIP().toString();
-
-      Serial.println("Z:WIFI_OK");
-
-      // Auto-register IP with Azure Cloud VM
-      HTTPClient http;
-      http.begin("http://172.198.73.188/set.php?car_ip=" + localIp + "&esp_hb=1");
-      http.setTimeout(1800);
-      http.GET();
-      http.end();
-
-      String res = "{\"status\":\"ok\",\"ip\":\"" + localIp + "\",\"cloud\":\"http://172.198.73.188/\"}";
-      httpd_resp_set_type(req, "application/json");
-      httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-      return httpd_resp_send(req, res.c_str(), HTTPD_RESP_USE_STRLEN);
-    }
+    String res = "{\"status\":\"ok\",\"msg\":\"connecting\",\"ssid\":\"" + ssid + "\",\"cloud\":\"http://172.198.73.188/\"}";
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    return httpd_resp_send(req, res.c_str(), HTTPD_RESP_USE_STRLEN);
   }
 
   httpd_resp_set_type(req, "application/json");
   httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-  return httpd_resp_send(req, "{\"status\":\"fail\"}", HTTPD_RESP_USE_STRLEN);
+  return httpd_resp_send(req, "{\"status\":\"fail\",\"error\":\"empty_ssid\"}", HTTPD_RESP_USE_STRLEN);
+}
+
+// Revert to Local AP Hotspot Mode
+void switchToLocalAp() {
+  isApMode = true;
+  connectedSsid = "";
+
+  WiFi.disconnect();
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.softAP("FPV-Car", "");
+  dnsServer.start(DNS_PORT, "*", WiFi.softAPIP());
+
+  Serial.println("Z:AP");
+  Serial.flush();
+
+  // Notify Cloud Server that car has reverted to AP mode and stopped
+  HTTPClient http;
+  http.begin("http://172.198.73.188/set.php?car_mode=sta&mode=0&cmd=S&car_ip=192.168.4.1");
+  http.setTimeout(1200);
+  http.GET();
+  http.end();
+
+  Serial.println("[MODE] Reverted to Local AP Hotspot: FPV-Car (192.168.4.1)");
 }
 
 // Switch between AP and STA mode
@@ -398,12 +430,7 @@ esp_err_t switch_mode_handler(httpd_req_t *req) {
     char m[8];
     if (httpd_query_key_value(buf, "mode", m, sizeof(m)) == ESP_OK) {
       if (String(m) == "ap") {
-        WiFi.disconnect();
-        WiFi.mode(WIFI_AP);
-        WiFi.softAP("FPV-Car", "");
-        dnsServer.start(DNS_PORT, "*", WiFi.softAPIP());
-        isApMode = true;
-        Serial.println("Z:AP");
+        switchToLocalAp();
         httpd_resp_set_type(req, "application/json");
         httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
         return httpd_resp_send(req, "{\"status\":\"ap\",\"ip\":\"192.168.4.1\"}", HTTPD_RESP_USE_STRLEN);
@@ -465,6 +492,148 @@ void startWebServer() {
 }
 
 // ==========================================
+// Cloud Server Polling & Execution
+// ==========================================
+String getJsonVal(const String& json, const String& key) {
+  int kIdx = json.indexOf("\"" + key + "\"");
+  if (kIdx < 0) return "";
+  int colonIdx = json.indexOf(':', kIdx + key.length() + 2);
+  if (colonIdx < 0) return "";
+  int start = colonIdx + 1;
+  while (start < json.length() && (json[start] == ' ' || json[start] == '\"')) start++;
+  int end = start;
+  while (end < json.length() && json[end] != '\"' && json[end] != ',' && json[end] != '}' && json[end] != '\r' && json[end] != '\n') end++;
+  return json.substring(start, end);
+}
+
+void parseAndExecuteCloudCommand(const String& payload) {
+  // A. Check if user requested switch to Local AP
+  String carMode = getJsonVal(payload, "car_mode");
+  String modeVal = getJsonVal(payload, "mode");
+  if (carMode == "ap" || modeVal == "ap") {
+    Serial.println("[CLOUD] Switch to Local AP requested!");
+    switchToLocalAp();
+    return;
+  }
+
+  // B. Check Driving Direction
+  String cmdVal = getJsonVal(payload, "cmd");
+  if (cmdVal.length() > 0) {
+    char c = cmdVal[0];
+    if ((c == 'F' || c == 'B' || c == 'L' || c == 'R' || c == 'S') && c != currentCmd) {
+      currentCmd = c;
+      Serial.println(c);
+      Serial.flush();
+    }
+  }
+
+  // C. Check Speed
+  String spdVal = getJsonVal(payload, "fs");
+  if (spdVal.length() > 0) {
+    int spd = spdVal.toInt();
+    if (spd >= 0 && spd <= 255 && spd != currentSpeed) {
+      currentSpeed = spd;
+      Serial.print("FSP:");
+      Serial.println(spd);
+      Serial.print("BSP:");
+      Serial.println(spd);
+      Serial.flush();
+    }
+  }
+
+  // D. Check Horn
+  String hornVal = getJsonVal(payload, "horn");
+  if (hornVal.length() > 0) {
+    bool h = (hornVal == "1" || hornVal == "H");
+    static bool lastHorn = false;
+    if (h != lastHorn) {
+      lastHorn = h;
+      Serial.println(h ? "H" : "h");
+      Serial.flush();
+    }
+  }
+
+  // E. Check Flash Light
+  String flashVal = getJsonVal(payload, "flash");
+  if (flashVal.length() > 0) {
+    bool f = (flashVal == "1");
+    if (f != flashState) {
+      flashState = f;
+      digitalWrite(FLASH_LED_PIN, flashState ? HIGH : LOW);
+    }
+  }
+}
+
+void handlePendingWifiConnect() {
+  if (!pendingWifiConnect) return;
+  if (millis() < pendingConnectStartTime) return;
+  pendingWifiConnect = false;
+
+  Serial.println("\n[WIFI] Connecting to Station: " + pendingSsid);
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.begin(pendingSsid.c_str(), pendingPass.c_str());
+
+  unsigned long start = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - start < 12000) {
+    delay(250);
+    Serial.print(".");
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    isApMode = false;
+    connectedSsid = pendingSsid;
+    String localIp = WiFi.localIP().toString();
+    Serial.println("\n[WIFI] Connected! Local IP: " + localIp);
+    Serial.println("Z:WIFI_OK");
+    Serial.flush();
+
+    // Auto-register IP with Azure Cloud VM
+    HTTPClient http;
+    http.begin("http://172.198.73.188/set.php?car_ip=" + localIp + "&esp_hb=1");
+    http.setTimeout(2500);
+    http.GET();
+    http.end();
+  } else {
+    Serial.println("\n[WIFI] Connection failed. Reverting to Local AP mode.");
+    WiFi.disconnect();
+    WiFi.mode(WIFI_AP_STA);
+    WiFi.softAP("FPV-Car", "");
+    isApMode = true;
+  }
+}
+
+void pollCloudServer() {
+  if (isApMode) return;
+  if (WiFi.status() != WL_CONNECTED) return;
+
+  unsigned long now = millis();
+
+  // Heartbeat every 3 seconds
+  if (now - lastHeartbeat >= 3000) {
+    lastHeartbeat = now;
+    HTTPClient hb;
+    hb.begin("http://172.198.73.188/set.php?esp_hb=1&car_ip=" + WiFi.localIP().toString());
+    hb.setTimeout(1200);
+    hb.GET();
+    hb.end();
+  }
+
+  // Poll cloud for driving commands every 80ms
+  if (now - lastCloudPoll >= 80) {
+    lastCloudPoll = now;
+    HTTPClient http;
+    http.begin("http://172.198.73.188/get.php");
+    http.setTimeout(400);
+    int code = http.GET();
+    if (code == HTTP_CODE_OK) {
+      String payload = http.getString();
+      parseAndExecuteCloudCommand(payload);
+    }
+    http.end();
+  }
+}
+
+// ==========================================
 // Setup
 // ==========================================
 void setup() {
@@ -481,8 +650,9 @@ void setup() {
   Serial.flush();
 
   // ALWAYS BOOT IN LOCAL (AP) MODE BY DEFAULT!
+  // WIFI_AP_STA keeps the "FPV-Car" hotspot running and enables RF scanning
   isApMode = true;
-  WiFi.mode(WIFI_AP);
+  WiFi.mode(WIFI_AP_STA);
   WiFi.softAP("FPV-Car", ""); // Open network for 1-tap connection
   WiFi.setSleep(false);
 
@@ -510,6 +680,10 @@ void setup() {
 void loop() {
   if (isApMode) {
     dnsServer.processNextRequest();
+  } else {
+    pollCloudServer();
   }
+
+  handlePendingWifiConnect();
   delay(2);
 }
