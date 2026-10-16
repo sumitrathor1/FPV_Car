@@ -112,18 +112,13 @@ String urldecode(const String& str) {
 #include "index_html.h"
 
 
+#include "driver/gpio.h"
+
 // ==========================================
 // Camera Hardware Initialization
 // ==========================================
 bool startCameraDriver() {
   if (cameraReady) return true;
-
-  // Dedicated hardware power cycle on PWDN (Pin 32)
-  pinMode(PWDN_GPIO_NUM, OUTPUT);
-  digitalWrite(PWDN_GPIO_NUM, HIGH); // Power off sensor
-  delay(150);
-  digitalWrite(PWDN_GPIO_NUM, LOW);  // Power on sensor
-  delay(150);
 
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
@@ -167,7 +162,8 @@ bool startCameraDriver() {
   // Attempt 2: 10MHz XCLK (fixes timing & noise on budget OV2640 sensors)
   if (err != ESP_OK) {
     esp_camera_deinit();
-    delay(60);
+    gpio_uninstall_isr_service();
+    delay(100);
     Serial.printf("[CAMERA] Retry with 10MHz XCLK... (0x%x)\n", err);
     config.xclk_freq_hz = 10000000;
     config.frame_size   = FRAMESIZE_QVGA;
@@ -176,24 +172,47 @@ bool startCameraDriver() {
     lastCamErrorCode = err;
   }
 
-  // Attempt 3: Clone board PWDN bypass (pin_pwdn = -1)
+  // Attempt 3: Inverted PWDN (Some clone boards have an inverting transistor where GPIO 32 HIGH = ON)
   if (err != ESP_OK) {
     esp_camera_deinit();
-    delay(60);
-    Serial.printf("[CAMERA] Retry with PWDN bypass... (0x%x)\n", err);
+    gpio_uninstall_isr_service();
+    delay(100);
+    Serial.printf("[CAMERA] Retry with Inverted PWDN (HIGH)... (0x%x)\n", err);
+    pinMode(PWDN_GPIO_NUM, OUTPUT);
+    digitalWrite(PWDN_GPIO_NUM, HIGH); // Pull transistor gate HIGH to power on sensor
+    delay(150);
     config.pin_pwdn     = -1;
     config.xclk_freq_hz = 20000000;
     err = esp_camera_init(&config);
     lastCamErrorCode = err;
   }
 
-  // Attempt 4: Clone board PWDN bypass + 10MHz XCLK
+  // Attempt 4: Inverted PWDN + 10MHz XCLK
   if (err != ESP_OK) {
     esp_camera_deinit();
-    delay(60);
-    Serial.printf("[CAMERA] Retry with PWDN bypass + 10MHz... (0x%x)\n", err);
+    gpio_uninstall_isr_service();
+    delay(100);
+    Serial.printf("[CAMERA] Retry with Inverted PWDN + 10MHz... (0x%x)\n", err);
+    pinMode(PWDN_GPIO_NUM, OUTPUT);
+    digitalWrite(PWDN_GPIO_NUM, HIGH);
+    delay(150);
     config.pin_pwdn     = -1;
     config.xclk_freq_hz = 10000000;
+    config.frame_size   = FRAMESIZE_QVGA;
+    config.fb_count     = 1;
+    err = esp_camera_init(&config);
+    lastCamErrorCode = err;
+  }
+
+  // Attempt 5: Non-JPEG Raw Format (For GC2145 clone sensors without hardware JPEG encoder)
+  if (err != ESP_OK) {
+    esp_camera_deinit();
+    gpio_uninstall_isr_service();
+    delay(100);
+    Serial.printf("[CAMERA] Retry with RGB565 format (Clone sensor check)... (0x%x)\n", err);
+    config.pin_pwdn     = PWDN_GPIO_NUM;
+    config.xclk_freq_hz = 20000000;
+    config.pixel_format = PIXFORMAT_RGB565;
     config.frame_size   = FRAMESIZE_QVGA;
     config.fb_count     = 1;
     err = esp_camera_init(&config);

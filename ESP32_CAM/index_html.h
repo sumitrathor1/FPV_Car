@@ -640,23 +640,13 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
           <button class="modal-close" onclick="closeWifiModal()">✕</button>
         </div>
         <div class="modal-body">
-          <div style="font-size:0.75rem; color:#94a3b8;">
-            Connect car to your Home/Mobile Wi-Fi to access it over Cloud at <b>http://172.198.73.188/</b>
-          </div>
-
-          <div class="input-group">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <label>Select Nearby Wi-Fi</label>
-              <button onclick="scanWifi()" style="background:none; border:none; color:var(--primary); font-size:0.75rem; cursor:pointer; font-weight:700;">🔄 Scan</button>
-            </div>
-            <div class="wifi-list-box" id="wifiListBox">
-              <div style="padding:10px; text-align:center; color:#64748b; font-size:0.75rem;">Click 'Scan' to find networks</div>
-            </div>
+          <div style="font-size:0.75rem; color:#94a3b8; line-height:1.4;">
+            Connect car to your Mobile/Home Wi-Fi to access it over Cloud at <b>http://172.198.73.188/</b>
           </div>
 
           <div class="input-group">
             <label>Wi-Fi SSID Name</label>
-            <input type="text" class="input-control" id="ssidInput" placeholder="e.g. sumit or Home-Wifi" />
+            <input type="text" class="input-control" id="ssidInput" placeholder="e.g. sumit or Home-Wifi" value="sumit" />
           </div>
 
           <div class="input-group">
@@ -664,9 +654,23 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
             <input type="password" class="input-control" id="passInput" placeholder="Enter Wi-Fi password" />
           </div>
 
+          <div style="font-size:0.7rem; color:#f59e0b; line-height:1.3;">
+            ⚠️ Mobile Hotspot: Select <b>2.4 GHz Band</b> (iPhone: 'Maximize Compatibility' ON). ESP32 does not support 5 GHz.
+          </div>
+
           <div id="connectStatusMsg" style="font-size:0.8rem; font-weight:700; text-align:center; min-height:18px;"></div>
 
           <button class="btn-submit" id="connectBtn" onclick="submitWifiConnect()">🚀 Connect & Switch to Server</button>
+
+          <div style="margin-top:10px; border-top:1px solid rgba(255,255,255,0.08); padding-top:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:0.75rem; color:#64748b;">Or choose from nearby list:</span>
+              <button type="button" onclick="scanWifi(true)" style="background:none; border:none; color:var(--primary); font-size:0.75rem; cursor:pointer; font-weight:700;">🔄 Scan Nearby</button>
+            </div>
+            <div class="wifi-list-box" id="wifiListBox" style="margin-top:6px; max-height:110px;">
+              <div style="padding:8px; text-align:center; color:#64748b; font-size:0.75rem;">Click 'Scan Nearby' to refresh list</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -749,7 +753,6 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
 
     function openWifiModal() {
       wifiModal.classList.add("active");
-      scanWifi(true);
     }
 
     function closeWifiModal() {
