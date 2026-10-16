@@ -44,6 +44,7 @@
 
 // Global States
 bool cameraReady = false;
+esp_err_t lastCamErrorCode = ESP_OK;
 bool flashState = false;
 bool isApMode = true; // Always true on boot!
 char currentCmd = 'S';
@@ -117,11 +118,12 @@ String urldecode(const String& str) {
 bool startCameraDriver() {
   if (cameraReady) return true;
 
+  // Dedicated hardware power cycle on PWDN (Pin 32)
   pinMode(PWDN_GPIO_NUM, OUTPUT);
-  digitalWrite(PWDN_GPIO_NUM, HIGH); // Power off
-  delay(120);
-  digitalWrite(PWDN_GPIO_NUM, LOW);  // Power on
-  delay(120);
+  digitalWrite(PWDN_GPIO_NUM, HIGH); // Power off sensor
+  delay(150);
+  digitalWrite(PWDN_GPIO_NUM, LOW);  // Power on sensor
+  delay(150);
 
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
@@ -158,23 +160,44 @@ bool startCameraDriver() {
     config.fb_count     = 1;
   }
 
+  // Attempt 1: Standard AI-Thinker configuration (20MHz XCLK, PWDN 32)
   esp_err_t err = esp_camera_init(&config);
+  lastCamErrorCode = err;
 
+  // Attempt 2: 10MHz XCLK (fixes timing & noise on budget OV2640 sensors)
   if (err != ESP_OK) {
     esp_camera_deinit();
-    delay(50);
+    delay(60);
+    Serial.printf("[CAMERA] Retry with 10MHz XCLK... (0x%x)\n", err);
     config.xclk_freq_hz = 10000000;
     config.frame_size   = FRAMESIZE_QVGA;
     config.fb_count     = 1;
     err = esp_camera_init(&config);
+    lastCamErrorCode = err;
   }
 
+  // Attempt 3: Clone board PWDN bypass (pin_pwdn = -1)
   if (err != ESP_OK) {
     esp_camera_deinit();
-    delay(50);
+    delay(60);
+    Serial.printf("[CAMERA] Retry with PWDN bypass... (0x%x)\n", err);
+    config.pin_pwdn     = -1;
+    config.xclk_freq_hz = 20000000;
+    err = esp_camera_init(&config);
+    lastCamErrorCode = err;
+  }
+
+  // Attempt 4: Clone board PWDN bypass + 10MHz XCLK
+  if (err != ESP_OK) {
+    esp_camera_deinit();
+    delay(60);
+    Serial.printf("[CAMERA] Retry with PWDN bypass + 10MHz... (0x%x)\n", err);
     config.pin_pwdn     = -1;
     config.xclk_freq_hz = 10000000;
+    config.frame_size   = FRAMESIZE_QVGA;
+    config.fb_count     = 1;
     err = esp_camera_init(&config);
+    lastCamErrorCode = err;
   }
 
   if (err == ESP_OK) {
@@ -319,13 +342,14 @@ esp_err_t flash_handler(httpd_req_t *req) {
 }
 
 esp_err_t status_handler(httpd_req_t *req) {
-  char json[220];
+  char json[260];
   snprintf(json, sizeof(json),
-    "{\"mode\":\"%s\",\"ip\":\"%s\",\"ssid\":\"%s\",\"cam\":%s,\"flash\":%s,\"cmd\":\"%c\",\"speed\":%d}",
+    "{\"mode\":\"%s\",\"ip\":\"%s\",\"ssid\":\"%s\",\"cam\":%s,\"cam_err\":\"0x%x\",\"flash\":%s,\"cmd\":\"%c\",\"speed\":%d}",
     isApMode ? "AP" : "STA",
     isApMode ? WiFi.softAPIP().toString().c_str() : WiFi.localIP().toString().c_str(),
     isApMode ? "FPV-Car" : connectedSsid.c_str(),
     cameraReady ? "true" : "false",
+    lastCamErrorCode,
     flashState ? "true" : "false",
     currentCmd,
     currentSpeed);
@@ -335,10 +359,45 @@ esp_err_t status_handler(httpd_req_t *req) {
 }
 
 esp_err_t reprobe_handler(httpd_req_t *req) {
+  if (cameraReady) {
+    esp_camera_deinit();
+    cameraReady = false;
+  }
+  delay(100);
   startCameraDriver();
   httpd_resp_set_type(req, "text/plain");
   httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
   return httpd_resp_send(req, cameraReady ? "OK" : "FAIL", HTTPD_RESP_USE_STRLEN);
+}
+
+// Hardware & System Diagnostic Endpoint (/diag)
+esp_err_t diag_handler(httpd_req_t *req) {
+  char buf[420];
+  const char* camDetail = "Camera OK";
+  if (!cameraReady) {
+    if (lastCamErrorCode == 0x106) {
+      camDetail = "0x106 (Sensor probe failed: Check 24-pin ribbon cable & GPIO 0 GND jumper!)";
+    } else if (lastCamErrorCode == 0x105) {
+      camDetail = "0x105 (Out of memory: Select Board 'AI Thinker ESP32-CAM' with PSRAM Enabled)";
+    } else {
+      camDetail = "Probe failed. Check 5V power supply and camera ribbon cable!";
+    }
+  }
+
+  snprintf(buf, sizeof(buf),
+    "{\"cam\":%s,\"cam_err\":\"0x%x\",\"cam_info\":\"%s\",\"psram\":%s,\"psram_size\":%u,\"free_heap\":%u,\"wifi_mode\":\"%s\",\"ip\":\"%s\"}",
+    cameraReady ? "true" : "false",
+    lastCamErrorCode,
+    camDetail,
+    psramFound() ? "true" : "false",
+    psramFound() ? ESP.getPsramSize() : 0,
+    ESP.getFreeHeap(),
+    isApMode ? "AP (FPV-Car)" : "STA",
+    isApMode ? WiFi.softAPIP().toString().c_str() : WiFi.localIP().toString().c_str()
+  );
+  httpd_resp_set_type(req, "application/json");
+  httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+  return httpd_resp_send(req, buf, HTTPD_RESP_USE_STRLEN);
 }
 
 // Helper to parse scanned networks into JSON cache
@@ -417,6 +476,8 @@ esp_err_t scan_handler(httpd_req_t *req) {
 
   // If refresh requested and not currently scanning, trigger background async scan
   if (refresh && !isScanningAsync) {
+    WiFi.mode(WIFI_AP_STA);
+    delay(20);
     isScanningAsync = true;
     WiFi.scanNetworks(true, false, false, 80);
   }
@@ -529,6 +590,7 @@ void startWebServer() {
   httpd_uri_t uri_speed = { .uri = "/speed", .method = HTTP_GET, .handler = speed_handler, .user_ctx = NULL };
   httpd_uri_t uri_flash = { .uri = "/flash", .method = HTTP_GET, .handler = flash_handler, .user_ctx = NULL };
   httpd_uri_t uri_status = { .uri = "/status", .method = HTTP_GET, .handler = status_handler, .user_ctx = NULL };
+  httpd_uri_t uri_diag = { .uri = "/diag", .method = HTTP_GET, .handler = diag_handler, .user_ctx = NULL };
   httpd_uri_t uri_reprobe = { .uri = "/reprobe", .method = HTTP_GET, .handler = reprobe_handler, .user_ctx = NULL };
   httpd_uri_t uri_scan = { .uri = "/scan", .method = HTTP_GET, .handler = scan_handler, .user_ctx = NULL };
   httpd_uri_t uri_save_wifi = { .uri = "/save-wifi", .method = HTTP_GET, .handler = save_wifi_handler, .user_ctx = NULL };
@@ -546,6 +608,7 @@ void startWebServer() {
     httpd_register_uri_handler(serverHttpd, &uri_speed);
     httpd_register_uri_handler(serverHttpd, &uri_flash);
     httpd_register_uri_handler(serverHttpd, &uri_status);
+    httpd_register_uri_handler(serverHttpd, &uri_diag);
     httpd_register_uri_handler(serverHttpd, &uri_reprobe);
     httpd_register_uri_handler(serverHttpd, &uri_scan);
     httpd_register_uri_handler(serverHttpd, &uri_save_wifi);
@@ -643,7 +706,11 @@ void handlePendingWifiConnect() {
   WiFi.disconnect(false, true);
   delay(50);
   WiFi.mode(WIFI_AP_STA);
-  WiFi.begin(pendingSsid.c_str(), pendingPass.c_str());
+  if (pendingPass.length() == 0) {
+    WiFi.begin(pendingSsid.c_str(), NULL);
+  } else {
+    WiFi.begin(pendingSsid.c_str(), pendingPass.c_str());
+  }
 }
 
 void checkWifiConnectionProgress() {
@@ -721,7 +788,8 @@ void setup() {
   pinMode(FLASH_LED_PIN, OUTPUT);
   digitalWrite(FLASH_LED_PIN, LOW);
 
-  delay(600);
+  // Allow 3.3V power rail 1000ms to stabilize before camera probe
+  delay(1000);
   startCameraDriver();
 
   // Boot Melody & Motor Kick on Arduino
@@ -729,17 +797,9 @@ void setup() {
   Serial.println("Z:BOOT");
   Serial.flush();
 
-  // ALWAYS BOOT IN LOCAL (AP) MODE BY DEFAULT!
+  // ALWAYS BOOT IN PURE LOCAL (AP) MODE BY DEFAULT (Identical to rock-solid working build)
   isApMode = true;
-  WiFi.mode(WIFI_AP_STA);
-
-  // Fast pre-scan of nearby 2.4GHz Wi-Fi networks before starting AP
-  Serial.println("[WIFI] Scanning nearby networks...");
-  int n = WiFi.scanNetworks(false, false, false, 120);
-  updateScanCacheFromCount(n);
-  Serial.printf("[WIFI] Boot scan found %d networks\n", n);
-
-  // Start "FPV-Car" Hotspot
+  WiFi.mode(WIFI_AP);
   WiFi.softAP("FPV-Car", "");
   WiFi.setSleep(false);
 

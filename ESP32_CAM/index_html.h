@@ -749,7 +749,7 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
 
     function openWifiModal() {
       wifiModal.classList.add("active");
-      scanWifi();
+      scanWifi(true);
     }
 
     function closeWifiModal() {
@@ -783,37 +783,47 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
 
     function scanWifi(isRefresh = false) {
       const box = document.getElementById("wifiListBox");
-      if (isRefresh) {
-        box.innerHTML = `<div style="padding:10px; text-align:center; color:#00f2fe; font-size:0.75rem;">📡 Scanning nearby 2.4GHz Wi-Fi networks...</div>`;
-      }
+      box.innerHTML = `<div style="padding:10px; text-align:center; color:#00f2fe; font-size:0.75rem;">📡 Scanning nearby 2.4GHz Wi-Fi networks...</div>`;
       
       const target = isRunningOnLocalAp ? "" : `http://${carHost}`;
       const url = `${target}/scan${isRefresh ? '?refresh=1' : ''}`;
-      fetch(url, { cache: 'no-store' })
-        .then(r => r.json())
-        .then(list => {
-          if (!Array.isArray(list) || list.length === 0) {
-            box.innerHTML = `<div style="padding:10px; text-align:center; color:#94a3b8; font-size:0.75rem;">No networks found. (Click Scan to refresh, or enter SSID below).</div>`;
-            return;
-          }
-          box.innerHTML = "";
-          list.forEach(item => {
-            if (!item.ssid) return;
-            const div = document.createElement("div");
-            div.className = "wifi-item";
-            div.innerHTML = `<span>📶 <b>${item.ssid}</b></span><span style="color:#64748b;">${item.rssi} dBm</span>`;
-            div.onclick = () => {
-              document.querySelectorAll(".wifi-item").forEach(el => el.classList.remove("selected"));
-              div.classList.add("selected");
-              document.getElementById("ssidInput").value = item.ssid;
-              document.getElementById("passInput").focus();
-            };
-            box.appendChild(div);
+      
+      function checkScan(retries) {
+        fetch(url, { cache: 'no-store' })
+          .then(r => r.json())
+          .then(list => {
+            if (!Array.isArray(list) || list.length === 0) {
+              if (retries > 0) {
+                setTimeout(() => checkScan(retries - 1), 1200);
+                return;
+              }
+              box.innerHTML = `<div style="padding:10px; text-align:center; color:#94a3b8; font-size:0.75rem;">No 2.4GHz networks auto-detected.<br><span style="color:#00f2fe;">You can type your SSID directly below.</span></div>`;
+              return;
+            }
+            box.innerHTML = "";
+            list.forEach(item => {
+              if (!item.ssid) return;
+              const div = document.createElement("div");
+              div.className = "wifi-item";
+              div.innerHTML = `<span>📶 <b>${item.ssid}</b></span><span style="color:#64748b;">${item.rssi} dBm</span>`;
+              div.onclick = () => {
+                document.querySelectorAll(".wifi-item").forEach(el => el.classList.remove("selected"));
+                div.classList.add("selected");
+                document.getElementById("ssidInput").value = item.ssid;
+                document.getElementById("passInput").focus();
+              };
+              box.appendChild(div);
+            });
+          })
+          .catch(() => {
+            if (retries > 0) {
+              setTimeout(() => checkScan(retries - 1), 1200);
+              return;
+            }
+            box.innerHTML = `<div style="padding:8px; text-align:center; color:#94a3b8; font-size:0.75rem;">Auto-scan unavailable.<br><b style="color:#00f2fe;">Type your Wi-Fi SSID manually below.</b></div>`;
           });
-        })
-        .catch(() => {
-          box.innerHTML = `<div style="padding:8px; text-align:center; color:#f87171; font-size:0.75rem;">Auto-scan error. You can type SSID manually below.</div>`;
-        });
+      }
+      checkScan(2);
     }
 
     let wifiStatusPollInterval = null;
@@ -1167,6 +1177,11 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
           isCarServerActive = true;
           if (typeof data.cam !== "undefined") {
             isCamHardwareReady = (data.cam === true || data.cam === "1" || data.cam === 1);
+            if (!isCamHardwareReady) {
+              const err = data.cam_err || "0x106";
+              placeholderTitle.textContent = `Camera Sensor Offline (${err})`;
+              placeholderDesc.innerHTML = `Check 24-pin ribbon cable & GPIO 0 jumper wire.<br><b style='color:#00f2fe;'>Motor controls are 100% active below!</b>`;
+            }
           }
           if (data.car_ip && data.car_ip.length >= 7 && data.car_ip !== carHost) {
             carHost = data.car_ip;
