@@ -30,20 +30,25 @@ const unsigned long SAFETY_TIMEOUT_MS = 1500; // Auto-stop if signal lost for 1.
 // ==========================================
 // ⚖️ Motor Speed Trimming & Balance
 // ==========================================
-// The Right motor runs faster than the Left motor.
-// We apply independent trimming for Forward and Backward:
-//   0.75 = Forward trimming (User verified: car drives straight forward!)
-//   0.65 = Backward trimming (Right motor slowed down further in reverse)
-float rightForwardTrim  = 0.75; 
-float rightBackwardTrim = 0.65; 
+// 1. FORWARD TRIM (Forward me gaadi bilkul seedhi chal rahi hai - TESTED & FIXED):
+float leftMotorTrimForward    = 1.00; // Left motor: 100% (PWM 255)
+float rightMotorTrimForward   = 0.75; // Right motor: 75%  (PWM 191)
 
-int getRightForwardSpeed(int baseSpeed) {
-  int s = (int)(baseSpeed * rightForwardTrim);
+// 2. BACKWARD TRIM (Reverse me seedha chalane ke liye):
+// - Agar reverse me gaadi RIGHT ghoomti hai -> Matlab Left motor fast push kar rahi hai: leftMotorTrimBackward = 0.75 (ya 0.70) rakhein
+// - Agar reverse me gaadi LEFT ghoomti hai  -> Matlab Right motor fast push kar rahi hai: rightMotorTrimBackward = 0.75 (aur left = 1.0) karein
+float leftMotorTrimBackward   = 0.75; // Left motor reverse trim (default 0.75)
+float rightMotorTrimBackward  = 1.00; // Right motor reverse trim (default 1.00)
+
+int getLeftSpeed(int baseSpeed, bool isForward) {
+  float trim = isForward ? leftMotorTrimForward : leftMotorTrimBackward;
+  int s = (int)(baseSpeed * trim);
   return constrain(s, 0, 255);
 }
 
-int getRightBackwardSpeed(int baseSpeed) {
-  int s = (int)(baseSpeed * rightBackwardTrim);
+int getRightSpeed(int baseSpeed, bool isForward) {
+  float trim = isForward ? rightMotorTrimForward : rightMotorTrimBackward;
+  int s = (int)(baseSpeed * trim);
   return constrain(s, 0, 255);
 }
 
@@ -118,13 +123,14 @@ void stopMotors() {
 }
 
 void driveForward() {
-  int rightSpd = getRightForwardSpeed(forwardSpeed);
+  int leftSpd = getLeftSpeed(forwardSpeed, true);
+  int rightSpd = getRightSpeed(forwardSpeed, true);
 
   // Left Motor (IN1 / IN2)
-  if (forwardSpeed >= 250) {
+  if (leftSpd >= 250) {
     digitalWrite(IN1, HIGH);
   } else {
-    analogWrite(IN1, forwardSpeed);
+    analogWrite(IN1, leftSpd);
   }
   digitalWrite(IN2, LOW);
 
@@ -138,17 +144,18 @@ void driveForward() {
 }
 
 void driveBackward() {
-  int rightSpd = getRightBackwardSpeed(backwardSpeed);
+  int leftSpd = getLeftSpeed(backwardSpeed, false);
+  int rightSpd = getRightSpeed(backwardSpeed, false);
 
-  // Left Motor (IN1 / IN2)
+  // Left Motor (IN1 / IN2) - Trimmed in reverse so it doesn't push faster than Right
   digitalWrite(IN1, LOW);
-  if (backwardSpeed >= 250) {
+  if (leftSpd >= 250) {
     digitalWrite(IN2, HIGH);
   } else {
-    analogWrite(IN2, backwardSpeed);
+    analogWrite(IN2, leftSpd);
   }
 
-  // Right Motor (IN3 / IN4) - Trimmed independently for reverse
+  // Right Motor (IN3 / IN4) - Full power in reverse
   digitalWrite(IN3, LOW);
   if (rightSpd >= 250) {
     digitalWrite(IN4, HIGH);
@@ -158,19 +165,17 @@ void driveBackward() {
 }
 
 void turnLeft() {
-  int rightSpd = getRightForwardSpeed(forwardSpeed);
   analogWrite(IN1, 0);
   analogWrite(IN2, backwardSpeed);
-  analogWrite(IN3, rightSpd);
+  analogWrite(IN3, forwardSpeed);
   analogWrite(IN4, 0);
 }
 
 void turnRight() {
-  int rightSpd = getRightBackwardSpeed(backwardSpeed);
   analogWrite(IN1, forwardSpeed);
   analogWrite(IN2, 0);
   analogWrite(IN3, 0);
-  analogWrite(IN4, rightSpd);
+  analogWrite(IN4, backwardSpeed);
 }
 
 // ==========================================
@@ -221,25 +226,23 @@ void parseCommand(String cmd) {
     backwardSpeed = constrain(s, 0, 255);
     return;
   }
-  if (cmd.startsWith("FTRIM:")) {
-    float t = cmd.substring(6).toFloat();
-    if (t > 1.0) t = t / 100.0;
-    if (t >= 0.1 && t <= 1.0) rightForwardTrim = t;
-    return;
-  }
-  if (cmd.startsWith("BTRIM:")) {
-    float t = cmd.substring(6).toFloat();
-    if (t > 1.0) t = t / 100.0;
-    if (t >= 0.1 && t <= 1.0) rightBackwardTrim = t;
-    return;
-  }
   if (cmd.startsWith("RTRIM:")) {
     float t = cmd.substring(6).toFloat();
     if (t > 1.0) t = t / 100.0;
-    if (t >= 0.1 && t <= 1.0) {
-      rightForwardTrim = t;
-      rightBackwardTrim = t;
-    }
+    if (t >= 0.1 && t <= 1.0) rightMotorTrimForward = t;
+    return;
+  }
+  if (cmd.startsWith("BTRIM:") || cmd.startsWith("LTRIM_BWD:")) {
+    int idx = cmd.indexOf(':');
+    float t = cmd.substring(idx + 1).toFloat();
+    if (t > 1.0) t = t / 100.0;
+    if (t >= 0.1 && t <= 1.0) leftMotorTrimBackward = t;
+    return;
+  }
+  if (cmd.startsWith("RTRIM_BWD:")) {
+    float t = cmd.substring(10).toFloat();
+    if (t > 1.0) t = t / 100.0;
+    if (t >= 0.1 && t <= 1.0) rightMotorTrimBackward = t;
     return;
   }
   if (cmd == "H" || cmd == "HORN:1") {
