@@ -30,14 +30,20 @@ const unsigned long SAFETY_TIMEOUT_MS = 1500; // Auto-stop if signal lost for 1.
 // ==========================================
 // ⚖️ Motor Speed Trimming & Balance
 // ==========================================
-// Right motor runs slightly faster than left motor at same PWM.
-// We apply a trimming multiplier to balance both motors for straight driving:
-//   0.88 = Right motor runs at ~88% of left motor speed (approx 224 at max 255)
-//   Change between 0.80 and 0.95 to fine-tune if needed:
-float rightMotorTrim = 0.88; 
+// The Right motor runs faster than the Left motor.
+// We apply independent trimming for Forward and Backward:
+//   0.75 = Forward trimming (User verified: car drives straight forward!)
+//   0.65 = Backward trimming (Right motor slowed down further in reverse)
+float rightForwardTrim  = 0.75; 
+float rightBackwardTrim = 0.65; 
 
-int getRightSpeed(int baseSpeed) {
-  int s = (int)(baseSpeed * rightMotorTrim);
+int getRightForwardSpeed(int baseSpeed) {
+  int s = (int)(baseSpeed * rightForwardTrim);
+  return constrain(s, 0, 255);
+}
+
+int getRightBackwardSpeed(int baseSpeed) {
+  int s = (int)(baseSpeed * rightBackwardTrim);
   return constrain(s, 0, 255);
 }
 
@@ -112,7 +118,7 @@ void stopMotors() {
 }
 
 void driveForward() {
-  int rightSpd = getRightSpeed(forwardSpeed);
+  int rightSpd = getRightForwardSpeed(forwardSpeed);
 
   // Left Motor (IN1 / IN2)
   if (forwardSpeed >= 250) {
@@ -132,7 +138,7 @@ void driveForward() {
 }
 
 void driveBackward() {
-  int rightSpd = getRightSpeed(backwardSpeed);
+  int rightSpd = getRightBackwardSpeed(backwardSpeed);
 
   // Left Motor (IN1 / IN2)
   digitalWrite(IN1, LOW);
@@ -142,7 +148,7 @@ void driveBackward() {
     analogWrite(IN2, backwardSpeed);
   }
 
-  // Right Motor (IN3 / IN4) - Trimmed
+  // Right Motor (IN3 / IN4) - Trimmed independently for reverse
   digitalWrite(IN3, LOW);
   if (rightSpd >= 250) {
     digitalWrite(IN4, HIGH);
@@ -152,7 +158,7 @@ void driveBackward() {
 }
 
 void turnLeft() {
-  int rightSpd = getRightSpeed(forwardSpeed);
+  int rightSpd = getRightForwardSpeed(forwardSpeed);
   analogWrite(IN1, 0);
   analogWrite(IN2, backwardSpeed);
   analogWrite(IN3, rightSpd);
@@ -160,7 +166,7 @@ void turnLeft() {
 }
 
 void turnRight() {
-  int rightSpd = getRightSpeed(backwardSpeed);
+  int rightSpd = getRightBackwardSpeed(backwardSpeed);
   analogWrite(IN1, forwardSpeed);
   analogWrite(IN2, 0);
   analogWrite(IN3, 0);
@@ -215,11 +221,24 @@ void parseCommand(String cmd) {
     backwardSpeed = constrain(s, 0, 255);
     return;
   }
+  if (cmd.startsWith("FTRIM:")) {
+    float t = cmd.substring(6).toFloat();
+    if (t > 1.0) t = t / 100.0;
+    if (t >= 0.1 && t <= 1.0) rightForwardTrim = t;
+    return;
+  }
+  if (cmd.startsWith("BTRIM:")) {
+    float t = cmd.substring(6).toFloat();
+    if (t > 1.0) t = t / 100.0;
+    if (t >= 0.1 && t <= 1.0) rightBackwardTrim = t;
+    return;
+  }
   if (cmd.startsWith("RTRIM:")) {
     float t = cmd.substring(6).toFloat();
-    if (t > 1.0) t = t / 100.0; // In case sent as 88 instead of 0.88
+    if (t > 1.0) t = t / 100.0;
     if (t >= 0.1 && t <= 1.0) {
-      rightMotorTrim = t;
+      rightForwardTrim = t;
+      rightBackwardTrim = t;
     }
     return;
   }
