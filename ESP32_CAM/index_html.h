@@ -962,7 +962,9 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
       placeholderTitle.textContent = "Connecting to Video Stream...";
       placeholderDesc.textContent = "Establishing live stream link...";
 
-      const streamUrl = isRunningOnLocalAp ? "/stream" : `http://${carHost}/stream`;
+      // Connect to dedicated Port 81 for video stream so motor controls on Port 80 never lag/block
+      const camHost = isRunningOnLocalAp ? (window.location.hostname || "192.168.4.1") : carHost;
+      const streamUrl = `http://${camHost}:81/stream`;
       liveCam.src = streamUrl;
 
       // Check for first valid frame arriving (Chrome does not fire onload on MJPEG)
@@ -1000,7 +1002,7 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
             placeholderDesc.innerHTML = "Check that Car is powered on & phone is on the same Wi-Fi.<br><b style='color:#00f2fe;'>Motor controls are active below!</b>";
             setTimeout(pollFallback, 2500);
           };
-          const base = isRunningOnLocalAp ? "" : `http://${carHost}`;
+          const base = isRunningOnLocalAp ? `http://${camHost}:81` : `http://${carHost}:81`;
           img.src = `${base}/capture?t=${Date.now()}`;
         }
         pollFallback();

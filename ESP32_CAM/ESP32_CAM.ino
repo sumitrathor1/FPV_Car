@@ -71,6 +71,7 @@ DNSServer dnsServer;
 const byte DNS_PORT = 53;
 
 httpd_handle_t serverHttpd = NULL;
+httpd_handle_t streamHttpd = NULL;
 
 #define PART_BOUNDARY "123456789000000000000987654321"
 static const char* _STREAM_CONTENT_TYPE = "multipart/x-mixed-replace; boundary=" PART_BOUNDARY;
@@ -618,10 +619,19 @@ esp_err_t redirect_handler(httpd_req_t *req) {
   return httpd_resp_send(req, NULL, 0);
 }
 
+// If a client requests /stream on Port 80, redirect to dedicated Port 81
+esp_err_t stream_redirect_handler(httpd_req_t *req) {
+  httpd_resp_set_status(req, "302 Found");
+  httpd_resp_set_hdr(req, "Location", ":81/stream");
+  httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+  return httpd_resp_send(req, NULL, 0);
+}
+
 // ==========================================
-// Start Web Server
+// Start Web Servers (Dual-Server: Port 80 for Controls, Port 81 for Video)
 // ==========================================
 void startWebServer() {
+  // 1. Control & API Web Server on Port 80 (Fast, 0ms latency, never blocked by video)
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
   config.server_port = 80;
   config.ctrl_port = 32768;
@@ -629,7 +639,7 @@ void startWebServer() {
   config.lru_purge_enable = true;
 
   httpd_uri_t uri_index = { .uri = "/", .method = HTTP_GET, .handler = index_handler, .user_ctx = NULL };
-  httpd_uri_t uri_stream = { .uri = "/stream", .method = HTTP_GET, .handler = stream_handler, .user_ctx = NULL };
+  httpd_uri_t uri_stream_redir = { .uri = "/stream", .method = HTTP_GET, .handler = stream_redirect_handler, .user_ctx = NULL };
   httpd_uri_t uri_capture = { .uri = "/capture", .method = HTTP_GET, .handler = capture_handler, .user_ctx = NULL };
   httpd_uri_t uri_cmd = { .uri = "/cmd", .method = HTTP_GET, .handler = cmd_handler, .user_ctx = NULL };
   httpd_uri_t uri_horn = { .uri = "/horn", .method = HTTP_GET, .handler = horn_handler, .user_ctx = NULL };
@@ -648,7 +658,7 @@ void startWebServer() {
 
   if (httpd_start(&serverHttpd, &config) == ESP_OK) {
     httpd_register_uri_handler(serverHttpd, &uri_index);
-    httpd_register_uri_handler(serverHttpd, &uri_stream);
+    httpd_register_uri_handler(serverHttpd, &uri_stream_redir);
     httpd_register_uri_handler(serverHttpd, &uri_capture);
     httpd_register_uri_handler(serverHttpd, &uri_cmd);
     httpd_register_uri_handler(serverHttpd, &uri_horn);
@@ -664,7 +674,33 @@ void startWebServer() {
     httpd_register_uri_handler(serverHttpd, &uri_switch_mode);
     httpd_register_uri_handler(serverHttpd, &uri_cp1);
     httpd_register_uri_handler(serverHttpd, &uri_cp2);
-    Serial.println("[HTTP] Server started on port 80");
+    Serial.println("[HTTP] Control & Web Server started on port 80");
+  }
+
+  // 2. Dedicated Video Stream Server on Port 81 (Runs in separate FreeRTOS task - NEVER blocks controls!)
+  httpd_config_t stream_config = HTTPD_DEFAULT_CONFIG();
+  stream_config.server_port = 81;
+  stream_config.ctrl_port = 32769;
+  stream_config.max_open_sockets = 4;
+  stream_config.lru_purge_enable = true;
+
+  httpd_uri_t uri_dedicated_stream = {
+    .uri = "/stream",
+    .method = HTTP_GET,
+    .handler = stream_handler,
+    .user_ctx = NULL
+  };
+  httpd_uri_t uri_dedicated_capture = {
+    .uri = "/capture",
+    .method = HTTP_GET,
+    .handler = capture_handler,
+    .user_ctx = NULL
+  };
+
+  if (httpd_start(&streamHttpd, &stream_config) == ESP_OK) {
+    httpd_register_uri_handler(streamHttpd, &uri_dedicated_stream);
+    httpd_register_uri_handler(streamHttpd, &uri_dedicated_capture);
+    Serial.println("[HTTP] Dedicated Video Stream Server started on port 81");
   }
 }
 
