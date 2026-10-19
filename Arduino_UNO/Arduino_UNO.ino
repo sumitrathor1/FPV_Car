@@ -37,8 +37,8 @@ float rightMotorTrimForward   = 0.75; // Right motor: 75%  (PWM 191)
 // 2. BACKWARD TRIM (Reverse me seedha chalane ke liye):
 // - Agar reverse me gaadi RIGHT ghoomti hai -> Matlab Left motor fast push kar rahi hai: leftMotorTrimBackward = 0.75 (ya 0.70) rakhein
 // - Agar reverse me gaadi LEFT ghoomti hai  -> Matlab Right motor fast push kar rahi hai: rightMotorTrimBackward = 0.75 (aur left = 1.0) karein
-float leftMotorTrimBackward   = 0.75; // Left motor reverse trim (default 0.75)
-float rightMotorTrimBackward  = 1.00; // Right motor reverse trim (default 1.00)
+float leftMotorTrimBackward   = 1.00; // Left motor reverse trim (default 0.75)
+float rightMotorTrimBackward  = 0.67 ; // Right motor reverse trim (default 1.00)
 
 int getLeftSpeed(int baseSpeed, bool isForward) {
   float trim = isForward ? leftMotorTrimForward : leftMotorTrimBackward;

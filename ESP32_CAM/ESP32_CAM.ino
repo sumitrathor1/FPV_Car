@@ -229,8 +229,10 @@ bool startCameraDriver() {
       s->set_whitebal(s, 1);
       s->set_awb_gain(s, 1);
       s->set_wb_mode(s, 0);
+      s->set_vflip(s, 1);   // Rotate 180°: Fix upside-down camera mount
+      s->set_hmirror(s, 1); // Rotate 180°: Fix inverted left/right mirroring
     }
-    Serial.println("[CAMERA] Sensor Initialized OK");
+    Serial.println("[CAMERA] Sensor Initialized OK (180 deg orientation corrected)");
     return true;
   } else {
     cameraReady = false;
@@ -387,6 +389,31 @@ esp_err_t reprobe_handler(httpd_req_t *req) {
   httpd_resp_set_type(req, "text/plain");
   httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
   return httpd_resp_send(req, cameraReady ? "OK" : "FAIL", HTTPD_RESP_USE_STRLEN);
+}
+
+// Runtime Camera Orientation Flip Handler (/flip)
+esp_err_t flip_handler(httpd_req_t *req) {
+  sensor_t* s = esp_camera_sensor_get();
+  if (s) {
+    char buf[32];
+    if (httpd_req_get_url_query_str(req, buf, sizeof(buf)) == ESP_OK) {
+      char v[8], h[8];
+      if (httpd_query_key_value(buf, "v", v, sizeof(v)) == ESP_OK) {
+        s->set_vflip(s, atoi(v));
+      }
+      if (httpd_query_key_value(buf, "h", h, sizeof(h)) == ESP_OK) {
+        s->set_hmirror(s, atoi(h));
+      }
+    } else {
+      static bool isFlipped = false;
+      isFlipped = !isFlipped;
+      s->set_vflip(s, isFlipped ? 0 : 1);
+      s->set_hmirror(s, isFlipped ? 0 : 1);
+    }
+  }
+  httpd_resp_set_type(req, "text/plain");
+  httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+  return httpd_resp_send(req, "OK", 2);
 }
 
 // Hardware & System Diagnostic Endpoint (/diag)
@@ -610,6 +637,7 @@ void startWebServer() {
   httpd_uri_t uri_flash = { .uri = "/flash", .method = HTTP_GET, .handler = flash_handler, .user_ctx = NULL };
   httpd_uri_t uri_status = { .uri = "/status", .method = HTTP_GET, .handler = status_handler, .user_ctx = NULL };
   httpd_uri_t uri_diag = { .uri = "/diag", .method = HTTP_GET, .handler = diag_handler, .user_ctx = NULL };
+  httpd_uri_t uri_flip = { .uri = "/flip", .method = HTTP_GET, .handler = flip_handler, .user_ctx = NULL };
   httpd_uri_t uri_reprobe = { .uri = "/reprobe", .method = HTTP_GET, .handler = reprobe_handler, .user_ctx = NULL };
   httpd_uri_t uri_scan = { .uri = "/scan", .method = HTTP_GET, .handler = scan_handler, .user_ctx = NULL };
   httpd_uri_t uri_save_wifi = { .uri = "/save-wifi", .method = HTTP_GET, .handler = save_wifi_handler, .user_ctx = NULL };
@@ -628,6 +656,7 @@ void startWebServer() {
     httpd_register_uri_handler(serverHttpd, &uri_flash);
     httpd_register_uri_handler(serverHttpd, &uri_status);
     httpd_register_uri_handler(serverHttpd, &uri_diag);
+    httpd_register_uri_handler(serverHttpd, &uri_flip);
     httpd_register_uri_handler(serverHttpd, &uri_reprobe);
     httpd_register_uri_handler(serverHttpd, &uri_scan);
     httpd_register_uri_handler(serverHttpd, &uri_save_wifi);

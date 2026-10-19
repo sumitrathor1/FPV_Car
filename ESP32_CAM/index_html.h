@@ -168,6 +168,11 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
       height: 100%;
       object-fit: cover;
       display: block;
+      transition: transform 0.2s ease-in-out;
+    }
+
+    .video-wrapper img.cam-flipped {
+      transform: rotate(180deg);
     }
 
     /* AI Overlay Banner */
@@ -561,7 +566,10 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
           
           <div class="ai-hud-overlay">
             <span class="ai-pill idle" id="aiStatusPill">🛡️ AI: IDLE</span>
-            <span class="ai-pill idle" id="aiLatencyPill">0ms</span>
+            <div style="display:flex; gap:6px; align-items:center; pointer-events:auto;">
+              <button id="quickFlipBtn" onclick="toggleFlip()" style="background:rgba(15,23,42,0.75); border:1px solid rgba(255,255,255,0.25); color:#fff; border-radius:6px; padding:3px 8px; font-size:0.7rem; font-weight:800; cursor:pointer;" title="Flip Camera View 180°">🔄 FLIP</button>
+              <span class="ai-pill idle" id="aiLatencyPill">0ms</span>
+            </div>
           </div>
 
           <div class="video-placeholder" id="placeholder">
@@ -596,6 +604,7 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
         <div class="actions-bar">
           <button class="action-btn active" id="camBtn" onclick="toggleCam()"><span>📹</span><span id="camBtnTxt">CAM ON</span></button>
           <button class="action-btn active" id="aiBtn" onclick="toggleAi()"><span>🤖</span><span id="aiBtnTxt">AI ON</span></button>
+          <button class="action-btn" id="flipBtn" onclick="toggleFlip()"><span>🔄</span><span>FLIP</span></button>
           <button class="action-btn" id="lightBtn" onclick="toggleLight()"><span>💡</span><span>LIGHT</span></button>
           <button class="action-btn horn" id="hornBtn" onpointerdown="sendHorn(1)" onpointerup="sendHorn(0)" onpointerleave="sendHorn(0)"><span>📢</span><span>HORN</span></button>
         </div>
@@ -1078,6 +1087,25 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
       document.getElementById("camBtnTxt").textContent = isCamOn ? "CAM ON" : "CAM OFF";
       if (!isRunningOnLocalAp) sendServerReq(`/set.php?cam=${isCamOn ? 1 : 0}`);
       startStream();
+    }
+
+    function toggleFlip() {
+      const base = isRunningOnLocalAp ? "" : `http://${carHost}`;
+      // Call hardware /flip endpoint
+      fetch(`${base}/flip`, { cache: 'no-store' })
+        .then(res => {
+          if (!res.ok) throw new Error();
+          // Hardware flipped sensor directly! Ensure CSS transform is reset to avoid double-rotation
+          const img = document.getElementById("liveCam");
+          if (img) img.classList.remove("cam-flipped");
+        })
+        .catch(() => {
+          // If hardware endpoint not reachable (e.g. before new firmware upload), fallback to CSS rotate
+          const img = document.getElementById("liveCam");
+          if (img) img.classList.toggle("cam-flipped");
+        });
+
+      document.getElementById("flipBtn")?.classList.toggle("active");
     }
 
     function toggleAi() {
